@@ -8,11 +8,9 @@
 import { useEffect, useRef } from 'react';
 import { coinByMint } from '../lib/coins';
 import { loadPlayer, savePlayer, type SavedState } from '../lib/persist';
-import { useCollection, type MintedCard } from './collection';
+import { useCollection } from './collection';
 import { useChain } from './chain';
 import { useDeck, DECK_SLOTS } from './deck';
-import { bytesToHex, localSeed } from '../lib/chestDrop';
-import { useEconomy } from './economy';
 import { useMatch } from './match';
 import { useShop } from './shop';
 import { useWallet } from './wallet';
@@ -111,12 +109,9 @@ export function usePlayerSync(): void {
        */
       const chainOwns = useChain.getState().cards.length > 0;
 
-      if (!chainOwns && saved.cards?.length) {
-        useCollection.setState({
-          cards: saved.cards as MintedCard[],
-          nextId: saved.nextId || saved.cards.length + 1,
-        });
-      }
+      // Cards are never restored from the save: the chain is the only source
+      // of what this account owns (useChainSync), so a saved list could only
+      // ever show cards that are not there.
       if (!chainOwns && saved.deck?.length) {
         const slots = Array.from({ length: DECK_SLOTS }, (_, i) => saved.slots?.[i] ?? []);
         if (!slots[0]?.length) slots[0] = saved.deck.slice(0, 8);
@@ -133,20 +128,6 @@ export function usePlayerSync(): void {
       // with the day's shop state. The currency is no longer restored here:
       // $MEMPIRE is an SPL balance read from the chain, and a saved copy of it
       // would be a second, staler answer to a question the chain settles.
-      if (Array.isArray(saved.chests)) {
-        useEconomy.setState({
-          // Chests saved before drops became seed-derived carry no seed, and
-          // opening one would throw on decode. Backfilling a local seed keeps
-          // them openable and — correctly — labels them as not oracle-rolled,
-          // which is exactly what they were.
-          chests: Array.isArray(saved.chests)
-            ? saved.chests.map((c) => (c.seed
-              ? c
-              : { ...c, seed: bytesToHex(localSeed()), source: c.source ?? 'local' }))
-            : [],
-          nextChestId: saved.nextChestId || 1,
-        });
-      }
       if (saved.shop?.offers?.length) {
         // a stale day self-heals on the shop's next ensureFresh tick
         useShop.setState({
@@ -171,7 +152,6 @@ export function usePlayerSync(): void {
       const ms = useMatch.getState().status;
       if (ms === 'queuing' || ms === 'found' || ms === 'battle') return;
       const deck = useDeck.getState();
-      const eco = useEconomy.getState();
       const shop = useShop.getState();
       savePlayer(address, {
         cards: useCollection.getState().cards,
@@ -181,15 +161,12 @@ export function usePlayerSync(): void {
         slot: deck.slot,
         nextId: useCollection.getState().nextId,
         history: useMatch.getState().history,
-        chests: eco.chests,
-        nextChestId: eco.nextChestId,
         shop: { offers: shop.offers, day: shop.day, rerollsUsed: shop.rerollsUsed },
       });
     };
     const unsubs = [
       useCollection.subscribe(push),
       useDeck.subscribe(push),
-      useEconomy.subscribe(push),
       useShop.subscribe(push),
       useMatch.subscribe((s, p) => { if (s.history !== p.history || s.status !== p.status) push(); }),
     ];

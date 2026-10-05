@@ -31,7 +31,7 @@ const TAP = { minHeight: 44 } as const;
 
 function CoinRow({ coin }: { coin: Coin }) {
   const wallet = useWallet();
-  const { cards, mintCard } = useCollection();
+  const { cards } = useCollection();
   const chainMode = useChain((s) => s.mode);
   const chainBalances = useChain((s) => s.balances);
   const chainCards = useChain((s) => s.cards);
@@ -98,7 +98,6 @@ function CoinRow({ coin }: { coin: Coin }) {
     try {
       const { hash } = await mintCardTx(coin.coinId);
       noteSignature(hash);
-      mintCard(coin.mint);
       play('reward');
       void refreshSettled();
     } catch (e) {
@@ -197,12 +196,9 @@ function CoinRow({ coin }: { coin: Coin }) {
         ) : (
           <button
             onClick={() => {
-              if (onchain) { void mintOnchain(); return; }
-              if (!wallet.spend(FEES.mintMon)) return;
-              setMinting(true);
-              timer.current = setTimeout(() => { mintCard(coin.mint); setMinting(false); }, 600);
+              if (onchain) void mintOnchain();
             }}
-            disabled={minting || !affordable}
+            disabled={minting || !affordable || !onchain}
             title={affordable ? undefined : `needs ${fmtMon(FEES.mintMon)}`}
             className="btn-3d"
             style={{

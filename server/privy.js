@@ -21,27 +21,16 @@
  * This file checks the same policy itself before asking Privy to sign, so a
  * bug here is refused twice.
  *
- * # Two modes
+ * # Configuration
  *
- *  - `privy`: real. Needs PRIVY_APP_ID, PRIVY_APP_SECRET, PRIVY_AUTHORIZATION_KEY
- *    (base64 PKCS8 P-256, no PEM headers) and PRIVY_SIGNER_ID (the key quorum
- *    id registered for it). PRIVY_POLICY_ID is used if set, otherwise the
- *    policy is created at boot from MATCH_POLICY.
- *  - `mock`: LOCAL ONLY, labelled in every response. It emulates Privy's
- *    custody model so the identical flow runs on anvil without an account: the
- *    "embedded wallet" key is held server-side (as Privy's TEE would hold it),
- *    the player authenticates with a session token, "sponsorship" is the
- *    relayer topping the wallet up with exactly the gas a call needs, and the
- *    session signer is a recorded consent checked against the same policy.
- *    Refused on any chain but 31337.
+ * Needs PRIVY_APP_ID, PRIVY_APP_SECRET, PRIVY_AUTHORIZATION_KEY (base64 PKCS8
+ * P-256, no PEM headers) and PRIVY_SIGNER_ID (the key quorum id registered for
+ * it). PRIVY_POLICY_ID is used if set, otherwise the policy is created at boot
+ * from MATCH_POLICY. Without them every route answers 503 "not configured" and
+ * the app hides email sign-in — there is no stand-in.
  */
-import { randomBytes } from 'node:crypto';
-import {
-  createWalletClient, decodeFunctionData, getAddress, http, isAddress, parseEther, toFunctionSelector,
-} from 'viem';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { abis, chain, CHAIN_ID, deployment, publicClient, RPC_URL } from './chain.js';
-import { sendRelayerTx } from './relayer.js';
+import { decodeFunctionData, getAddress, toFunctionSelector } from 'viem';
+import { abis, CHAIN_ID, deployment } from './chain.js';
 
 const APP_ID = process.env.PRIVY_APP_ID ?? '';
 const APP_SECRET = process.env.PRIVY_APP_SECRET ?? '';
@@ -52,10 +41,7 @@ let POLICY_ID = process.env.PRIVY_POLICY_ID ?? '';
 /** How long one consent lasts. The player re-consents after this. */
 export const CONSENT_TTL_SECS = 24 * 60 * 60;
 
-export const privyMode = () => {
-  if (APP_ID && APP_SECRET && AUTH_KEY && SIGNER_ID) return 'privy';
-  return CHAIN_ID === 31337 ? 'mock' : 'off';
-};
+export const privyMode = () => (APP_ID && APP_SECRET && AUTH_KEY && SIGNER_ID ? 'privy' : 'off');
 
 // ──────────────────────────────────────────────────────────────── the policy
 
@@ -124,44 +110,6 @@ export function checkPolicy(tx, consent) {
 const consents = new Map();
 export const consentFor = (address) => consents.get(getAddress(address)) ?? null;
 
-// ──────────────────────────────────────────────────────────────── mock custody
-
-/** session token → { address, key, email }. LOCAL ONLY. */
-const mockSessions = new Map();
-const mockByEmail = new Map();
-
-function mockWallet(key) {
-  const account = privateKeyToAccount(key);
-  return createWalletClient({ account, chain, transport: http(RPC_URL) });
-}
-
-/**
- * "Sponsorship" in mock mode: the relayer sends the wallet exactly the gas this
- * call will cost, then the wallet sends it. Net effect for the player: zero
- * MON spent. The real path is Privy's `sponsor: true`.
- */
-async function mockSponsoredSend(key, tx) {
-  const client = publicClient();
-  const wallet = mockWallet(key);
-  const from = wallet.account.address;
-  // Estimated at a zero gas price: the wallet may hold nothing yet, and a node
-  // refuses to estimate a call its sender cannot afford at the market price.
-  const gas = (await client.estimateGas({
-    account: from, to: tx.to, data: tx.data, value: BigInt(tx.value ?? 0), gasPrice: 0n,
-  }) * 120n) / 100n;
-  // The fees that size the top-up are the fees the transaction pays: letting
-  // the client re-estimate after the top-up block lands can ask for more.
-  const fees = await client.estimateFeesPerGas();
-  const maxFeePerGas = (fees.maxFeePerGas * 3n) / 2n;
-  const maxPriorityFeePerGas = fees.maxPriorityFeePerGas;
-  const need = gas * maxFeePerGas + BigInt(tx.value ?? 0);
-  const have = await client.getBalance({ address: from });
-  if (have < need) await sendRelayerTx({ to: from, value: need - have });
-  return wallet.sendTransaction({
-    to: tx.to, data: tx.data, value: BigInt(tx.value ?? 0), gas, maxFeePerGas, maxPriorityFeePerGas,
-  });
-}
-
 // ──────────────────────────────────────────────────────────────── real Privy
 
 let client = null;
@@ -195,11 +143,7 @@ async function privyWalletOf(accessToken) {
 // ──────────────────────────────────────────────────────────────── routes
 
 async function authenticate(body) {
-  if (privyMode() === 'mock') {
-    const s = mockSessions.get(String(body.token ?? ''));
-    if (!s) throw Object.assign(new Error('unknown or expired mock session'), { status: 401 });
-    return { address: s.address, key: s.key };
-  }
+  if (privyMode() !== 'privy') throw Object.assign(new Error('Privy is not configured on this relay'), { status: 503 });
   if (!body.accessToken) throw Object.assign(new Error('accessToken required'), { status: 401 });
   try {
     return await privyWalletOf(String(body.accessToken));
@@ -218,54 +162,13 @@ export function registerPrivyRoutes(app, { gate } = {}) {
     res.json({
       mode: privyMode(),
       appId: privyMode() === 'privy' ? APP_ID : null,
-      signerId: privyMode() === 'privy' ? SIGNER_ID : 'mock-signer',
-      policyId: privyMode() === 'privy' ? POLICY_ID || null : 'mock-policy',
+      signerId: privyMode() === 'privy' ? SIGNER_ID : null,
+      policyId: privyMode() === 'privy' ? POLICY_ID || null : null,
+      missing: privyMode() === 'privy' ? [] : ['PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'PRIVY_AUTHORIZATION_KEY', 'PRIVY_SIGNER_ID']
+        .filter((k) => !process.env[k]),
       policy: matchPolicy(),
       consentTtlSecs: CONSENT_TTL_SECS,
     });
-  });
-
-  // ── mock custody (LOCAL ONLY) ──
-  app.post('/api/privy/mock/login', guard, (req, res) => {
-    if (privyMode() !== 'mock') return res.status(404).json({ error: 'mock mode is off' });
-    const email = String(req.body?.email ?? '').trim().toLowerCase();
-    if (!/^[^@\s]{1,64}@[^@\s]{1,128}$/.test(email)) return res.status(400).json({ error: 'a valid email is required' });
-    let key = mockByEmail.get(email);
-    if (!key) { key = generatePrivateKey(); mockByEmail.set(email, key); }
-    const token = randomBytes(24).toString('hex');
-    const address = privateKeyToAccount(key).address;
-    mockSessions.set(token, { address, key, email });
-    res.json({ mode: 'mock', token, address, note: 'mock Privy: no OTP is sent and the key is held by this local relay' });
-  });
-
-  app.post('/api/privy/mock/sign', guard, async (req, res) => {
-    try {
-      const s = await authenticate(req.body ?? {});
-      const message = String(req.body?.message ?? '');
-      if (!message || message.length > 2000) return res.status(400).json({ error: 'message required' });
-      res.json({ mode: 'mock', signature: await mockWallet(s.key).signMessage({ message }) });
-    } catch (e) { fail(res, e); }
-  });
-
-  app.post('/api/privy/mock/signTypedData', guard, async (req, res) => {
-    try {
-      const s = await authenticate(req.body ?? {});
-      const td = req.body?.typedData;
-      if (!td?.domain || !td?.types || !td?.primaryType) return res.status(400).json({ error: 'typedData required' });
-      const parse = (v) => JSON.parse(JSON.stringify(v), (_k, x) => (typeof x === 'string' && /^\d+n$/.test(x) ? BigInt(x.slice(0, -1)) : x));
-      res.json({ mode: 'mock', signature: await mockWallet(s.key).signTypedData(parse(td)) });
-    } catch (e) { fail(res, e); }
-  });
-
-  /** The player's own transaction, sponsored (mock: relayer-funded gas). */
-  app.post('/api/privy/mock/send', guard, async (req, res) => {
-    try {
-      const s = await authenticate(req.body ?? {});
-      const tx = req.body?.tx ?? {};
-      if (!isAddress(String(tx.to ?? ''))) return res.status(400).json({ error: 'tx.to required' });
-      const hash = await mockSponsoredSend(s.key, tx);
-      res.json({ mode: 'mock', hash, sponsored: true });
-    } catch (e) { fail(res, e); }
   });
 
   /** Record the player's consent to the session signer under the policy. */
@@ -274,7 +177,7 @@ export function registerPrivyRoutes(app, { gate } = {}) {
       const s = await authenticate(req.body ?? {});
       const expiresAt = Math.floor(Date.now() / 1000) + CONSENT_TTL_SECS;
       consents.set(getAddress(s.address), {
-        expiresAt, policyId: privyMode() === 'privy' ? POLICY_ID : 'mock-policy', walletId: s.walletId ?? null,
+        expiresAt, policyId: POLICY_ID, walletId: s.walletId ?? null,
       });
       res.json({ mode: privyMode(), address: s.address, expiresAt, policy: matchPolicy().name });
     } catch (e) { fail(res, e); }
@@ -300,22 +203,17 @@ export function registerPrivyRoutes(app, { gate } = {}) {
       const tx = { to: req.body?.tx?.to, data: req.body?.tx?.data, value: 0, chainId: CHAIN_ID };
       const refusal = checkPolicy(tx, consent);
       if (refusal) return res.status(403).json({ error: `policy: ${refusal}` });
-      let hash;
-      if (privyMode() === 'mock') {
-        hash = await mockSponsoredSend(s.key, tx);
-      } else {
-        const out = await (await privy()).wallets().ethereum().sendTransaction(consent.walletId ?? s.walletId, {
-          caip2: `eip155:${CHAIN_ID}`,
-          params: { transaction: { to: tx.to, data: tx.data, value: '0x0', chain_id: CHAIN_ID } },
-          sponsor: true,
-          authorization_context: { authorization_private_keys: [AUTH_KEY] },
-        });
-        hash = out.hash;
-      }
+      const out = await (await privy()).wallets().ethereum().sendTransaction(consent.walletId ?? s.walletId, {
+        caip2: `eip155:${CHAIN_ID}`,
+        params: { transaction: { to: tx.to, data: tx.data, value: '0x0', chain_id: CHAIN_ID } },
+        sponsor: true,
+        authorization_context: { authorization_private_keys: [AUTH_KEY] },
+      });
+      const hash = out.hash;
       res.json({ mode: privyMode(), hash, sponsored: true });
     } catch (e) { fail(res, e); }
   });
 }
 
-/** Test seam: the local policy, without HTTP. */
-export const _test = { consents, selectorOf, parseEther };
+/** Test seam: the consent store, without HTTP. */
+export const _test = { consents, selectorOf };

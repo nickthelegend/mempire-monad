@@ -25,3 +25,4 @@ lint_on_build = false
 [rpc_endpoints]
 monad_testnet = "https://testnet-rpc.monad.xyz"
 local = "http://127.0.0.1:8611"
+fork = "http://127.0.0.1:8612"

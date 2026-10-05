@@ -15,16 +15,15 @@ import { apiFetch } from './api';
  *    play/checkpoint/claim (see `server/privy.js`). During a match the relay
  *    sends those calls as the player, so nothing prompts.
  *
- * Real mode (`VITE_PRIVY_APP_ID` set) runs through `@privy-io/react-auth`,
- * loaded lazily by `PrivyGate` so the SDK only ships to builds that use it;
- * the gate registers its hooks here as a `Bridge`. Without an app id the
- * relay's MOCK mode stands in on the local chain — same calls, same policy,
- * labelled "mock" everywhere it shows.
+ * It runs through `@privy-io/react-auth`, loaded lazily by `PrivyGate` only
+ * when `VITE_PRIVY_APP_ID` is set, which registers its hooks here as a
+ * `Bridge`. Without an app id — or with a relay that has no Privy keys — email
+ * sign-in is simply not offered. There is no stand-in.
  */
 
 export const PRIVY_APP_ID = (import.meta.env.VITE_PRIVY_APP_ID as string | undefined)?.trim() || null;
 
-export type PrivyMode = 'privy' | 'mock' | 'off';
+export type PrivyMode = 'privy' | 'off';
 
 export interface PrivyConfig {
   mode: PrivyMode;
@@ -32,6 +31,7 @@ export interface PrivyConfig {
   policyId: string | null;
   policy: { name: string; rules: { name: string }[] };
   consentTtlSecs: number;
+  missing?: string[];
 }
 
 let config: PrivyConfig | null = null;
@@ -48,10 +48,11 @@ export async function privyConfig(): Promise<PrivyConfig | null> {
   return config;
 }
 
+/** Email sign-in is offered only when both the app and the relay are configured. */
 export const privyAvailable = async (): Promise<boolean> => {
-  if (PRIVY_APP_ID) return true;
+  if (!PRIVY_APP_ID) return false;
   const c = await privyConfig();
-  return c?.mode === 'mock';
+  return c?.mode === 'privy';
 };
 
 /** The real SDK's hooks, registered by `PrivyGate` once it has mounted. */
@@ -79,11 +80,8 @@ const waitForBridge = (): Promise<Bridge> => (bridge ? Promise.resolve(bridge)
 // ──────────────────────────────────────────────────────────────── session
 
 export interface PrivySession {
-  mode: 'privy' | 'mock';
   address: Address;
   label: string;
-  /** Mock: the relay's session token. Real: none (access tokens are fetched per call). */
-  token: string | null;
 }
 
 let session: PrivySession | null = null;
@@ -102,30 +100,25 @@ async function post<T>(path: string, body: Record<string, unknown>, method = 'PO
 /** Who is asking, in the form the relay's Privy routes accept. */
 async function auth(): Promise<Record<string, string>> {
   if (!session) throw new Error('not signed in with Privy');
-  if (session.mode === 'mock') return { token: session.token! };
   const t = await (await waitForBridge()).accessToken();
   if (!t) throw new Error('the Privy session has expired — sign in again');
   return { accessToken: t };
 }
 
-/** Sign in. Mock takes an email; real opens Privy's own modal. */
-export async function privyLogin(email?: string): Promise<PrivySession> {
-  if (PRIVY_APP_ID) {
-    const b = await waitForBridge();
-    await b.login();
-    for (let i = 0; i < 40 && !b.address(); i += 1) await new Promise((r) => { setTimeout(r, 250); });
-    const address = b.address();
-    if (!address) throw new Error('Privy signed in but no embedded wallet appeared');
-    session = { mode: 'privy', address, label: 'Privy', token: null };
-    return session;
-  }
-  const r = await post<{ address: Address; token: string }>('/api/privy/mock/login', { email });
-  session = { mode: 'mock', address: r.address, label: `${email} (Privy mock)`, token: r.token };
+/** Sign in: opens Privy's own modal (email or Google). */
+export async function privyLogin(): Promise<PrivySession> {
+  if (!PRIVY_APP_ID) throw new Error('Privy is not configured in this build (VITE_PRIVY_APP_ID)');
+  const b = await waitForBridge();
+  await b.login();
+  for (let i = 0; i < 40 && !b.address(); i += 1) await new Promise((r) => { setTimeout(r, 250); });
+  const address = b.address();
+  if (!address) throw new Error('Privy signed in but no embedded wallet appeared');
+  session = { address, label: 'Privy' };
   return session;
 }
 
 export async function privyLogout(): Promise<void> {
-  if (session?.mode === 'privy') await bridge?.logout().catch(() => {});
+  if (session) await bridge?.logout().catch(() => {});
   session = null;
 }
 
@@ -137,24 +130,14 @@ export async function privyLogout(): Promise<void> {
  * Privy — every transaction sponsored.
  */
 export function privyWallet(): WalletClient {
-  const signMessage = async ({ message }: { message: string | { raw: Hex } }): Promise<Hex> => {
-    const text = typeof message === 'string' ? message : message.raw;
-    if (session?.mode === 'privy') return (await waitForBridge()).signMessage(text);
-    return (await post<{ signature: Hex }>('/api/privy/mock/sign', { ...(await auth()), message: text })).signature;
-  };
+  const signMessage = async ({ message }: { message: string | { raw: Hex } }): Promise<Hex> =>
+    (await waitForBridge()).signMessage(typeof message === 'string' ? message : message.raw);
   const signTypedData = async (td: Record<string, unknown>): Promise<Hex> => {
     const { account: _a, ...rest } = td;
-    if (session?.mode === 'privy') return (await waitForBridge()).signTypedData(rest);
-    const json = JSON.parse(JSON.stringify(rest, (_k, v) => (typeof v === 'bigint' ? `${v}n` : v)));
-    return (await post<{ signature: Hex }>('/api/privy/mock/signTypedData', { ...(await auth()), typedData: json })).signature;
+    return (await waitForBridge()).signTypedData(rest);
   };
-  const sendTransaction = async (tx: { to: Address; data?: Hex; value?: bigint }): Promise<Hash> => {
-    if (session?.mode === 'privy') return (await waitForBridge()).sendSponsored({ to: tx.to, data: tx.data, value: tx.value });
-    const r = await post<{ hash: Hash }>('/api/privy/mock/send', {
-      ...(await auth()), tx: { to: tx.to, data: tx.data ?? '0x', value: String(tx.value ?? 0n) },
-    });
-    return r.hash;
-  };
+  const sendTransaction = async (tx: { to: Address; data?: Hex; value?: bigint }): Promise<Hash> =>
+    (await waitForBridge()).sendSponsored({ to: tx.to, data: tx.data, value: tx.value });
   return { chain: CHAIN, signMessage, signTypedData, sendTransaction } as unknown as WalletClient;
 }
 
@@ -171,17 +154,15 @@ export const privyConsent = (): Consent | null =>
 
 /**
  * Add the relay as a signer on this wallet, limited by the match policy.
- * Real mode: Privy's `addSigners` (the player approves it in Privy's UI), then
- * the relay records the consent. Mock mode: the relay records it directly.
+ * Privy's `addSigners` (the player approves it in Privy's UI), then the relay
+ * records the consent and its expiry.
  */
 export async function grantSessionSigner(): Promise<Consent> {
   if (!session) throw new Error('not signed in with Privy');
   const c = await privyConfig();
   if (!c) throw new Error('the relay is unreachable');
-  if (session.mode === 'privy') {
-    if (!c.signerId || !c.policyId) throw new Error('the relay has no Privy signer configured');
-    await (await waitForBridge()).addSigners(session.address, c.signerId, [c.policyId]);
-  }
+  if (!c.signerId || !c.policyId) throw new Error('the relay has no Privy signer configured');
+  await (await waitForBridge()).addSigners(session.address, c.signerId, [c.policyId]);
   const r = await post<{ expiresAt: number; policy: string }>('/api/privy/signers', await auth());
   consent = { expiresAt: r.expiresAt, policy: r.policy };
   return consent;
@@ -189,7 +170,7 @@ export async function grantSessionSigner(): Promise<Consent> {
 
 export async function revokeSessionSigner(): Promise<void> {
   if (!session) return;
-  if (session.mode === 'privy') await (await waitForBridge()).removeSigners(session.address).catch(() => {});
+  await (await waitForBridge()).removeSigners(session.address).catch(() => {});
   await post('/api/privy/signers', await auth(), 'DELETE').catch(() => {});
   consent = null;
 }

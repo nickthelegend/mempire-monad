@@ -11,7 +11,7 @@ import {
 import { traitForMint } from '../sim/traits';
 import { archetypeForMint } from '../sim/archetypes';
 import { decideBot, type BotDifficulty } from '../sim/bot';
-import { KimiPilot, startAiMatch, useAiOpponent } from '../lib/ai';
+import { effectiveBrain, KimiPilot, startAiMatch } from '../lib/ai';
 import { ARENA_H, ARENA_W, createMatch, hashState, stepSim } from '../sim/engine';
 import {
   FORMATS, HASH_EVERY_TICKS, INPUT_DELAY_TICKS,
@@ -20,7 +20,7 @@ import {
 import { useClan } from './clan';
 import { useLadder } from './ladder';
 import { useCollection, FEES } from './collection';
-import { useEconomy, type ChestTier } from './economy';
+import type { ChestTier } from './economy';
 import { warmBattleChunk, warmMatchArt } from '../lib/warm';
 import { useDeck, stakeOf, type StakeCurrency } from './deck';
 import { canSign } from '../chain/account';
@@ -1053,7 +1053,7 @@ function beginBotFlow(
 ): void {
   // Which brain plays the bot's seat is fixed here, at the start of the bot
   // flow, so the name on the "opponent found" card is the one that plays.
-  const brain = useAiOpponent.getState().brain;
+  const brain = effectiveBrain();
   if (brain === 'kimi') useMatch.setState({ opponentName: 'Kimi (AI)' });
   // practice skips the search theatre — the point is to get to the arena
   const queueMs = practice ? 400 : 1200 + Math.random() * 1300;
@@ -1533,8 +1533,8 @@ function settle(): void {
   // already labelled as unverified.
   // A staked win's chest is granted by the arena itself, on chain, when the
   // two claims agree — awarding a local one too would pay the win twice.
-  const awarded = won && !practice && !onchainStake ? useEconomy.getState().awardChest() : null;
-  const chest = awarded?.tier ?? null;
+  // Unstaked wins earn no chest: there is nothing on chain to grant it from.
+  const chest: ChestTier | null = null;
   /**
    * Trophies move only on ranked matches, and only against a real opponent's
    * rating. Practice and casual are excluded by construction — a ladder that

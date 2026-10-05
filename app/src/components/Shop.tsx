@@ -42,7 +42,7 @@ export function Shop() {
   const chainMode = useChain((s) => s.mode);
   const mintFeeSol = useChain((s) => s.config?.mintFeeMon ?? 0.01);
   const wallet = useWallet();
-  const { mintCard, cards } = useCollection();
+  const { cards } = useCollection();
   const [error, setError] = useState<string | null>(null);
   const [, tick] = useState(0);
 
@@ -54,8 +54,9 @@ export function Shop() {
 
   const freeLeft = Math.max(0, FREE_REROLLS - rerollsUsed);
 
+  // The card itself arrives from chain on the next refresh; this only marks
+  // the offer taken.
   const grant = (mint: string) => {
-    mintCard(mint);
     markBought(mint);
     play('reward');
     buzz(18);
@@ -92,12 +93,10 @@ export function Shop() {
        * from chain cards, so the purchase was real money for a card that
        * vanished. Real spend, durable card, or neither.
        */
-      if (useChain.getState().mode === 'onchain') {
-        await mintCardTx(coinByMint(mint)!.coinId, 'mempire');
-        void useChain.getState().refresh();
-      } else {
-        await spendMempire(signer(), price, wallet.address);
-      }
+      if (useChain.getState().mode !== 'onchain') throw new Error('sign in to buy — cards are minted on chain');
+      void price;
+      await mintCardTx(coinByMint(mint)!.coinId, 'mempire');
+      void useChain.getState().refresh();
       grant(mint);
       void refreshMempire(wallet.address);
     } catch (e) {
@@ -158,12 +157,8 @@ export function Shop() {
       }
       return;
     }
-    if (!wallet.spend(solPrice)) {
-      play('error');
-      setError(`need ${fmtMon(solPrice)}`);
-      return;
-    }
-    grant(mint);
+    play('error');
+    setError(`sign in to buy — cards are minted on chain (${fmtMon(solPrice)})`);
   };
 
 

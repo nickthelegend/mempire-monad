@@ -8,7 +8,8 @@ import local from '../shared/deployments/31337.json';
  * addresses the app talks to.
  *
  * Monad testnet is the target. 31337 is a local anvil running the same
- * contracts against mock Pyth and AUSD, for development without spending MON.
+ * contracts on an anvil fork of Monad testnet (real AUSD, a signed local price
+ * oracle), for development without spending MON.
  */
 export const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? 10143);
 

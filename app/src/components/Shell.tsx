@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { WalletPicker } from './WalletPicker';
-import { AdSlot } from './AdSlot';
+import { MarketBoard } from './MarketBoard';
 import { useChainSync } from '../state/useChainSync';
 import { useMatch } from '../state/match';
 import { usePlayerSync } from '../state/sync';
@@ -60,7 +60,7 @@ export function Shell({ children }: { children: ReactNode }) {
        * painted layer one screen tall no matter how long the list gets. */
       style={{ height: '100dvh', overflow: 'hidden', display: 'flex', justifyContent: 'center' }}
     >
-      {showGutters && <div className="gutter"><AdSlot side="left" /></div>}
+      {showGutters && <div className="gutter"><MarketBoard side="left" /></div>}
       <div
         className={inBattle ? undefined : 'quilt'}
         style={{
@@ -166,7 +166,7 @@ export function Shell({ children }: { children: ReactNode }) {
         )}
         <WalletPicker />
       </div>
-      {showGutters && <div className="gutter"><AdSlot side="right" /></div>}
+      {showGutters && <div className="gutter"><MarketBoard side="right" /></div>}
     </div>
   );
 }

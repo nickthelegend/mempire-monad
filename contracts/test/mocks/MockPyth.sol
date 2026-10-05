@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IPyth} from "../interfaces/IPyth.sol";
+import {IPyth} from "../../src/interfaces/IPyth.sol";
 
-/// @title MockPyth — LOCAL CHAIN AND TESTS ONLY.
+/// @title MockPyth — TEST DOUBLE — forge tests only.
 /// @notice Stands in for Pyth on anvil, with the same interface the game calls.
 /// An update is `abi.encode(bytes32 feedId, int64 price, int32 expo)` or, with
 /// a moving average, `abi.encode(bytes32 feedId, int64 price, int32 expo,

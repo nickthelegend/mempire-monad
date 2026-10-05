@@ -13,91 +13,84 @@
  * maximum age), but a burst of players opening the mint screen at once should
  * cost one upstream call, not one each.
  */
-import { readFileSync } from 'node:fs';
-import { encodeAbiParameters, keccak256, toHex } from 'viem';
-import { CHAIN_ID, coinById } from './chain.js';
+import { encodeAbiParameters, keccak256 } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { CHAIN_ID, coinById, deployment } from './chain.js';
 
 const HERMES = (process.env.PYTH_HERMES_URL || 'https://pyth.dourolabs.app/hermes').replace(/\/+$/, '');
 const KEY = process.env.PYTH_API_KEY || '';
 
 /*
- * Two modes, said out loud in every response.
+ * Where signed price updates come from:
  *
- *  - `hermes`: real signed updates from Pyth's Hermes, with the server-held key.
- *  - `mock`: LOCAL CHAIN ONLY. Updates in MockPyth's format — abi-encoded
- *    (feedId, price, expo, emaPrice) — built from the last live CoinGecko quote
- *    for the fighter if there is one, else from `prices.fixture.json`. The EMA
- *    leg carries a momentum derived from the live 24h change when known, else
- *    a deterministic per-window value, so the market meta moves on a local
- *    chain the way it would on a real one. A mock update is meaningless to the
- *    real Pyth contract, so mock mode refuses to run on any other chain.
- *
- * Default: `hermes` when a key is set, `mock` on chain 31337 without one,
- * otherwise off (503). `PYTH_MODE` overrides.
+ *  - `hermes`: Pyth's Hermes, with the server-held key. On Monad.
+ *  - `local`: LOCAL CHAIN ONLY (31337). The game's contracts point at a
+ *    LocalPriceOracle that accepts an update only if this relay's oracle key
+ *    signed it — Pyth's model on a chain Pyth does not serve. The relay signs
+ *    *only* a live market quote it just read (CoinGecko), with that quote's own
+ *    timestamp as the publish time, and its moving-average leg derived from the
+ *    quote's real 24-hour change. No quote, no update: the caller gets an
+ *    error, never a number nobody quoted.
+ *  - `off`: neither configured. Mints answer "no price source configured".
  */
+const ORACLE_KEY = process.env.ORACLE_PRIVATE_KEY || '';
 const MODE = (() => {
-  const want = String(process.env.PYTH_MODE ?? '').toLowerCase();
-  if (want === 'mock' || (!want && !KEY && CHAIN_ID === 31337)) {
-    if (CHAIN_ID !== 31337) {
-      console.warn('pyth: mock mode refused — it only makes sense against MockPyth on chain 31337');
-      return 'off';
-    }
-    return 'mock';
-  }
-  if (want === 'hermes' || KEY) return KEY ? 'hermes' : 'off';
+  if (KEY) return 'hermes';
+  if (ORACLE_KEY && CHAIN_ID === 31337) return 'local';
+  if (ORACLE_KEY) console.warn('pyth: ORACLE_PRIVATE_KEY is only honoured on the local chain (31337)');
   return 'off';
 })();
 export const pythMode = () => MODE;
 
-const FIXTURE = (() => {
-  try {
-    return JSON.parse(readFileSync(new URL('./shared/prices.fixture.json', import.meta.url), 'utf8')).usd ?? {};
-  } catch {
-    return {};
-  }
-})();
-/** Live quotes the market feed saw, so mock prices track reality when they can. */
-const live = new Map(); // coinId → { priceUsd, change24h }
+let oracleAccount = null;
+const oracle = () => (oracleAccount ??= privateKeyToAccount(ORACLE_KEY));
+
+/** Live quotes the market feed read: coinId → { priceUsd, change24h, at }. */
+const live = new Map();
 export function noteLivePrices(rows) {
-  for (const r of rows ?? []) if (r?.priceUsd > 0 && !r.mock) live.set(r.coinId, r);
+  for (const r of rows ?? []) {
+    if (r?.priceUsd > 0 && r.source === 'coingecko') live.set(r.coinId, r);
+  }
 }
-const TTL_MS = 2_000;
-/** A mint posts one feed; a deck screen might price eight. Beyond that is a scrape. */
-const MAX_FEEDS = 16;
 
 export const pythConfigured = () => MODE !== 'off';
 
 const EXPO = -8;
-const WINDOW_SECONDS = 600;
+/** A quote older than this is not "live" enough to sign for a 120 s feed. */
+const MAX_QUOTE_AGE_S = 100;
 
-/** A deterministic momentum in [-6%, +6%] for a fighter in a ten-minute window. */
-function windowMomentum(coinId, now) {
-  const h = keccak256(toHex(`mempire-mock-momentum:${coinId}:${Math.floor(now / WINDOW_SECONDS)}`));
-  return (Number(BigInt(h) % 1201n) - 600) / 10_000;
-}
-
-function mockUpdate(coins) {
+async function localUpdate(coins) {
+  // Make sure the quotes are fresh before signing anything.
+  const { refreshQuotes } = await import('./market.js');
+  await refreshQuotes(MAX_QUOTE_AGE_S * 1000).catch(() => null);
   const now = Math.floor(Date.now() / 1000);
   const updateData = [];
   const prices = [];
+  const missing = [];
   for (const c of coins) {
     const q = live.get(c.coinId);
-    const usd = q?.priceUsd ?? Number(FIXTURE[c.ticker]);
-    if (!(usd > 0)) continue;
-    const change = typeof q?.change24h === 'number' ? q.change24h : null;
-    const m = change !== null ? Math.max(-0.06, Math.min(0.06, change / 400)) : windowMomentum(c.coinId, now);
-    const price = BigInt(Math.max(1, Math.round(usd * 1e8)));
-    const ema = BigInt(Math.max(1, Math.round((usd / (1 + m)) * 1e8)));
-    updateData.push(encodeAbiParameters(
-      [{ type: 'bytes32' }, { type: 'int64' }, { type: 'int32' }, { type: 'int64' }],
-      [c.feedId, price, EXPO, ema],
+    const at = Number(q?.at ?? 0);
+    if (!q || now - at > MAX_QUOTE_AGE_S) { missing.push(c.ticker); continue; }
+    const change = typeof q.change24h === 'number' ? q.change24h : 0;
+    const price = BigInt(Math.max(1, Math.round(q.priceUsd * 1e8)));
+    // The EMA leg: the price 24 hours ago is price / (1 + change); Pyth's EMA
+    // sits between the two, so use the midpoint. Derived from the real move.
+    const dayAgo = q.priceUsd / (1 + change / 100);
+    const ema = BigInt(Math.max(1, Math.round(((q.priceUsd + dayAgo) / 2) * 1e8)));
+    const publishTime = BigInt(at);
+    const digest = keccak256(encodeAbiParameters(
+      [{ type: 'address' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'int64' }, { type: 'int32' }, { type: 'int64' }, { type: 'uint64' }],
+      [deployment.pyth, BigInt(CHAIN_ID), c.feedId, price, EXPO, ema, publishTime],
     ));
-    prices.push({ coinId: c.coinId, price: String(price), expo: EXPO, publishTime: now, ema: String(ema), source: q ? 'coingecko' : 'fixture' });
+    const signature = await oracle().signMessage({ message: { raw: digest } });
+    updateData.push(encodeAbiParameters(
+      [{ type: 'bytes32' }, { type: 'int64' }, { type: 'int32' }, { type: 'int64' }, { type: 'uint64' }, { type: 'bytes' }],
+      [c.feedId, price, EXPO, ema, publishTime, signature],
+    ));
+    prices.push({ coinId: c.coinId, price: String(price), expo: EXPO, publishTime: at, ema: String(ema), source: 'coingecko' });
   }
-  return { mode: 'mock', updateData, prices };
+  return { mode: 'local', updateData, prices, missing };
 }
-
-const cache = new Map(); // sorted coin ids → { at, body } | { at, inflight }
 
 /** Strips the 0x Hermes omits, so feed ids compare in one spelling. */
 const bare = (feedId) => feedId.toLowerCase().replace(/^0x/, '');
@@ -112,7 +105,13 @@ const bare = (feedId) => feedId.toLowerCase().replace(/^0x/, '');
 export async function fetchPythUpdate(coinIds) {
   if (MODE === 'off') throw Object.assign(new Error('pyth api key not configured'), { status: 503 });
   const ids = [...new Set(coinIds)].sort((a, b) => a - b);
-  if (MODE === 'mock') return mockUpdate(ids.map((id) => coinById.get(id)).filter(Boolean));
+  if (MODE === 'local') {
+    const out = await localUpdate(ids.map((id) => coinById.get(id)).filter(Boolean));
+    if (!out.updateData.length) {
+      throw Object.assign(new Error(`no live price right now for ${out.missing.join(', ')}`), { status: 503 });
+    }
+    return out;
+  }
   const cacheKey = ids.join(',');
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.body ?? hit.inflight;

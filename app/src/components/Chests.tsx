@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buzz, click, play } from '../lib/audio';
 import {
-  CHESTS, CHEST_SLOTS, useEconomy,
+  CHESTS, CHEST_SLOTS,
   type ChestSlot, type OpenedChest,
 } from '../state/economy';
 import { ConfirmSpend } from './ConfirmSpend';
@@ -277,10 +277,8 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
   /** The slot is empty and the player wants to buy one for it. */
   onBuyRequest: () => void;
 }) {
-  const { startUnlock, collect } = useEconomy();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const onChain = chest ? chainId(chest.id) !== null : false;
   const run = (fn: () => Promise<void>) => {
     setBusy(true);
     setErr(null);
@@ -375,12 +373,7 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
           title={err ?? undefined}
           onClick={() => {
             click();
-            if (onChain) {
-              run(async () => { onOpened(await openOnChain(chest.id)); });
-              return;
-            }
-            const got = collect(chest.id);
-            if (got) onOpened(got);
+            run(async () => { onOpened(await openOnChain(chest.id)); });
           }}
           className="btn-3d"
           style={{
@@ -442,14 +435,10 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
           title={err ?? undefined}
           onClick={() => {
             click();
-            if (onChain) {
-              run(async () => {
-                await startUnlockTx(chainId(chest.id)!);
-                await useChain.getState().refresh();
-              });
-              return;
-            }
-            startUnlock(chest.id);
+            run(async () => {
+              await startUnlockTx(chainId(chest.id)!);
+              await useChain.getState().refresh();
+            });
           }}
           className="btn-3d"
           style={{
@@ -470,7 +459,6 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
 
 /** The chest rail — four slots, exactly like the games this borrows from. */
 export function ChestRail() {
-  const local = useEconomy((s) => s.chests);
   const mode = useChain((s) => s.mode);
   const chainChests = useChain((s) => s.chests);
   const chests: ChestSlot[] = mode === 'onchain'
@@ -482,7 +470,7 @@ export function ChestRail() {
       source: 'chain',
       seed: '',
     }))
-    : local;
+    : [];
   const [opened, setOpened] = useState<OpenedChest | null>(null);
   /** The chest whose timer the player has asked to skip, pending confirmation. */
   const [skipping, setSkipping] = useState<string | null>(null);
@@ -512,11 +500,7 @@ export function ChestRail() {
               return r.hash;
             }
             : undefined}
-          onDone={() => {
-            // The chain took the tokens; only now does the timer go.
-            if (chainId(skipping) === null) useEconomy.getState().skipUnlock(skipping);
-            setSkipping(null);
-          }}
+          onDone={() => setSkipping(null)}
         />
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
@@ -532,7 +516,7 @@ export function ChestRail() {
             chest={c}
             onOpened={setOpened}
             onSkipRequest={setSkipping}
-            onBuyRequest={() => setBuying(true)}
+            onBuyRequest={() => { if (mode === 'onchain') setBuying(true); }}
           />
         ))}
       </div>
@@ -549,10 +533,7 @@ export function ChestRail() {
               return r.hash;
             }
             : undefined}
-          onDone={() => {
-            if (mode !== 'onchain') useEconomy.getState().buyChest('golden');
-            setBuying(false);
-          }}
+          onDone={() => setBuying(false)}
         />
       )}
       {opened && <OpenCeremony def={opened} onDone={() => setOpened(null)} />}

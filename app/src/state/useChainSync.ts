@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useChain } from './chain';
-import { seedCards, useCollection, type MintedCard } from './collection';
+import { useCollection, type MintedCard } from './collection';
 import { useDeck } from './deck';
 import { useLadder } from './ladder';
 import { useWallet } from './wallet';
@@ -69,7 +69,13 @@ function useChainCollection(): void {
   const mode = useChain((s) => s.mode);
 
   useEffect(() => {
-    if (mode === 'offline' || cards.length === 0) return;
+    if (cards.length === 0) {
+      // No cards on chain for this account (or nobody signed in): the
+      // collection is empty, not a set of cards the player does not own.
+      if (useCollection.getState().cards.length) useCollection.setState({ cards: [], nextId: 1 });
+      return;
+    }
+    if (mode === 'offline') return;
 
     const mapped: MintedCard[] = cards.map((c) => ({
       // Keyed on the PDA id so the mapping is stable across reloads and two
@@ -95,10 +101,8 @@ function useChainCollection(): void {
      * Arena already reports "N of your cards are not minted onchain yet" and
      * holds the match to rating only, which is precisely the pre-mint state.
      */
-    const onChainMints = new Set(mapped.map((c) => c.mint));
     const merged: MintedCard[] = [
       ...mapped,
-      ...seedCards().filter((s) => !onChainMints.has(s.mint)),
     ];
 
     const current = useCollection.getState().cards;

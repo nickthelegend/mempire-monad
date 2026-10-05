@@ -195,7 +195,7 @@ export function CardDetail({
             Market
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            <Stat icon="◎" label="Price" value={fmtUsd(coin.priceUsd)} />
+            <Stat icon="$" label="Price" value={fmtUsd(coin.priceUsd)} />
             <Stat
               icon={up === undefined ? '·' : up >= 0 ? '📈' : '📉'}
               label="24h"

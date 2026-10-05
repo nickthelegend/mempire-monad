@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pill, Spinner } from './ui';
-import { privyConfig, type PrivyConfig } from '../lib/privy';
 import { useWallet } from '../state/wallet';
 
 /*
@@ -13,12 +12,10 @@ export function PrivySigner() {
   const kind = useWallet((s) => s.kind);
   const consent = useWallet((s) => s.privyConsent);
   const grant = useWallet((s) => s.grantPrivySigner);
-  const [cfg, setCfg] = useState<PrivyConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => { if (kind === 'privy') void privyConfig().then(setCfg); }, [kind]);
   if (kind !== 'privy' || dismissed) return null;
 
   if (consent) {
@@ -27,7 +24,6 @@ export function PrivySigner() {
         <span aria-hidden>🛡️</span>
         <span className="fine" style={{ color: 'var(--dim)' }}>
           Session signer on · arena moves only · until {new Date(consent.expiresAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          {cfg?.mode === 'mock' ? ' · Privy mock' : ''}
         </span>
       </section>
     );
@@ -40,7 +36,6 @@ export function PrivySigner() {
         Let Mempire send your card plays and your result for 24 hours, gas paid. A Privy policy
         limits it to three arena calls — <b>play</b>, <b>checkpoint</b>, <b>claim</b> — with zero value.
         It can never move your stake, your cards or your tokens.
-        {cfg?.mode === 'mock' ? ' (Privy mock on the local chain.)' : ''}
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
         <Pill

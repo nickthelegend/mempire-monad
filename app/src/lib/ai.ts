@@ -10,9 +10,8 @@
  * plays, held to the same elixir and hand rules as anyone's.
  *
  * The match must never wait on a model. While a plan is late, or the relay is
- * unreachable, the heuristic bot plays the seat, and the HUD says which brain
- * is playing and whether the relay answered with Kimi or with its labelled
- * mock strategist.
+ * unreachable, the game's own classic bot plays the seat, and the HUD says
+ * which brain made each move.
  */
 import { create } from 'zustand';
 import { apiFetch, hasApi } from './api';
@@ -23,7 +22,7 @@ import { ARCHETYPE_NAMES, Archetype, HAND_SIZE, INPUT_DELAY_TICKS } from '../sim
 import type { InputEvent, SimState, Unit } from '../sim/types';
 
 export type AiBrain = 'classic' | 'kimi';
-export type AiMode = 'kimi' | 'mock';
+export type AiMode = 'kimi' | 'off';
 type Lane = 'left' | 'right';
 type Depth = 'back' | 'mid' | 'bridge';
 type Zone = 'their_back' | 'their_bridge' | 'your_bridge' | 'your_back';
@@ -45,7 +44,7 @@ export interface AiPlan {
 
 /** The last decision the HUD should show, from whichever brain made it. */
 export interface AiLive {
-  /** `relay` = the relay answered (Kimi or its mock); `local` = the in-browser heuristic stood in. */
+  /** `relay` = Kimi answered through the relay; `local` = the classic bot covered a turn. */
   source: 'relay' | 'local';
   mode: AiMode | null;
   fallback?: string;
@@ -102,10 +101,19 @@ export function startAiMatch(brain: AiBrain): void {
   if (brain === 'kimi') loadAiStatus();
 }
 
-/** The HUD label for a mode: the word "mock" is never dropped. */
+/** The HUD label: Kimi only when the relay actually runs Kimi. */
 export function brainLabel(active: AiBrain, mode: AiMode | null | undefined): string {
   if (active === 'classic') return 'Classic bot';
-  return mode === 'kimi' ? 'Kimi' : 'Kimi (mock)';
+  return mode === 'kimi' ? 'Kimi' : 'Kimi (not configured)';
+}
+
+/**
+ * The brain a new match actually gets: Kimi only if the relay reports Kimi.
+ * Without a Moonshot key the choice is the classic bot, never a stand-in.
+ */
+export function effectiveBrain(): AiBrain {
+  const { brain, status } = useAiOpponent.getState();
+  return brain === 'kimi' && status?.mode === 'kimi' ? 'kimi' : 'classic';
 }
 
 // ── The board, from a seat ───────────────────────────────────────────────────

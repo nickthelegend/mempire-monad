@@ -40,15 +40,14 @@ interface DeckState {
   power: () => number;
 }
 
-const STARTER = Array.from({ length: 8 }, (_, i) => `card_${i + 1}`);
 
 export const useDeck = create<DeckState>((set, get) => ({
-  // pre-filled with the seeded cards: judges can hit BATTLE immediately
-  active: STARTER,
+  // Filled from the account's on-chain cards by useChainSync.
+  active: [],
   tier: 0,
   currency: 'AUSD',
   setCurrency: (c) => set({ currency: c }),
-  slots: [STARTER, [], []],
+  slots: [[], [], []],
   slot: 0,
 
   toggleCard: (cardId) =>

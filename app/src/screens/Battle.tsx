@@ -549,7 +549,7 @@ export function Battle() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
           <MonadLogBadge />
           {!match.practice && <EscrowBadge compact />}
-          {/* Who holds the other seat: the classic bot, Kimi, or Kimi's mock. */}
+          {/* Who holds the other seat: the classic bot or Kimi. */}
           {match.mode === 'bot' && <OpponentBrainBadge />}
         </div>
         {/* A third row, not an absolute overlay — it was landing on top of the

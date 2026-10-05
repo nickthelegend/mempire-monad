@@ -16,7 +16,7 @@
  */
 import { formatUnits } from 'viem';
 import { roster } from './chain.js';
-import { fetchPythUpdate, noteLivePrices, pythConfigured, pythMode } from './pyth.js';
+import { fetchPythUpdate, noteLivePrices, pythMode } from './pyth.js';
 
 const TTL_MS = 60_000;
 /**
@@ -42,7 +42,7 @@ function pythUsd(price, expo) {
 async function fromCoinGecko() {
   const listed = roster.filter((c) => c.coingeckoId);
   const ids = [...new Set(listed.map((c) => c.coingeckoId))].join(',');
-  const res = await fetch(`${COINGECKO}?ids=${ids}&vs_currencies=usd&include_24hr_change=true`, {
+  const res = await fetch(`${COINGECKO}?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_last_updated_at=true`, {
     headers: { accept: 'application/json', ...(CG_KEY ? { 'x-cg-demo-api-key': CG_KEY } : {}) },
     signal: AbortSignal.timeout(8_000),
   });
@@ -59,6 +59,8 @@ async function fromCoinGecko() {
       ticker: c.ticker,
       priceUsd,
       change24h: Number.isFinite(change) ? change : null,
+      source: 'coingecko',
+      at: Number(q?.last_updated_at) || Math.floor(Date.now() / 1000),
     });
   }
   return out;
@@ -66,14 +68,14 @@ async function fromCoinGecko() {
 
 /** Stock rows from Pyth, or null when there is no key and so no source at all. */
 async function fromPyth() {
-  if (!pythConfigured()) return null;
+  if (pythMode() !== 'hermes') return null;
   const stocks = roster.filter((c) => c.kind === 'stock');
   if (!stocks.length) return [];
   const { prices } = await fetchPythUpdate(stocks.map((c) => c.coinId));
   const byId = new Map(stocks.map((c) => [c.coinId, c]));
-  const mock = pythMode() === 'mock';
+  if (pythMode() !== 'hermes') return [];
   return prices.map((p) => ({
-    ...(mock ? { mock: true } : {}),
+    source: 'pyth',
     coinId: p.coinId,
     ticker: byId.get(p.coinId).ticker,
     priceUsd: pythUsd(p.price, p.expo),
@@ -102,6 +104,19 @@ async function refresh() {
   // Only a source that actually answered makes the list "fresh".
   if (cg.status === 'fulfilled' || pythOk) good = { at: Date.now(), coins };
   else if (cg.status === 'rejected') console.warn(`coins: refresh failed — ${String(cg.reason?.message ?? cg.reason).slice(0, 80)}`);
+}
+
+/**
+ * Refresh now if the last good read is older than `maxAgeMs` — for callers
+ * about to sign a price, who must not sign a stale one. Shares the in-flight
+ * refresh with the route.
+ */
+export async function refreshQuotes(maxAgeMs) {
+  if (Date.now() - good.at < maxAgeMs && good.coins.length) return good.coins;
+  if (Date.now() - lastAttempt < 3_000 && inflight) { await inflight.catch(() => null); return good.coins; }
+  inflight ??= refresh().finally(() => { inflight = null; });
+  await inflight.catch(() => null);
+  return good.coins;
 }
 
 export function registerMarketRoutes(app) {

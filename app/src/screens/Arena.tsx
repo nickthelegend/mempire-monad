@@ -21,7 +21,7 @@ import { fetchRecentSettlements, type ChainMatch } from '../chain/read';
 import { mintCardTx, readableChainError } from '../chain/actions';
 import { coinByMint } from '../lib/coins';
 import { confirmWithPasskey } from '../lib/passkey';
-import { brainLabel, loadAiStatus, useAiOpponent, type AiBrain } from '../lib/ai';
+import { loadAiStatus, useAiOpponent, type AiBrain } from '../lib/ai';
 
 /**
  * Recent settlements, read from the chain.
@@ -233,7 +233,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
           </span>
         </div>
         <Chip icon="👑" value={String(wins)} tone="blue" />
-        <Chip icon="◎" value={fmtMon(wallet.mon).replace(' MON', '')} tone="gold" />
+        <Chip icon="◆" value={fmtMon(wallet.mon).replace(' MON', '')} tone="gold" />
       </div>
 
       {open && (
@@ -755,8 +755,9 @@ function MintDeckButton({ mints }: { mints: string[] }) {
  * Who plays the AI seat in Practice and in any match that falls back to the
  * AI: the classic rule bot, or Kimi. Ranked against a human is untouched.
  *
- * Kimi's label carries "(mock)" whenever the relay has no Moonshot key, so
- * the choice never promises a model the relay will not run.
+ * Kimi is offered only when the relay runs it; without a Moonshot key the
+ * option is disabled and names the missing key, so the choice never promises
+ * a model the relay will not run.
  */
 function AiOpponentPicker() {
   const brain = useAiOpponent((s) => s.brain);
@@ -764,12 +765,15 @@ function AiOpponentPicker() {
   const status = useAiOpponent((s) => s.status);
   useEffect(() => { loadAiStatus(); }, []);
   const opt = (b: AiBrain) => {
-    const on = brain === b;
+    const kimiOff = b === 'kimi' && status?.mode !== 'kimi';
+    const on = brain === b && !kimiOff || (b === 'classic' && brain === 'kimi' && status?.mode !== 'kimi');
     return (
       <button
         key={b}
         type="button"
         aria-pressed={on}
+        disabled={kimiOff}
+        title={kimiOff ? 'Kimi needs MOONSHOT_API_KEY on the relay' : undefined}
         onClick={() => setBrain(b)}
         style={{
           flex: 1, minHeight: 36, padding: '6px 10px', borderRadius: 999,
@@ -779,7 +783,7 @@ function AiOpponentPicker() {
           boxShadow: on ? 'inset 0 2px 0 rgba(255,255,255,.35)' : 'var(--bevel-in)',
         }}
       >
-        {b === 'kimi' ? `vs ${brainLabel('kimi', status?.mode)}` : 'vs Classic bot'}
+        {b === 'kimi' ? (kimiOff ? 'Kimi · not configured' : 'vs Kimi') : 'vs Classic bot'}
       </button>
     );
   };

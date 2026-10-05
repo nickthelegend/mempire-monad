@@ -90,8 +90,8 @@ interface WalletState {
   signInPasskey: () => Promise<void>;
   connectGuest: () => void;
   connect: (id: string) => Promise<void>;
-  /** Privy embedded wallet. Mock mode takes an email; real mode opens Privy's modal. */
-  connectPrivy: (email?: string) => Promise<void>;
+  /** Privy embedded wallet, via Privy's own sign-in modal. */
+  connectPrivy: () => Promise<void>;
   grantPrivySigner: () => Promise<void>;
   revokePrivySigner: () => Promise<void>;
   autoConnect: () => Promise<void>;
@@ -219,11 +219,11 @@ export const useWallet = create<WalletState>((set, get) => {
       }
     },
 
-    connectPrivy: async (email) => {
+    connectPrivy: async () => {
       if (get().connecting) return;
       set({ connecting: 'privy', error: null });
       try {
-        const s = await privyLogin(email);
+        const s = await privyLogin();
         passkey?.session.end();
         passkey = null;
         setSigner({

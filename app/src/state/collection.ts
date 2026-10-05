@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { COINS, coinByMint } from '../lib/coins';
+import { coinByMint } from '../lib/coins';
 import { archetypeForMint } from '../sim/archetypes';
 import type { Archetype } from '../sim/types';
 
@@ -37,26 +37,11 @@ interface CollectionState {
   card: (id: string) => MintedCard | undefined;
 }
 
-/*
- * The starter deck: eight cards so a first run has something to play.
- *
- * These used to carry invented staked balances and derive a level from them,
- * which was the old economy — hold the coin, lock it, buy a level. Levels now
- * come only from winning and merging duplicates, so a starter card is simply
- * a level-1 card. Nothing here pretends to hold anything.
- */
-export const seedCards = (): MintedCard[] =>
-  COINS.slice(0, 8).map((c, i) => ({
-    id: `card_${i + 1}`,
-    mint: c.mint,
-    archetype: archetypeForMint(c.mint),
-    level: 1,
-    seeded: true,
-  }));
-
 export const useCollection = create<CollectionState>((set, get) => ({
-  cards: seedCards(),
-  nextId: 9,
+  // Cards come from the chain only (useChainSync). Nothing is seeded locally:
+  // a card on screen is a card the account owns.
+  cards: [],
+  nextId: 1,
   mintCard: (mint) => {
     const coin = coinByMint(mint);
     if (!coin) return null;

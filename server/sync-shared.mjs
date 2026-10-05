@@ -31,6 +31,5 @@ for (const part of ['abi', 'deployments']) {
   cpSync(new URL(`${part}/`, from), new URL(`${part}/`, to), { recursive: true });
 }
 cpSync(new URL('roster.json', from), new URL('roster.json', to));
-cpSync(new URL('prices.fixture.json', from), new URL('prices.fixture.json', to));
 
 console.log(`sync-shared: roster.json, abi/, deployments/ → ${fileURLToPath(to)}`);

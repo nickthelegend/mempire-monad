@@ -7,7 +7,7 @@
  * that is this loop. It only ever submits fresh Pyth updates; the numbers are
  * computed on chain, so the keeper cannot choose them.
  *
- * On by default on the local chain (with the mock Pyth), opt-in elsewhere with
+ * On by default on the local chain (signed local oracle), opt-in elsewhere with
  * `META_KEEPER=1`. When a CRE workflow is the meta's writer, leave it off: the
  * two share one epoch clock and whichever posts first owns the window.
  */

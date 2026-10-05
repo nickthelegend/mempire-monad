@@ -35,9 +35,9 @@ const shell: React.CSSProperties = {
 /**
  * Which brain holds the opponent's seat, and its last decision.
  *
- * "Kimi (mock)" whenever the relay answered from its heuristic — no key, a
- * timeout, an unusable answer — so a judge never reads a lookup table as a
- * model. The reason is the model's own, clipped.
+ * "Classic bot covering" whenever Kimi did not answer — a timeout, an unusable
+ * answer, the relay down — so a judge never reads a lookup table as a model.
+ * The reason is the model's own, clipped.
  */
 export function OpponentBrainBadge() {
   const active = useAiOpponent((s) => s.active);
@@ -89,7 +89,9 @@ export function Commentary() {
   const active = useAiOpponent((s) => s.active);
   const opponentName = useMatch((s) => s.opponentName);
   const aiName = active === 'kimi' ? 'Kimi' : opponentName.replace(/\s*\(AI\)$/, '') || 'the bot';
-  const enabled = mode === 'bot' && hasApi();
+  // Commentary is Kimi's, so it runs only when the relay runs Kimi.
+  const kimiOn = useAiOpponent((s) => s.status?.mode === 'kimi');
+  const enabled = mode === 'bot' && hasApi() && kimiOn;
 
   const [line, setLine] = useState<{ text: string; mode: AiMode; id: number } | null>(null);
   const events = useRef<CommentaryEvent[]>([]);
@@ -222,7 +224,7 @@ export function Commentary() {
         }}
       >
         <span style={{ color: 'var(--gold)', fontSize: 10, letterSpacing: '.12em', flexShrink: 0 }}>
-          {line.mode === 'kimi' ? 'KIMI CAST' : 'CAST (MOCK)'}
+          KIMI CAST
         </span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line.text}</span>
       </span>

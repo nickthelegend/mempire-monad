@@ -65,73 +65,19 @@ function board(over = {}) {
   };
 }
 
-// ── (a) mock mode ────────────────────────────────────────────────────────────
-console.log('mock mode');
-const mock = await startRelay(await freePort(8796), { CHAIN_ID: '10143', AI_PLAN_BURST: '14' });
+// ── (a) no key: not configured, no stand-in ────────────────────────────────
+console.log('no key');
+const off = await startRelay(await freePort(8796), { CHAIN_ID: '10143' });
 try {
-  let r = await fetch(`${mock.base}/api/ai/status`).then((x) => x.json());
-  check('status says mock with no key', r.mode === 'mock' && r.model === null);
-
-  r = await post(mock.base, '/api/ai/plan', board({
-    enemyUnits: [{ lane: 'right', zone: 'your_back', archetype: 'Tank', count: 1, hpPct: 90 }],
-  }));
-  check('a plan is labelled mock', r.status === 200 && r.data.mode === 'mock', r.text);
-  check('it defends the lane under pressure, with a defender, near the tower',
-    r.data.action.type === 'deploy' && r.data.action.lane === 'right' && r.data.action.depth === 'back'
-      && r.data.action.handIndex === 3, r.text);
-  check('latency is reported', typeof r.data.latencyMs === 'number');
-
-  r = await post(mock.base, '/api/ai/plan', board({
-    elixir: { you: 5, them: 3 },
-    towers: { yours: { left: 100, right: 100, king: 100 }, theirs: { left: 100, right: 0, king: 80 } },
-  }));
-  check('a downed tower is pushed', r.data.action.type === 'deploy' && r.data.action.lane === 'right'
-    && r.data.action.depth === 'bridge', r.text);
-
-  r = await post(mock.base, '/api/ai/plan', board({ elixir: { you: 3.2, them: 9 } }));
-  check('nothing forced and short of elixir: waits', r.data.action.type === 'wait', r.text);
-
-  const buffed = board({
-    elixir: { you: 9, them: 2 },
-    hand: [
-      { ticker: 'DOGE', archetype: 'Tank', level: 3, metaBps: -300, cost: 4 },
-      { ticker: 'PEPE', archetype: 'Swarm', level: 3, metaBps: 1200, cost: 3 },
-      { ticker: 'AAPL', archetype: 'Ranged', level: 3, metaBps: 0, cost: 3 },
-    ],
-  });
-  r = await post(mock.base, '/api/ai/plan', buffed);
-  check('a free push prefers the buffed fighter', r.data.action.handIndex === 1, r.text);
-  const again = await post(mock.base, '/api/ai/plan', { state: { ...buffed.state, tick: 900 } });
-  check('deterministic: the same board gets the same move', JSON.stringify(again.data.action) === JSON.stringify(r.data.action));
-
-  r = await post(mock.base, '/api/ai/plan', board({
-    elixir: { you: 6, them: 1 },
-    enemyUnits: [{ lane: 'left', zone: 'their_bridge', archetype: 'Swarm', count: 4, hpPct: 100 }],
-  }));
-  check('a four-unit stack draws the spell', r.data.action.type === 'deploy' && r.data.action.handIndex === 1
-    && r.data.action.lane === 'left', r.text);
-
-  r = await post(mock.base, '/api/ai/plan', { state: { hand: [] } });
-  check('an empty hand is a 400', r.status === 400);
-  r = await post(mock.base, '/api/ai/plan', { state: { hand: [{ archetype: 'Wizard' }] } });
-  check('an unknown archetype is a 400', r.status === 400);
-  r = await post(mock.base, '/api/ai/plan', {});
-  check('no state is a 400', r.status === 400);
-
-  r = await post(mock.base, '/api/ai/commentary', {
-    aiName: 'Kimi', events: [{ kind: 'buffed', side: 'ai', ticker: 'DOGE', bps: 900 }, { kind: 'tower_down', side: 'you', lane: 'left' }],
-  });
-  check('commentary is labelled mock', r.status === 200 && r.data.mode === 'mock', r.text);
-  check('the line leads with the biggest event', /tower/i.test(r.data.line), r.data.line);
-  check('the line is at most 90 characters', r.data.line.length <= 90 && r.data.line.length > 10, `${r.data.line.length}`);
-  r = await post(mock.base, '/api/ai/commentary', { events: [{ kind: 'nope' }] });
-  check('commentary with no recognised events is a 400', r.status === 400);
-
-  // The burst is 14; this suite already spent nine plan requests from this IP.
-  const burst = await Promise.all(Array.from({ length: 10 }, (_, i) => post(mock.base, '/api/ai/plan', board({ elixir: { you: 2, them: i } }))));
-  check('a burst past the per-IP budget is 429', burst.some((x) => x.status === 429) && burst.some((x) => x.status === 200));
+  const st = await fetch(`${off.base}/api/ai/status`).then((x) => x.json());
+  check('status says off and names the missing key', st.mode === 'off' && st.model === null && st.missing?.includes('MOONSHOT_API_KEY'));
+  let r = await post(off.base, '/api/ai/plan', board({}));
+  check('a plan request is 503 not configured', r.status === 503 && /not configured/.test(r.data?.error ?? ''), r.text);
+  check('and carries no move', r.data?.action === undefined);
+  r = await post(off.base, '/api/ai/commentary', { aiName: 'Kimi', events: [{ kind: 'tower_down', side: 'you', lane: 'left' }] });
+  check('commentary is 503 not configured', r.status === 503 && r.data?.line === undefined, r.text);
 } finally {
-  await mock.stop();
+  await off.stop();
 }
 
 // ── (b) Kimi mode, against a fake OpenAI-compatible server ───────────────────
@@ -227,6 +173,16 @@ try {
   const err = seen.at(-1).body.messages.find((m) => m.role === 'tool');
   check('the rejection tells the model how to fix it', /rejected: hand_index must be an integer 0-3/.test(err?.content ?? ''), err?.content);
 
+  // input validation happens before any model call
+  r = await post(kimi.base, '/api/ai/plan', { state: { hand: [] } });
+  check('an empty hand is a 400', r.status === 400);
+  r = await post(kimi.base, '/api/ai/plan', { state: { hand: [{ archetype: 'Wizard' }] } });
+  check('an unknown archetype is a 400', r.status === 400);
+  r = await post(kimi.base, '/api/ai/plan', {});
+  check('no state is a 400', r.status === 400);
+  r = await post(kimi.base, '/api/ai/commentary', { events: [{ kind: 'nope' }] });
+  check('commentary with no recognised events is a 400', r.status === 400);
+
   // 4. unaffordable, then bad lane, then bad JSON, then text: falls back to the heuristic, labelled
   script.push(
     toolCall('deploy_card', { hand_index: 0, lane: 'left', depth: 'mid' }),
@@ -235,8 +191,7 @@ try {
     text('I think I will deploy the tank.'),
   );
   r = await post(kimi.base, '/api/ai/plan', board({ elixir: { you: 3, them: 4 } }));
-  check('four bad answers fall back to mock, labelled invalid', r.data.mode === 'mock' && r.data.fallback === 'invalid', r.text);
-  check('the fallback move is still legal (wait on 3 elixir with nothing forced)', r.data.action.type === 'wait');
+  check('four bad answers are an honest 502 invalid, no invented move', r.status === 502 && r.data.kind === 'invalid' && r.data.action === undefined, r.text);
   const last = seen.at(-1).body.messages;
   const rejections = last.filter((m) => m.role === 'tool').map((m) => m.content);
   check('unaffordable card was refused with the price', rejections.some((c) => /costs 4 elixir and you have 3\.0/.test(c)), rejections.join(' | '));
@@ -258,14 +213,13 @@ try {
     enemyUnits: [{ lane: 'left', zone: 'your_bridge', archetype: 'Tank', count: 1, hpPct: 100 }],
   }));
   const took = Date.now() - before;
-  check('a timeout falls back to mock, labelled timeout', r.data.mode === 'mock' && r.data.fallback === 'timeout', r.text);
+  check('a timeout is an honest 502 timeout', r.status === 502 && r.data.kind === 'timeout', r.text);
   check('within the timeout budget, not the upstream delay', took < 2500, `${took} ms`);
-  check('the fallback still defends', r.data.action.type === 'deploy' && r.data.action.lane === 'left');
 
   // 7. an upstream 500
   script.push({ status: 500, body: { error: { message: 'boom' } } });
   r = await post(kimi.base, '/api/ai/plan', board({ elixir: { you: 8, them: 7 } }));
-  check('an upstream error falls back to mock, labelled error', r.data.mode === 'mock' && r.data.fallback === 'error', r.text);
+  check('an upstream error is an honest 502', r.status === 502 && r.data.kind === 'error', r.text);
 
   // 8. cache: the same board (tick aside) is answered without a model call
   script.push(toolCall('deploy_card', { hand_index: 3, lane: 'right', depth: 'mid' }));
@@ -287,7 +241,7 @@ try {
 
   script.push(text('Buy DOGE now before it moons, ser'));
   r = await post(kimi.base, '/api/ai/commentary', { aiName: 'Kimi', events: [{ kind: 'buffed', side: 'ai', ticker: 'DOGE', bps: 900 }] });
-  check('a line that reads as financial advice is replaced by the mock line', r.data.mode === 'mock' && r.data.fallback === 'invalid' && !/buy/i.test(r.data.line), r.text);
+  check('a line that reads as financial advice is refused, not shown', r.status === 502 && r.data.kind === 'invalid' && r.data.line === undefined, r.text);
 
   // 10. an upstream that does not know `thinking` is retried without it, once and for good
   script.push(
@@ -300,16 +254,6 @@ try {
 } finally {
   await kimi.stop();
   fake.close();
-}
-
-// ── (c) AI_MODE=mock wins over a configured key ─────────────────────────────
-console.log('\nforced mock');
-const forced = await startRelay(await freePort(8794), { CHAIN_ID: '10143', MOONSHOT_API_KEY: KEY, AI_MODE: 'mock' });
-try {
-  const r = await fetch(`${forced.base}/api/ai/status`).then((x) => x.json());
-  check('AI_MODE=mock overrides a key', r.mode === 'mock');
-} finally {
-  await forced.stop();
 }
 
 process.exit(done() ? 1 : 0);

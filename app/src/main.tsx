@@ -61,12 +61,12 @@ window.addEventListener('load', () => {
 if (import.meta.env.DEV) {
   void Promise.all([
     import('./state/match'), import('./state/wallet'), import('./state/deck'),
-    import('./state/economy'), import('./state/collection'),
+    import('./state/collection'),
     import('./state/chain'), import('./state/playLog'),
-  ]).then(([m, w, d, e, c, ch, er]) => {
+  ]).then(([m, w, d, c, ch, er]) => {
     (window as unknown as Record<string, unknown>).__mempire = {
       match: m.useMatch, wallet: w.useWallet, deck: d.useDeck,
-      economy: e.useEconomy, collection: c.useCollection,
+      collection: c.useCollection,
       chain: ch.useChain, playLog: er.usePlayLog,
     };
   });

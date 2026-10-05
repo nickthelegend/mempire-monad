@@ -7,8 +7,8 @@ import {MempireCards} from "../src/MempireCards.sol";
 import {MempireArena} from "../src/MempireArena.sol";
 import {MarketMeta} from "../src/MarketMeta.sol";
 import {IPyth} from "../src/interfaces/IPyth.sol";
-import {MockPyth} from "../src/mocks/MockPyth.sol";
-import {MockAUSD} from "../src/mocks/MockAUSD.sol";
+import {MockPyth} from "./mocks/MockPyth.sol";
+import {MockAUSD} from "./mocks/MockAUSD.sol";
 
 abstract contract Base is Test {
     MempireToken internal token;

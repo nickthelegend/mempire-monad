@@ -13,11 +13,11 @@
  *  - `POST /api/ai/commentary` — a few recent match events in, one short
  *    caster line out.
  *
- * Mock mode is the same contract driven by a deterministic heuristic and
- * template lines. It is what runs when there is no `MOONSHOT_API_KEY`, and
- * every response says `mode: 'mock'` so the UI can say so too — a game that
- * claims an LLM opponent while a lookup table plays is exactly the kind of
- * claim this project keeps honest elsewhere.
+ * Without a `MOONSHOT_API_KEY` both routes answer 503 "not configured" and the
+ * app plays its own classic bot, labelled as the classic bot. A game that
+ * claimed an LLM opponent while a lookup table played would be lying, so there
+ * is no stand-in; when Kimi fails mid-match the route says so (502) and the
+ * classic bot takes that turn, again labelled.
  *
  * Every model answer is validated before it is returned. A hand index out of
  * range, a card the bot cannot afford, a lane that does not exist — each is
@@ -56,11 +56,12 @@ const MAX_ROUNDS = 4;
 /** Concurrent upstream calls across all players. Beyond this, the heuristic. */
 const MAX_INFLIGHT = num(process.env.AI_MAX_INFLIGHT, 1, 64, 8);
 
-/** 'kimi' when a key is configured and not overridden to mock; 'mock' otherwise. */
+/**
+ * 'kimi' when a Moonshot key is configured, 'off' otherwise. There is no
+ * stand-in: without Kimi the app offers its own classic bot, labelled as such.
+ */
 export function aiMode() {
-  const forced = env('AI_MODE').toLowerCase();
-  if (forced === 'mock') return 'mock';
-  return KEY ? 'kimi' : 'mock';
+  return KEY ? 'kimi' : 'off';
 }
 
 // ── The board summary ────────────────────────────────────────────────────────
@@ -158,77 +159,6 @@ export function validateCall(name, args, s) {
     action: { type: 'deploy', handIndex: i, lane: args.lane, depth },
     reason: clean(prose(args?.reason, 120)) || `${card.ticker} ${args.lane} ${depth}`,
   };
-}
-
-// ── Mock: the deterministic strategist ───────────────────────────────────────
-
-const DEFEND_PREF = ['Splash', 'Ranged', 'Swarm', 'Tank', 'Support'];
-const ATTACK_PREF = ['Tank', 'Support', 'Ranged', 'Splash', 'Swarm'];
-/** A fighter this far up today is worth playing out of preference order. */
-const BUFFED_BPS = 300;
-/** Elixir banked before opening a push nobody forced. Mirrors the bot's `normal`. */
-const SAVE_TO = 7;
-
-function pick(s, pref, { preferBuffed = false } = {}) {
-  const ok = s.hand.filter((c) => c.archetype !== 'Spell' && c.cost <= s.elixir.you);
-  if (!ok.length) return null;
-  if (preferBuffed) {
-    const buffed = ok.filter((c) => c.metaBps >= BUFFED_BPS).sort((a, b) => b.metaBps - a.metaBps || a.index - b.index);
-    if (buffed.length) return buffed[0];
-  }
-  for (const a of pref) {
-    const same = ok.filter((c) => c.archetype === a).sort((x, y) => y.metaBps - x.metaBps || x.index - y.index);
-    if (same.length) return same[0];
-  }
-  return null;
-}
-
-/**
- * Defend the lane under pressure, spell a stack, push a lane whose tower is
- * down, otherwise bank to seven and push the weaker tower with whatever the
- * market buffed today. Pure: the same board always gets the same answer.
- */
-export function mockPlan(s) {
-  const pressure = { left: 0, right: 0 };
-  const stack = { left: 0, right: 0 };
-  const deepest = { left: 'your_bridge', right: 'your_bridge' };
-  for (const g of s.enemyUnits) {
-    stack[g.lane] += g.count;
-    if (g.zone === 'your_back') { pressure[g.lane] += 2 * g.count; deepest[g.lane] = 'your_back'; }
-    else if (g.zone === 'your_bridge') pressure[g.lane] += g.count;
-  }
-  const deploy = (card, lane, depth, reason) => ({
-    action: { type: 'deploy', handIndex: card.index, lane, depth }, reason,
-  });
-
-  const spell = s.hand.find((c) => c.archetype === 'Spell' && c.cost <= s.elixir.you);
-  const stackLane = stack.left >= stack.right ? 'left' : 'right';
-  if (spell && stack[stackLane] >= 3) {
-    return deploy(spell, stackLane, 'mid', `${spell.ticker} on the ${stack[stackLane]}-unit stack ${stackLane}`);
-  }
-
-  const hot = pressure.left >= pressure.right ? 'left' : 'right';
-  if (pressure[hot] > 0) {
-    const card = pick(s, DEFEND_PREF);
-    if (!card) return { action: { type: 'wait' }, reason: `under pressure ${hot}, saving to defend` };
-    const depth = deepest[hot] === 'your_back' ? 'back' : 'mid';
-    return deploy(card, hot, depth, `defend ${hot} with ${card.ticker}`);
-  }
-
-  const down = s.towers.theirs.left === 0 ? 'left' : s.towers.theirs.right === 0 ? 'right' : null;
-  if (down) {
-    const card = pick(s, ATTACK_PREF, { preferBuffed: true });
-    if (card) return deploy(card, down, 'bridge', `${down} tower is down, ${card.ticker} goes for the king`);
-  }
-
-  if (s.elixir.you < SAVE_TO) {
-    return { action: { type: 'wait' }, reason: `banking elixir ${s.elixir.you.toFixed(1)}/${SAVE_TO}` };
-  }
-  const weak = s.towers.theirs.left <= s.towers.theirs.right ? 'left' : 'right';
-  const card = pick(s, ATTACK_PREF, { preferBuffed: true });
-  if (!card) return { action: { type: 'wait' }, reason: 'nothing affordable fits a push' };
-  const buffNote = card.metaBps >= BUFFED_BPS ? ` (+${(card.metaBps / 100).toFixed(0)}% today)` : '';
-  return deploy(card, weak, card.archetype === 'Tank' ? 'bridge' : 'mid', `push ${weak} with ${card.ticker}${buffNote}`);
 }
 
 // ── Kimi: the model strategist ───────────────────────────────────────────────
@@ -476,14 +406,6 @@ const PRIORITY = ['tower_down', 'spell', 'overtime', 'double_elixir', 'buffed', 
 
 const hashOf = (v) => createHash('sha1').update(JSON.stringify(v)).digest();
 
-/** The most important event, a template picked by the events' hash: deterministic. */
-export function mockLine({ events, aiName }) {
-  const top = [...events].sort((a, b) => PRIORITY.indexOf(a.kind) - PRIORITY.indexOf(b.kind))[0];
-  const options = TEMPLATES[top.kind];
-  const line = options[hashOf(events)[0] % options.length](top, aiName);
-  return trimLine(line.replace(/\s+/g, ' ').replace(' .', '.'));
-}
-
 function trimLine(text) {
   let line = String(text).split('\n').map((l) => l.trim()).find(Boolean) ?? '';
   line = line.replace(/^["'“”]+|["'“”]+$/g, '').trim();
@@ -564,10 +486,8 @@ const keyOf = (mode, v) => hashOf([mode, MODEL, v]).toString('hex');
 
 export function registerAiRoutes(app) {
   const mode = aiMode();
-  if (env('AI_MODE').toLowerCase() === 'kimi' && !KEY) {
-    console.warn('ai: AI_MODE=kimi but MOONSHOT_API_KEY is not set — running the mock strategist');
-  }
-  console.log(`ai: ${mode === 'kimi' ? `Kimi (${MODEL}) via ${BASE_URL}` : 'mock strategist (no MOONSHOT_API_KEY)'}`);
+  console.log(`ai: ${mode === 'kimi' ? `Kimi (${MODEL}) via ${BASE_URL}` : 'off — set MOONSHOT_API_KEY to enable Kimi'}`);
+  const notConfigured = { error: 'Kimi is not configured on this relay (MOONSHOT_API_KEY)', mode: 'off' };
 
   const planLimit = bucket(num(process.env.AI_PLAN_BURST, 1, 1000, 8), 0.5);
   const lineLimit = bucket(num(process.env.AI_LINE_BURST, 1, 1000, 4), 0.2);
@@ -576,10 +496,14 @@ export function registerAiRoutes(app) {
 
   /** What the UI labels the opponent with. Never the key, only whether there is one. */
   app.get('/api/ai/status', (_req, res) => {
-    res.json({ mode, model: mode === 'kimi' ? MODEL : null, provider: mode === 'kimi' ? 'moonshot' : null });
+    res.json({
+      mode, model: mode === 'kimi' ? MODEL : null, provider: mode === 'kimi' ? 'moonshot' : null,
+      missing: mode === 'kimi' ? [] : ['MOONSHOT_API_KEY'],
+    });
   });
 
   app.post('/api/ai/plan', async (req, res) => {
+    if (mode !== 'kimi') return res.status(503).json(notConfigured);
     if (!planLimit(req.ip ?? 'unknown')) return res.status(429).json({ error: 'too many plan requests', retryAfterMs: 2000 });
     const s = readSummary(req.body);
     if (typeof s === 'string') return res.status(400).json({ error: s });
@@ -590,26 +514,21 @@ export function registerAiRoutes(app) {
     if (hit) return res.json({ ...hit, latencyMs: Date.now() - t0, cached: true });
 
     let out;
-    if (mode === 'kimi') {
-      try {
-        const k = await kimiPlan(s);
-        out = { mode: 'kimi', model: MODEL, action: k.action, reason: k.reason, rounds: k.rounds };
-      } catch (e) {
-        // The heuristic answers, and the response says that it did and why.
-        const m = mockPlan(s);
-        out = { mode: 'mock', fallback: e.kind ?? 'error', action: m.action, reason: m.reason };
-        console.warn(`ai: plan fell back to mock (${e.kind ?? 'error'}: ${e.message})`);
-      }
-    } else {
-      const m = mockPlan(s);
-      out = { mode: 'mock', action: m.action, reason: m.reason };
+    try {
+      const k = await kimiPlan(s);
+      out = { mode: 'kimi', model: MODEL, action: k.action, reason: k.reason, rounds: k.rounds };
+    } catch (e) {
+      // No plan is invented. The client's own classic bot plays this turn,
+      // and says so.
+      console.warn(`ai: Kimi plan failed (${e.kind ?? 'error'}: ${e.message})`);
+      return res.status(502).json({ error: `Kimi did not answer (${e.kind ?? 'error'})`, kind: e.kind ?? 'error', latencyMs: Date.now() - t0 });
     }
-    // Only real answers are cached; a fallback should get another try.
-    if (!out.fallback) plans.set(key, out);
+    plans.set(key, out);
     res.json({ ...out, latencyMs: Date.now() - t0 });
   });
 
   app.post('/api/ai/commentary', async (req, res) => {
+    if (mode !== 'kimi') return res.status(503).json(notConfigured);
     if (!lineLimit(req.ip ?? 'unknown')) return res.status(429).json({ error: 'too many commentary requests', retryAfterMs: 8000 });
     const ev = readEvents(req.body);
     if (typeof ev === 'string') return res.status(400).json({ error: ev });
@@ -619,16 +538,12 @@ export function registerAiRoutes(app) {
     if (hit) return res.json({ ...hit, latencyMs: Date.now() - t0, cached: true });
 
     let out;
-    if (mode === 'kimi') {
-      try {
-        out = { mode: 'kimi', model: MODEL, line: await kimiLine(ev) };
-      } catch (e) {
-        out = { mode: 'mock', fallback: e.kind ?? 'error', line: mockLine(ev) };
-      }
-    } else {
-      out = { mode: 'mock', line: mockLine(ev) };
+    try {
+      out = { mode: 'kimi', model: MODEL, line: await kimiLine(ev) };
+    } catch (e) {
+      return res.status(502).json({ error: `Kimi did not answer (${e.kind ?? 'error'})`, kind: e.kind ?? 'error' });
     }
-    if (!out.fallback) lines.set(key, out);
+    lines.set(key, out);
     res.json({ ...out, latencyMs: Date.now() - t0 });
   });
 }
