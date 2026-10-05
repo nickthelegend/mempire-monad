@@ -9,28 +9,29 @@
  * one stake. The AUSD column must not move. A report before settlement must
  * come back `pending` and be credited on the retry, never twice.
  *
- *   anvil running on 127.0.0.1:8611 with shared/deployments/31337.json deployed
- *   node test-settlement.mjs
+ *   node test-settlement.mjs   (forks Monad testnet on :8613, chain 31338)
  */
 import { readFileSync } from 'node:fs';
 import { createPublicClient, createWalletClient, formatEther, http, parseEther, zeroAddress } from 'viem';
+import { startTestChain } from './test-chain.mjs';
 import { client, freshAccount, signed, startRelay, tally } from './test-util.mjs';
 
-const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:8611';
+const tc = await startTestChain();
+const RPC_URL = tc.rpcUrl;
 const PORT = Number(process.env.PORT ?? 8794);
 const RELAYER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const dep = read('./shared/deployments/31337.json');
+const dep = tc.dep;
 const cardsAbi = read('./shared/abi/MempireCards.json');
 const arenaAbi = read('./shared/abi/MempireArena.json');
-const chain = { id: 31337, name: 'Anvil', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: [RPC_URL] } } };
+const { chain } = tc;
 const pub = createPublicClient({ chain, transport: http(RPC_URL) });
 const NO_PERMIT = { deadline: 0n, v: 0, r: `0x${'00'.repeat(32)}`, s: `0x${'00'.repeat(32)}` };
 
 const { check, done } = tally();
 console.log(`settlement → anvil ${RPC_URL}, relay :${PORT}\n`);
-const relay = await startRelay(PORT, { CHAIN_ID: '31337', RPC_URL, RELAYER_PRIVATE_KEY: RELAYER_KEY });
+const relay = await startRelay(PORT, { CHAIN_ID: String(tc.chainId), RPC_URL, RELAYER_PRIVATE_KEY: RELAYER_KEY });
 const req = client(relay.base);
 
 async function write(account, call) {
@@ -109,5 +110,6 @@ try {
   console.log(relay.log().slice(-1500));
 } finally {
   await relay.stop();
+  await tc.stop();
 }
 process.exit(done() ? 1 : 0);

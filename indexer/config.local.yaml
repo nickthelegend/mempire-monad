@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./node_modules/envio/evm.schema.json
-# LOCAL ONLY — the anvil chain from scripts/local-up.sh (chain 31337, :8611).
+# LOCAL ONLY — the anvil chain from scripts/local-up.sh (fork of Monad testnet, chain 31337, :8612).
 # Same project, contracts and events as config.yaml; only `chains:` differs.
 # HyperSync does not cover a local chain, so the RPC is the data source
 # (`for: sync`: historical sync and realtime). test/config.test.ts fails if the
@@ -54,7 +54,7 @@ chains:
   - id: 31337 # anvil (scripts/local-up.sh)
     start_block: 0 # from shared/deployments/31337.json (startBlock)
     rpc:
-      - url: http://127.0.0.1:8611
+      - url: http://127.0.0.1:8612
         for: sync
         polling_interval: 500
     contracts:

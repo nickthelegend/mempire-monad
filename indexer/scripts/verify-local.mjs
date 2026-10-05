@@ -21,7 +21,7 @@ import { LOCAL_ENDPOINT, QUERIES, gql, run } from "./query.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const indexerDir = join(here, "..");
 const ENDPOINT = process.argv.slice(2).find((a) => a.startsWith("http")) ?? process.env.ENVIO_GRAPHQL_URL ?? LOCAL_ENDPOINT;
-const RPC = process.env.MEMPIRE_RPC ?? "http://127.0.0.1:8611";
+const RPC = process.env.MEMPIRE_RPC ?? "http://127.0.0.1:8612";
 
 const m = JSON.parse(readFileSync(join(indexerDir, ".local/seed-manifest.json"), "utf8"));
 const abi = (name) => JSON.parse(readFileSync(join(indexerDir, "abis", `${name}.json`), "utf8"));

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Every suite, in one go, against the local chain. Prints a summary table.
+# Every suite, in one go. Prints a summary table. The chain suites start their
+# own throwaway fork (server/test-chain.mjs, :8613), so the dev chain is untouched.
 #   ./scripts/local-up.sh && ./scripts/test-all.sh
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

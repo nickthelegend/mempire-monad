@@ -23,7 +23,7 @@ const LOCAL: Chain = defineChain({
   id: 31337,
   name: 'Anvil',
   nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
-  rpcUrls: { default: { http: ['http://127.0.0.1:8611'] } },
+  rpcUrls: { default: { http: ['http://127.0.0.1:8612'] } },
 });
 
 export const CHAIN: Chain = CHAIN_ID === 31337

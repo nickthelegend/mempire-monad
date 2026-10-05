@@ -1,19 +1,22 @@
 /**
- * The whole game, end to end on the local chain.
+ * The whole game, end to end, on a throwaway fork of Monad testnet.
  *
- * Every sponsor-free step a player takes, against the real contracts and the
- * real relay, with nothing stubbed but the price oracle and the stablecoin
- * (MockPyth / MockAUSD, labelled, same interfaces):
+ * Every sponsor-free step a player takes, against the real contracts, the real
+ * relay, Agora's real AUSD and faucet (present on the fork), and live market
+ * prices signed by the relay for the LocalPriceOracle (Pyth's update model;
+ * Hermes does not serve a local chain):
  *
- *   1. guest onboarding — starter deck, AUSD from the faucet, a gas drip
- *   2. a card minted with a fresh Pyth price posted in the same transaction
- *   3. the market meta posted from Pyth momentum, snapshotted by a match
+ *   1. guest onboarding — starter deck, AUSD from the real faucet, a gas drip
+ *   2. a card minted with a fresh signed price posted in the same transaction
+ *   3. the market meta posted from price momentum, snapshotted by a match
  *   4. a $1 AUSD match staked with EIP-2612 permits, played by session keys,
  *      settled 90/10 with the win reward and a chest
  *   5. the chest opened against a future block, a duplicate merged for a level
  *   6. an abandoned match refunded by the permissionless timeout
  *
- *   anvil on 127.0.0.1:8611 with the local deployment (scripts/local-up.sh)
+ * Steps 5 and 6 warp chain time, which is why this runs on its own fork
+ * (test-chain.mjs: :8613, chain 31338) and never on the dev chain.
+ *
  *   node test-e2e.mjs
  */
 import { readFileSync } from 'node:fs';
@@ -21,24 +24,30 @@ import {
   createPublicClient, createWalletClient, encodeFunctionData, erc20Abi, http, parseEther, parseSignature, zeroAddress,
 } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+import { startTestChain } from './test-chain.mjs';
 import { client, signed, startRelay, tally } from './test-util.mjs';
 
-const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:8611';
+const tc = await startTestChain();
+const RPC_URL = tc.rpcUrl;
 const PORT = Number(process.env.PORT ?? 8793);
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const RELAYER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+// anvil #4 — the signer DeployLocal registers on the LocalPriceOracle.
+const ORACLE_KEY = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const dep = read('./shared/deployments/31337.json');
+const dep = tc.dep;
 const cardsAbi = read('./shared/abi/MempireCards.json');
 const arenaAbi = read('./shared/abi/MempireArena.json');
 const metaAbi = read('./shared/abi/MarketMeta.json');
 const permitAbi = [
   { type: 'function', name: 'nonces', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }] },
-  { type: 'function', name: 'DOMAIN_SEPARATOR', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
+  { type: 'function', name: 'eip712Domain', stateMutability: 'view', inputs: [], outputs: [
+    { type: 'bytes1' }, { type: 'string' }, { type: 'string' }, { type: 'uint256' }, { type: 'address' }, { type: 'bytes32' }, { type: 'uint256[]' },
+  ] },
 ];
 const pythAbi = [{ type: 'function', name: 'getUpdateFee', stateMutability: 'view', inputs: [{ type: 'bytes[]' }], outputs: [{ type: 'uint256' }] }];
-const chain = { id: 31337, name: 'Anvil', nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: [RPC_URL] } } };
+const { chain } = tc;
 const pub = createPublicClient({ chain, transport: http(RPC_URL) });
 const NO_PERMIT = { deadline: 0n, v: 0, r: `0x${'00'.repeat(32)}`, s: `0x${'00'.repeat(32)}` };
 const rpc = (method, params = []) => pub.request({ method, params });
@@ -46,7 +55,8 @@ const rpc = (method, params = []) => pub.request({ method, params });
 const { check, done } = tally();
 console.log(`e2e → anvil ${RPC_URL}, relay :${PORT}\n`);
 const relay = await startRelay(PORT, {
-  CHAIN_ID: '31337', RPC_URL, RELAYER_PRIVATE_KEY: RELAYER_KEY, AUSD_FAUCET: dep.ausdFaucet, META_KEEPER: '0',
+  CHAIN_ID: String(tc.chainId), RPC_URL, RELAYER_PRIVATE_KEY: RELAYER_KEY, ORACLE_PRIVATE_KEY: ORACLE_KEY,
+  AUSD_FAUCET: dep.ausdFaucet, META_KEEPER: '0',
 });
 const req = client(relay.base);
 
@@ -62,8 +72,10 @@ const read$ = (address, abi, functionName, args = []) => pub.readContract({ addr
 async function permit(account, value) {
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
   const nonce = await read$(dep.ausd, permitAbi, 'nonces', [account.address]);
+  // The token's own EIP-712 domain (Agora's is "Agora Dollar", not the symbol).
+  const [, name, version, chainId, verifyingContract] = await read$(dep.ausd, permitAbi, 'eip712Domain');
   const sig = await account.signTypedData({
-    domain: { name: 'AUSD', version: '1', chainId: 31337, verifyingContract: dep.ausd },
+    domain: { name, version, chainId: Number(chainId), verifyingContract },
     types: { Permit: [
       { name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }, { name: 'value', type: 'uint256' },
       { name: 'nonce', type: 'uint256' }, { name: 'deadline', type: 'uint256' },
@@ -81,21 +93,31 @@ try {
   const p1 = privateKeyToAccount(generatePrivateKey());
 
   console.log('1. guest onboarding');
-  const ob = await Promise.all([p0, p1].map(async (a) => req('POST', '/api/onboard', await signed(a, 'onboard'))));
+  // One after the other: the faucet has a cooldown, so the first is paid now.
+  const ob = [];
+  for (const a of [p0, p1]) ob.push(await req('POST', '/api/onboard', await signed(a, 'onboard')));
   check('both guests onboard', ob.every((r) => r.status === 200), ob.map((r) => r.data?.error ?? r.status).join(','));
   const [ids0] = await read$(dep.cards, cardsAbi, 'cardsOf', [p0.address]);
   const [ids1] = await read$(dep.cards, cardsAbi, 'cardsOf', [p1.address]);
   check('each holds an 8-card starter deck', ids0.length === 8 && ids1.length === 8);
   const ausd0 = await read$(dep.ausd, erc20Abi, 'balanceOf', [p0.address]);
-  check('each received 10,000 AUSD from the faucet', ausd0 === 10_000_000_000n, String(ausd0));
+  check('the first guest was paid by the real AUSD faucet', ob[0].data?.ausd === 'sent' && ausd0 > 0n, `${ob[0].data?.ausd} ${ausd0}`);
+  check('the second is queued inside the faucet cooldown (or paid)', ['queued', 'sent'].includes(ob[1].data?.ausd), ob[1].data?.ausd);
+  if ((await read$(dep.ausd, erc20Abi, 'balanceOf', [p1.address])) < 1_000_000n) {
+    await write(p0, { address: dep.ausd, abi: erc20Abi, functionName: 'transfer', args: [p1.address, 100_000_000n] });
+  }
   for (const a of [p0, p1]) {
     await pub.waitForTransactionReceipt({ hash: await wallet(funder).sendTransaction({ to: a.address, value: parseEther('2') }) });
   }
 
-  console.log('\n2. a card minted with a fresh Pyth price in the same tx');
-  const coinId = 26; // NVDA, a stock: its feed allows a weekend-old price
+  // (the MON for gas is above; both now hold AUSD for a $1 stake)
+
+  console.log('\n2. a card minted with a fresh signed live price in the same tx');
+  const coinId = 0; // BTC
   const up = await req('GET', `/api/pyth/update?coinIds=${coinId}`);
-  check('the relay serves a Pyth update (mock mode, labelled)', up.status === 200 && up.data?.mode === 'mock' && up.data.updateData.length === 1);
+  check('the relay signs a live price update (local oracle)', up.status === 200 && up.data?.mode === 'local' && up.data.updateData.length === 1,
+    `${up.status} ${up.data?.mode} missing=${up.data?.missing}`);
+  check('the price is a live market quote', ['okx', 'coingecko'].includes(up.data?.prices?.[0]?.source), up.data?.prices?.[0]?.source);
   const fee = await read$(dep.pyth, pythAbi, 'getUpdateFee', [up.data.updateData]);
   const mintFee = await read$(dep.cards, cardsAbi, 'mintFee');
   const mintRc = await write(p0, { address: dep.cards, abi: cardsAbi, functionName: 'mint', args: [coinId, up.data.updateData], value: mintFee + fee });
@@ -104,19 +126,20 @@ try {
   check('the card records the posted price', String(minted.mintPrice) === up.data.prices[0].price && Number(minted.coinId) === coinId);
   check('mint receipt has a CardMinted log', mintRc.logs.length > 0);
 
-  console.log('\n3. market meta from Pyth momentum');
-  const now = Number((await pub.getBlock()).timestamp);
-  await rpc('evm_setNextBlockTimestamp', [`0x${(Math.ceil((now + 1) / 600) * 600 + 5).toString(16)}`]);
-  const all = await req('GET', `/api/pyth/update?coinIds=${[0, 1, 2, 3, 26].join(',')}`);
+  console.log('\n3. market meta from price momentum');
+  // No time warp: the fresh deployment has posted no epoch, and the prices
+  // are live — warping ahead would only make them stale.
+  const all = await req('GET', `/api/pyth/update?coinIds=${[0, 1, 2, 3, 4].join(',')}`);
+  check('five live prices signed', all.data?.prices?.length === 5, `missing=${all.data?.missing}`);
   const metaFee = await read$(dep.pyth, pythAbi, 'getUpdateFee', [all.data.updateData]);
   await write(funder, { address: dep.marketMeta, abi: metaAbi, functionName: 'postFromPyth', args: [all.data.prices.map((p) => p.coinId), all.data.updateData], value: metaFee });
   const epoch = await read$(dep.marketMeta, metaAbi, 'currentEpoch');
   const src = await read$(dep.marketMeta, metaAbi, 'epochSource', [epoch]);
-  const nvdaBps = await read$(dep.marketMeta, metaAbi, 'modifierBps', [epoch, coinId]);
+  const btcBps = await read$(dep.marketMeta, metaAbi, 'modifierBps', [epoch, coinId]);
   const p = all.data.prices.find((x) => x.coinId === coinId);
   const expected = Math.max(-1500, Math.min(1500, Math.trunc(((Number(p.price) - Number(p.ema)) * 20000) / Number(p.ema))));
-  check('a Pyth-sourced epoch was posted', Number(src) === 1 && epoch > 0n);
-  check('the modifier is spot-vs-EMA momentum, computed on chain', Number(nvdaBps) === expected, `${nvdaBps} vs ${expected}`);
+  check('a price-sourced epoch was posted', Number(src) === 1 && epoch > 0n);
+  check('the modifier is spot-vs-EMA momentum, computed on chain', Number(btcBps) === expected, `${btcBps} vs ${expected}`);
 
   console.log('\n4. a $1 AUSD match: permits, session keys, settlement');
   const stake = await read$(dep.arena, arenaAbi, 'stakeFor', [dep.ausd, 0]);
@@ -197,6 +220,7 @@ try {
   check('and every card is free again', lockedAfter.every((l) => !l));
   void encodeFunctionData;
 } finally {
-  relay.stop();
+  await relay.stop();
+  await tc.stop();
 }
 process.exit(done() ? 1 : 0);

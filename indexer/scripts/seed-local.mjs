@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Real game activity on the LOCAL anvil chain, for the indexer to index.
 //
-//   node scripts/seed-local.mjs            # needs anvil :8611 + relay :8799 (scripts/local-up.sh --relay)
+//   node scripts/seed-local.mjs            # needs anvil :8612 + relay :8799 (scripts/local-up.sh --relay)
 //
 // Two fresh wallets, funded with MON from anvil account #0, onboarded through
 // the relay (signed POST /api/onboard: 8-card starter deck, AUSD, MON drip),
@@ -18,7 +18,7 @@
 // Everything it did is written to .local/seed-manifest.json, which
 // scripts/verify-local.mjs checks against the indexer.
 //
-// Env: MEMPIRE_RPC (http://127.0.0.1:8611), MEMPIRE_RELAY (http://localhost:8799),
+// Env: MEMPIRE_RPC (http://127.0.0.1:8612), MEMPIRE_RELAY (http://localhost:8799),
 //      SEED_MAX_WAIT seconds to wait on a chest timer before skipping it (60).
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -41,7 +41,7 @@ import { foundry } from "viem/chains";
 const here = dirname(fileURLToPath(import.meta.url));
 const indexerDir = join(here, "..");
 const repoDir = join(indexerDir, "..");
-const RPC = process.env.MEMPIRE_RPC ?? "http://127.0.0.1:8611";
+const RPC = process.env.MEMPIRE_RPC ?? "http://127.0.0.1:8612";
 const RELAY = process.env.MEMPIRE_RELAY ?? "http://localhost:8799";
 const MAX_WAIT = Number(process.env.SEED_MAX_WAIT ?? 60);
 const MNEMONIC = "test test test test test test test test test test test junk";

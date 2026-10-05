@@ -69,14 +69,17 @@ export async function startRelay(port, env = {}) {
   process.on('exit', kill);
 
   const base = `http://127.0.0.1:${port}`;
-  for (let i = 0; i < 60; i += 1) {
+  // A cold boot off a busy external disk can take 30 s (viem alone is ~10 s to
+  // import), so wait generously — and fail loudly rather than carry on.
+  let up = false;
+  for (let i = 0; i < 480 && !up; i += 1) {
     if (child.exitCode !== null) throw new Error(`relay exited during boot:\n${log}`);
     try {
-      const r = await fetch(`${base}/api/health`);
-      if (r.ok) break;
+      up = (await fetch(`${base}/api/health`)).ok;
     } catch { /* not listening yet */ }
-    await new Promise((r) => { setTimeout(r, 250); });
+    if (!up) await new Promise((r) => { setTimeout(r, 250); });
   }
+  if (!up) { kill(); throw new Error(`relay did not answer /api/health within 120 s:\n${log}`); }
   return {
     base,
     log: () => log,

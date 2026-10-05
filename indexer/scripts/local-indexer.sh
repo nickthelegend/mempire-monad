@@ -29,7 +29,7 @@ mkdir -p "$RUN"
 PG_PORT="${MEMPIRE_PG_PORT:-5435}"
 HASURA_PORT="${MEMPIRE_HASURA_PORT:-8090}"
 INDEXER_PORT="${MEMPIRE_INDEXER_PORT:-9911}"
-RPC="${MEMPIRE_RPC:-http://127.0.0.1:8611}"
+RPC="${MEMPIRE_RPC:-http://127.0.0.1:8612}"
 NET=mempire-envio-net
 PG=mempire-envio-postgres
 HASURA=mempire-envio-hasura

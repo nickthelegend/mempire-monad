@@ -10,12 +10,17 @@
  * Then the routes, with no Privy keys: every one answers 503 and the config
  * names exactly which keys are missing. There is no stand-in mode to test.
  *
- *   node test-privy.mjs   (needs shared/deployments for the arena address)
+ *   node test-privy.mjs   (forks Monad testnet on :8613 for a real deployment)
  */
 import { encodeFunctionData, erc20Abi } from 'viem';
-import { abis, deployment } from './chain.js';
-import { checkPolicy, matchPolicy } from './privy.js';
+import { startTestChain } from './test-chain.mjs';
 import { client, startRelay, tally } from './test-util.mjs';
+
+// chain.js reads CHAIN_ID when it loads, so pick the test fork first.
+const tc = await startTestChain();
+process.env.CHAIN_ID = String(tc.chainId);
+const { abis, deployment } = await import('./chain.js');
+const { checkPolicy, matchPolicy } = await import('./privy.js');
 
 const { check, done } = tally();
 const PORT = Number(process.env.PORT ?? 8795);
@@ -48,7 +53,7 @@ check('no consent is refused', /no session signer consent/.test(checkPolicy(call
 check('an expired consent is refused', /expired/.test(checkPolicy(call('play', [1n, 1, 0, 0, 0]), { expiresAt: now - 1 }) ?? ''));
 
 console.log('\n3. no keys → honest 503s, no stand-in');
-const relay = await startRelay(PORT, { CHAIN_ID: '31337', RPC_URL: process.env.RPC_URL ?? 'http://127.0.0.1:8612' });
+const relay = await startRelay(PORT, { CHAIN_ID: String(tc.chainId), RPC_URL: tc.rpcUrl });
 const req = client(relay.base);
 try {
   const cfg = await req('GET', '/api/privy/config');
@@ -61,6 +66,7 @@ try {
   const gone = await req('POST', '/api/privy/mock/login', { email: 'a@b.c' });
   check('there is no mock login route', gone.status === 404);
 } finally {
-  relay.stop();
+  await relay.stop();
+  await tc.stop();
 }
 process.exit(done() ? 1 : 0);

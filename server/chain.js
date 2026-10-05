@@ -27,7 +27,9 @@ export const RPC_URL = process.env.RPC_URL || 'https://testnet-rpc.monad.xyz';
  * scanner to find it. The starter deck is not gated: it costs only gas, the
  * contract allows it once per address, and it is the product on every chain.
  */
-export const IS_TEST_CHAIN = CHAIN_ID === 10143 || CHAIN_ID === 31337;
+/** Local anvil chains: the dev stack (31337) and the throwaway test fork (31338). */
+export const IS_DEV_CHAIN = CHAIN_ID === 31337 || CHAIN_ID === 31338;
+export const IS_TEST_CHAIN = CHAIN_ID === 10143 || IS_DEV_CHAIN;
 
 const read = (rel) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
 const abiOf = (name) => {
@@ -103,7 +105,7 @@ export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export const chain = defineChain({
   id: CHAIN_ID,
-  name: CHAIN_ID === 10143 ? 'Monad Testnet' : CHAIN_ID === 31337 ? 'Anvil' : `Chain ${CHAIN_ID}`,
+  name: CHAIN_ID === 10143 ? 'Monad Testnet' : IS_DEV_CHAIN ? 'Anvil' : `Chain ${CHAIN_ID}`,
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 });

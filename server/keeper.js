@@ -11,7 +11,7 @@
  * `META_KEEPER=1`. When a CRE workflow is the meta's writer, leave it off: the
  * two share one epoch clock and whichever posts first owns the window.
  */
-import { abis, CHAIN_ID, deployment, publicClient, roster } from './chain.js';
+import { abis, deployment, IS_DEV_CHAIN, publicClient, roster } from './chain.js';
 import { fetchPythUpdate, pythConfigured } from './pyth.js';
 import { relayerAddress, sendRelayerTx } from './relayer.js';
 
@@ -27,7 +27,7 @@ export const keeperStatus = () => ({ enabled: enabled(), ...last });
 function enabled() {
   const flag = process.env.META_KEEPER;
   if (flag === '0') return false;
-  return (flag === '1' || CHAIN_ID === 31337) && Boolean(deployment?.marketMeta) && pythConfigured();
+  return (flag === '1' || IS_DEV_CHAIN) && Boolean(deployment?.marketMeta) && pythConfigured();
 }
 
 /** Posts this window's meta if nobody has yet. Returns the tx hash or null. */

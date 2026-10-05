@@ -17,3 +17,8 @@ cre/**/node_modules/
 cre/**/.env
 .vercel
 .local/
+# the throwaway test fork (server/test-chain.mjs)
+shared/deployments/31338.json
+server/shared/deployments/31338.json
+app/src/shared/deployments/31338.json
+contracts/broadcast/*/31338/

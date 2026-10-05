@@ -33,6 +33,7 @@
  */
 import { createWalletClient, http } from 'viem';
 import { nonceManager, privateKeyToAccount } from 'viem/accounts';
+import { CHAIN_ID } from './chain.js';
 import { RPC_URL, abis, chain, deployment, publicClient, sameAddress } from './chain.js';
 
 const GAS_MARGIN_NUM = 115n;
@@ -128,7 +129,21 @@ export async function sendRelayerTx(call) {
     return wallet.sendTransaction({ to: call.to, value: call.value, gas: (gas * GAS_MARGIN_NUM) / GAS_MARGIN_DEN });
   };
 
-  const run = tail.then(submit, submit);
+  /*
+   * A nonce error means the nonce manager's local count fell behind the chain
+   * — another process sent with this key, or a node dropped a transaction.
+   * Reset it to the chain's count and try once more; a second failure is real.
+   */
+  const submitOnce = async () => {
+    try {
+      return await submit();
+    } catch (e) {
+      if (!/nonce/i.test(String(e?.shortMessage ?? e?.message ?? e))) throw e;
+      nonceManager.reset({ address: account.address, chainId: CHAIN_ID });
+      return submit();
+    }
+  };
+  const run = tail.then(submitOnce, submitOnce);
   // The chain continues whether this one succeeded or not; a failure is this
   // caller's to handle, not every later caller's.
   tail = run.catch(() => {});

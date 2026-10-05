@@ -15,10 +15,14 @@
  */
 import { encodeAbiParameters, keccak256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { CHAIN_ID, coinById, deployment } from './chain.js';
+import { CHAIN_ID, coinById, deployment, IS_DEV_CHAIN } from './chain.js';
 
 const HERMES = (process.env.PYTH_HERMES_URL || 'https://pyth.dourolabs.app/hermes').replace(/\/+$/, '');
 const KEY = process.env.PYTH_API_KEY || '';
+const TTL_MS = 2_000;
+/** A mint posts one feed; a deck screen might price eight. Beyond that is a scrape. */
+const MAX_FEEDS = 16;
+const cache = new Map(); // sorted coin ids → { at, body } | { at, inflight }
 
 /*
  * Where signed price updates come from:
@@ -27,7 +31,7 @@ const KEY = process.env.PYTH_API_KEY || '';
  *  - `local`: LOCAL CHAIN ONLY (31337). The game's contracts point at a
  *    LocalPriceOracle that accepts an update only if this relay's oracle key
  *    signed it — Pyth's model on a chain Pyth does not serve. The relay signs
- *    *only* a live market quote it just read (CoinGecko), with that quote's own
+ *    *only* a live market quote it just read (OKX, or CoinGecko), with that quote's own
  *    timestamp as the publish time, and its moving-average leg derived from the
  *    quote's real 24-hour change. No quote, no update: the caller gets an
  *    error, never a number nobody quoted.
@@ -36,8 +40,8 @@ const KEY = process.env.PYTH_API_KEY || '';
 const ORACLE_KEY = process.env.ORACLE_PRIVATE_KEY || '';
 const MODE = (() => {
   if (KEY) return 'hermes';
-  if (ORACLE_KEY && CHAIN_ID === 31337) return 'local';
-  if (ORACLE_KEY) console.warn('pyth: ORACLE_PRIVATE_KEY is only honoured on the local chain (31337)');
+  if (ORACLE_KEY && IS_DEV_CHAIN) return 'local';
+  if (ORACLE_KEY) console.warn('pyth: ORACLE_PRIVATE_KEY is only honoured on a local dev chain (31337/31338)');
   return 'off';
 })();
 export const pythMode = () => MODE;
@@ -49,7 +53,7 @@ const oracle = () => (oracleAccount ??= privateKeyToAccount(ORACLE_KEY));
 const live = new Map();
 export function noteLivePrices(rows) {
   for (const r of rows ?? []) {
-    if (r?.priceUsd > 0 && r.source === 'coingecko') live.set(r.coinId, r);
+    if (r?.priceUsd > 0 && (r.source === 'okx' || r.source === 'coingecko')) live.set(r.coinId, r);
   }
 }
 
@@ -87,7 +91,7 @@ async function localUpdate(coins) {
       [{ type: 'bytes32' }, { type: 'int64' }, { type: 'int32' }, { type: 'int64' }, { type: 'uint64' }, { type: 'bytes' }],
       [c.feedId, price, EXPO, ema, publishTime, signature],
     ));
-    prices.push({ coinId: c.coinId, price: String(price), expo: EXPO, publishTime: at, ema: String(ema), source: 'coingecko' });
+    prices.push({ coinId: c.coinId, price: String(price), expo: EXPO, publishTime: at, ema: String(ema), source: q.source });
   }
   return { mode: 'local', updateData, prices, missing };
 }
