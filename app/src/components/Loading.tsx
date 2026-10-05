@@ -60,7 +60,7 @@ export function Loading({ label = 'Entering the arena' }: { label?: string }) {
             border: '2.5px solid var(--ink)', boxShadow: 'var(--bevel-in)',
           }}
         >
-          {/* progress is the Solana beam, not the gold button face — gold in this
+          {/* progress is the violet beam, not the gold button face — gold in this
               world means SOL is moving, and nothing is moving here */}
           <div style={{
             height: '100%',

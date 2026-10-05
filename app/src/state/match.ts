@@ -58,11 +58,11 @@ export interface MatchResult {
   crowns: [number, number]; // towers felled, [you, them]
   chest: ChestTier | null; // won a chest, unless all four slots were full
   /**
-   * Whether a lamport actually moved for this match.
+   * Whether any MON or AUSD actually moved for this match.
    *
    * `potSol` is what the tier *says* a pot is worth and is filled in whether or
    * not escrow opened, so it cannot answer this. Without the distinction the
-   * leaderboard's net-SOL column accumulates winnings from matches that
+   * leaderboard's net-MON/AUSD columns accumulates winnings from matches that
    * escrowed nothing — a running total of money that never existed.
    */
   escrowed: boolean;
@@ -315,7 +315,7 @@ function sharedNow(): number {
   return Date.now() + clockSkew;
 }
 /**
- * SOL escrowed for a human match that has not settled yet. Every abnormal exit
+ * MON or AUSD escrowed for a human match that has not settled yet. Every abnormal exit
  * between escrow and settlement — opponent vanishing before the start, the sim
  * failing to build, a desync — must pass through here exactly once, or the
  * stake either leaks (player loses money to a bug) or duplicates (free money).
@@ -532,34 +532,11 @@ export const useMatch = create<MatchStore>((set, get) => ({
     pvpClose();
     usePlayLog.getState().reset();
 
-    /**
-     * Put the match on Solana and its log on a MagicBlock rollup.
-     *
-     * Not awaited, and never blocking: a wallet that cannot sign, an
-     * undeployed program, or a rollup that will not come up all leave the
-     * simulated match running exactly as before. The rollup badge reports which
-     * of those happened rather than the UI implying an onchain match that isn't.
-     *
-     * Practice is excluded on purpose — it stakes nothing, so there is nothing
-     * to escrow and no reason to spend a commit quota on it.
-     */
     /*
-     * The base-layer escrow is not opened *here*, at queue time.
-     *
-     * It once was, and that was the bug: `openOnchainMatch` escrowed real
-     * lamports the moment a player queued, into a settlement path that did not
-     * exist yet. That did not lose a fraction of a stake — it stranded the
-     * whole thing every time and locked the player's eight cards with it.
-     *
-     * Since then `joinMatchTx`, `settleTx` and `claimTimeoutTx` have all been
-     * wired (`state/escrow.ts`), and the stake is real: escrowed when a human
-     * opponent is found, settled from the rollup log, released on timeout. A
-     * two-browser run against production confirms the pot moves and the winner
-     * is paid. AUDIT.md records A2 as closed.
-     *
-     * What stays true is the ordering. Escrow opens once there is an opponent
-     * to escrow against, not on a speculative queue — which is why the call
-     * lives in the matched path rather than in this one.
+     * The stake is not escrowed *here*, at queue time. Escrow opens in
+     * `MempireArena.createMatch`/`joinMatch` once there is an opponent to
+     * escrow against, not on a speculative queue — which is why the call lives
+     * in the matched path rather than in this one. Practice stakes nothing.
      */
     set({
       status: 'queuing',
@@ -669,7 +646,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
           void useEscrow.getState().join(
             msg.onchainMatchId, p.stake, p.currency, p.opponent, p.deck,
           ).then((ok) => {
-            // Seat 1 needs the rollup too.
+            // Seat 1 needs the play log too.
             //
             // Only the `joined` branch below started it, and that branch is
             // seat 0's. So seat 1 never left `phase: 'off'`, `play` returns
@@ -808,7 +785,8 @@ export const useMatch = create<MatchStore>((set, get) => ({
     // The opponent applies the identical event at the identical tick — that,
     // and nothing else, is what keeps the two sims one game.
     if (mode === 'human') pvpSendInput(ev);
-    // Write the play to the ephemeral rollup. Deliberately not awaited: the
+    // Log the play on chain (`MempireArena.play`, signed by the match's
+    // session key). Deliberately not awaited: the
     // local sim is authoritative for what the player sees, and a battle must
     // never stall on a network round trip. The store counts failures instead of
     // hiding them.
@@ -903,10 +881,10 @@ function stepOne(sim: SimState): void {
     // The server compares this against the opponent's hash for the same tick.
     // A mismatch voids the match.
     if (mode === 'human') pvpSendHash(sim.tick, h);
-    // And the rollup keeps the checkpoint onchain, which is what makes the
+    // And the arena keeps the checkpoint on chain, which is what makes the
     // anti-cheat story verifiable by anyone rather than by our own relay.
-    // Every fourth checkpoint: the sponsored commit quota is finite, and one
-    // hash per 8 seconds of play is enough to bound a divergence.
+    // Every fourth checkpoint: each is a transaction, and one hash per 8
+    // seconds of play is enough to bound a divergence.
     if (sim.tick % (HASH_EVERY_TICKS * 4) === 0) {
       usePlayLog.getState().mark(sim.tick, BigInt(h >>> 0));
     }
@@ -1453,8 +1431,8 @@ function settle(): void {
   humanEscrowSol = 0; // consumed by the payout rules below
   const crowns = countCrowns(sim, perspective);
 
-  // Seal the rollup log and bring it home. Not awaited: the result screen must
-  // appear immediately, and the commit is observable through the rollup badge.
+  // Claim the result on chain. Not awaited: the result screen must appear
+  // immediately, and the claim is observable through the play-log badge.
   // The final hash is the last checkpoint, which is what settlement records.
   if (sim.phase === 'ended') {
     const finalHash = hashes.length ? hashes[hashes.length - 1] : 0;
@@ -1521,16 +1499,6 @@ function settle(): void {
   // A win earns a chest. Full slots deliberately award nothing — that pressure
   // is what makes the skip-timer purchase land. Practice earns nothing at all,
   // so it cannot be farmed for chests.
-  // A chest tier is the one outcome the house picks, so it goes through the
-  // MagicBlock VRF oracle whenever this session can sign. `Math.random()` here
-  // is the Guest path only, and the chest records which it was — a UI that
-  // showed the same badge either way would be lying about exactly the mechanic
-  // players are right to distrust.
-  //
-  // Awarded optimistically with a local roll and reconciled when the oracle
-  // answers: the result screen must not wait on an async callback, and a chest
-  // that silently changes tier a second later is worse than one that arrives
-  // already labelled as unverified.
   // A staked win's chest is granted by the arena itself, on chain, when the
   // two claims agree — awarding a local one too would pay the win twice.
   // Unstaked wins earn no chest: there is nothing on chain to grant it from.

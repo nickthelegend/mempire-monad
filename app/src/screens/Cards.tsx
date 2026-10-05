@@ -465,10 +465,6 @@ export function Cards() {
           ))}
         </div>
         <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>
-          {/* "mocked on devnet" was accurate and still the wrong word: it reads
-              as a stub someone left in, when the fact is that a devnet mint has
-              no market to quote. Naming the reason keeps the disclosure and
-              drops the implication. */}
           A fighter can be minted only with a fresh Pyth price for it, posted in the
           mint transaction itself — no live price, no card. Today&apos;s ▲▼ is the
           market meta: Chainlink CRE turns each asset&apos;s 24h move into a bounded

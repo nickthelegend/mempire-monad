@@ -82,9 +82,9 @@ export function Shop() {
        * One transaction, one fee, in the currency the button names.
        *
        * This used to spend $MEMPIRE here and *then* call `mintCardTx`, which
-       * takes the lamport mint fee unconditionally — so the player who chose
-       * the $MEMPIRE price paid it on top of the SOL one, and the token route
-       * was strictly worse than the SOL route it was offered beside. The
+       * takes the MON mint fee unconditionally — so the player who chose
+       * the $MEMPIRE price paid it on top of the MON one, and the token route
+       * was strictly worse than the MON route it was offered beside. The
        * program now takes one or the other, and the amount is its own constant
        * rather than a number this screen made up.
        *
@@ -198,7 +198,7 @@ export function Shop() {
                   <span className="display display--sm" style={{ fontSize: 15 }}>{tickerOf(coin)}</span>
                   {/*
                     * Only where it is real. Onchain both prices are fixed —
-                    * the program's $MEMPIRE constant and its lamport mint fee —
+                    * the program's $MEMPIRE constant and its MON mint fee —
                     * so a discount badge would advertise a reduction that the
                     * chain does not apply. It still means something in the
                     * simulated economy, where this screen is the ledger.

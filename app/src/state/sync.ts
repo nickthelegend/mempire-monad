@@ -16,8 +16,8 @@ import { useShop } from './shop';
 import { useWallet } from './wallet';
 
 /**
- * Saved state can be older than the coin registry. When the devnet mints were
- * replaced with the real seeded ones, every card persisted before the swap
+ * Saved state can be older than the coin registry. When the coin registry was
+ * replaced, every card persisted before the swap
  * pointed at a mint that no longer exists — and `coin.ticker` on undefined
  * crashed the Battle button for exactly the returning players who had the most
  * invested. Migration rule: cards from retired mints are dropped on load, deck

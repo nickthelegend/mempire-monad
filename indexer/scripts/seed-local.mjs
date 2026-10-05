@@ -54,9 +54,13 @@ const metaAbi = abi("MarketMeta");
 const tokenAbi = abi("MempireToken");
 const ausdAbi = [
   ...erc20Abi,
-  { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
   { type: "function", name: "nonces", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "eip712Domain", stateMutability: "view", inputs: [], outputs: [
+    { type: "bytes1" }, { type: "string" }, { type: "string" }, { type: "uint256" }, { type: "address" }, { type: "bytes32" }, { type: "uint256[]" },
+  ] },
 ];
+/** Agora's testnet faucet (present on the fork): `requestFunds(to)`, one call per cooldown. */
+const faucetAbi = [{ type: "function", name: "requestFunds", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }], outputs: [] }];
 
 const chain = { ...foundry, rpcUrls: { default: { http: [RPC] } } };
 const pub = createPublicClient({ chain, transport: http(RPC) });
@@ -114,8 +118,10 @@ async function deckOf(address) {
 async function ausdPermit(account, value) {
   const nonce = await pub.readContract({ address: dep.ausd, abi: ausdAbi, functionName: "nonces", args: [account.address] });
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+  // The token's own EIP-712 domain — Agora's is "Agora Dollar", not the symbol.
+  const [, name, version, chainId, verifyingContract] = await pub.readContract({ address: dep.ausd, abi: ausdAbi, functionName: "eip712Domain" });
   const signature = await account.signTypedData({
-    domain: { name: "AUSD", version: "1", chainId: chain.id, verifyingContract: dep.ausd },
+    domain: { name, version, chainId: Number(chainId), verifyingContract },
     types: {
       Permit: [
         { name: "owner", type: "address" },
@@ -181,11 +187,21 @@ for (const [name, acct] of [["A", A], ["B", B]]) {
   log(`onboard  ${name}: starter ${o.starter}, ausd ${o.ausd}, mon ${o.mon}`);
   await fund(acct.address, "2");
 }
-// AUSD: the faucet step pays 10,000 — mint directly if it did not land.
-for (const acct of [A, B]) {
-  const bal = await pub.readContract({ address: dep.ausd, abi: ausdAbi, functionName: "balanceOf", args: [acct.address] });
-  if (bal < 10_000_000n) await send(acct, dep.ausd, ausdAbi, "mint", [acct.address, 100_000_000n]);
+// AUSD: the real faucet pays one onboard per cooldown, so usually one of the
+// two holds 10,000 and the other is queued. Whoever holds it sends the other
+// 100; if neither was paid yet, ask the faucet directly until its cooldown ends.
+const ausdOf = (a) => pub.readContract({ address: dep.ausd, abi: ausdAbi, functionName: "balanceOf", args: [a.address] });
+for (let i = 0; (await ausdOf(A)) + (await ausdOf(B)) < 200_000_000n; i += 1) {
+  if (i >= 20) throw new Error("the AUSD faucet never paid — is AUSD_FAUCET set on the relay, and is this a fork of Monad testnet?");
+  try {
+    await send(funder, dep.ausdFaucet ?? "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C", faucetAbi, "requestFunds", [A.address]);
+    log("ausd     faucet paid A directly");
+  } catch {
+    await new Promise((r) => setTimeout(r, 5000)); // inside the cooldown
+  }
 }
+const [rich, poor] = (await ausdOf(A)) >= (await ausdOf(B)) ? [A, B] : [B, A];
+if ((await ausdOf(poor)) < 10_000_000n) await send(rich, dep.ausd, ausdAbi, "transfer", [poor.address, 100_000_000n]);
 // $MEMPIRE for the merge fee and any chest skip / purchase.
 await send(funder, dep.token, tokenAbi, "transfer", [A.address, parseEther("2000")]);
 await send(A, dep.token, tokenAbi, "approve", [dep.cards, parseEther("2000")]);

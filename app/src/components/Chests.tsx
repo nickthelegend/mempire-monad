@@ -252,7 +252,7 @@ function OpenCeremony({
               fontSize: 10, opacity: 0.75, marginTop: 2, userSelect: 'all',
             }}
           >
-            {def.source === 'vrf' ? '🎲 VRF seed ' : def.source === 'chain' ? '⛓ block-hash seed ' : 'local seed '}
+            ⛓ block-hash seed{' '}
             {def.seed.slice(0, 16)}…
           </p>
         </>
@@ -353,19 +353,6 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
             ⛓
           </span>
         )}
-        {chest.source === 'vrf' && (
-          <span
-            title={`Oracle-rolled — tier and contents both derive from ${chest.seed.slice(0, 12)}…`}
-            aria-label="Oracle-rolled chest"
-            style={{
-              position: 'absolute', right: -4, bottom: -2,
-              fontSize: 11, lineHeight: 1,
-              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.7))',
-            }}
-          >
-            🎲
-          </span>
-        )}
       </div>
       {ready ? (
         <button
@@ -408,27 +395,6 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
             {PRICES.chestSkip} $M
           </span>
         </button>
-      ) : chest.rolling ? (
-        /*
-         * No START while the oracle is still deciding.
-         *
-         * The tier on screen at this moment is a local roll, and starting the
-         * timer used to freeze it — `reconcile` refused to overwrite a chest
-         * that had been started. So one tap took whichever of the two rolls
-         * the player preferred, on the single outcome the house is supposed to
-         * decide. A few seconds of "rolling" costs nothing and closes it.
-         */
-        <div
-          aria-label="waiting for the chest roll"
-          style={{
-            ...ACTION,
-            background: 'var(--recess)', border: '2px solid var(--ink)',
-            boxShadow: 'var(--bevel-in)', color: 'var(--dim)',
-            fontSize: 12, fontWeight: 800, letterSpacing: '.04em',
-          }}
-        >
-          ROLLING…
-        </div>
       ) : (
         <button
           disabled={busy}

@@ -161,7 +161,9 @@ section("MarketEpoch (MetaSource)");
 const sourceLogs = await pub.getLogs({
   address: m.contracts.marketMeta,
   event: parseAbiItem("event MetaSource(uint64 indexed epoch, uint8 source, address poster)"),
-  fromBlock: 0n,
+  // From the deployment block: on a fork, anything older is proxied to Monad
+  // testnet, whose eth_getLogs caps the range at 100 blocks.
+  fromBlock: BigInt(JSON.parse(readFileSync(join(indexerDir, "..", "shared/deployments/31337.json"), "utf8")).startBlock),
 });
 const epochs = (await gql(ENDPOINT, `{ MarketEpoch(order_by: { epoch: asc }) { id source sourceCode poster matches } }`)).MarketEpoch;
 const names = ["ChainlinkCRE", "PythMomentum"];

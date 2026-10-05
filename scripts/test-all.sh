@@ -17,6 +17,7 @@ run "app typecheck"              app       npx tsc -b
 run "relay: auth"                server    node test-auth.mjs
 run "relay: memstore"            server    node test-memstore.mjs
 run "relay: locker"              server    node test-locker.mjs
+run "relay: persistence (mongo)" server    node test-persistence.mjs
 run "relay: Kimi AI"             server    node test-ai.mjs
 run "relay: onboarding (chain)"  server    node test-onboard.mjs
 run "relay: settlement (chain)"  server    node test-settlement.mjs

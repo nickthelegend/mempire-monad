@@ -30,7 +30,7 @@ import { loadAiStatus, useAiOpponent, type AiBrain } from '../lib/ai';
  * which is the single most dishonest thing the app could have done: a fake
  * feed of other people's winnings, on the screen whose whole job is to make
  * the pot feel real. It now shows matches the program actually paid, and an
- * empty devnet gets an empty state that says so.
+ * empty chain gets an empty state that says so.
  */
 function useSettlementFeed(): { rows: ChainMatch[]; loading: boolean } {
   const [rows, setRows] = useState<ChainMatch[]>([]);
@@ -391,7 +391,7 @@ export function Arena() {
     .filter((c) => c && !chainCards.some((k) => k.mint === c.mint))
     .map((c) => c!.mint);
   // A guest is no longer blocked by being a guest: its address is a real,
-  // fundable pubkey and it can sign for itself on devnet. What blocks anyone
+  // fundable address and it can sign for itself on testnet. What blocks anyone
   // is the same three things — an unreachable cluster, a deck that is not
   // minted, or not holding the tier.
   const stakeBlocker = chainMode !== 'onchain'
@@ -694,7 +694,7 @@ export function Arena() {
  * Deliberately not a silent background job: minting spends MON per card
  * and the player should be the one deciding to, with the count in front of
  * them. Progress is reported per transaction because three confirmations on
- * devnet is long enough that a static spinner reads as a hang.
+ * testnet is long enough that a static spinner reads as a hang.
  */
 function MintDeckButton({ mints }: { mints: string[] }) {
   const [state, setState] = useState<'idle' | 'busy' | 'done'>('idle');

@@ -94,7 +94,7 @@ export function Token({
       />
       <rect x="8.5" y="22.4" width="15" height="2.4" rx="0.9" fill="#10203f" opacity="0.9" />
 
-      {/* Solana's two colours, kept as the jewels — the coin is a Solana coin */}
+      {/* Two jewels in the app's accent pair, violet and teal */}
       <circle cx="16" cy="18.4" r="1.5" fill="#9945ff" />
       <circle cx="11.4" cy="19.1" r="1" fill="#14f195" />
       <circle cx="20.6" cy="19.1" r="1" fill="#14f195" />

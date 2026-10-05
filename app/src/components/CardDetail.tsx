@@ -82,8 +82,7 @@ export function CardDetail({
   const dps = def.hitTicks > 0 ? Math.round((dmg * 20) / def.hitTicks) : dmg;
   const nextHp = scaleByLevel(def.hp, Math.min(10, card.level + 1));
   const nextDmg = scaleByLevel(def.damage, Math.min(10, card.level + 1));
-  // Absent on devnet: nothing populates `change24h`, so this is undefined for
-  // every coin. It used to fall back to 0, which rendered a green "+0.00%" —
+  // Absent when no live quote has been read for this coin. It used to fall back to 0, which rendered a green "+0.00%" —
   // a number the app had invented, sitting next to figures it had actually
   // read. Missing data shows as missing, the way `fdvUsd` already does.
   const up = coin.change24h;
@@ -212,11 +211,10 @@ export function CardDetail({
               value={onChain?.mintPriceUsd ? fmtUsd(onChain.mintPriceUsd) : '—'}
             />
           </div>
-          {/* The panel is headed "Market" and these look like quotes. On devnet
-              they are seeded by the admin oracle, and the only place that said
-              so was a different screen — which this sheet opens on top of. */}
+          {/* The panel is headed "Market" and these look like quotes, so it
+              says where each number comes from right here. */}
           <p className="fine" style={{ margin: '6px 0 0', color: 'var(--dim-on-wood)' }}>
-            Price: Pyth ({coin.pythSymbol}). Meta: Chainlink CRE → MarketMeta, ±15% max.
+            Price: Pyth ({coin.pythSymbol}). Meta: Chainlink CRE or Pyth momentum → MarketMeta, ±15% max.
             Minted at: the Pyth price posted in the card&apos;s own mint transaction.
           </p>
         </div>

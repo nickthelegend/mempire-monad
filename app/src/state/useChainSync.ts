@@ -164,7 +164,7 @@ function useChainCollection(): void {
      * slot is the difference between escrow opening and the match dropping to
      * "ladder only" — and that is what happened: a wallet holding ten minted
      * coins queued with seven seeded cards, matched a real opponent, and
-     * neither side staked a lamport. The deck had simply never been rebuilt
+     * neither side staked anything. The deck had simply never been rebuilt
      * after they minted, because the saved one was still fillable.
      *
      * So a seeded card is swapped out whenever there is a minted coin free to

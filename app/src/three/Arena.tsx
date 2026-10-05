@@ -284,7 +284,7 @@ export function Arena({ placing }: { placing: boolean }) {
 /**
  * A pennant on a pole, in the owning side's colour.
  *
- * Blue and red rather than the arena's gold: gold means SOL is moving
+ * Blue and red rather than the arena's gold: gold means money is moving
  * everywhere else in this product, and a decorative flag is not that.
  */
 function Banner({ x, z, colour }: { x: number; z: number; colour: string }) {

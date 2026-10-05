@@ -1,5 +1,5 @@
-// FNV-1a 32-bit over the sim's integer fields. Committed to the ephemeral rollup
-// every 40 ticks; a mismatch between clients voids the match.
+// FNV-1a 32-bit over the sim's integer fields. Checkpointed on chain by
+// MempireArena.checkpoint; a mismatch between clients voids the match.
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
 

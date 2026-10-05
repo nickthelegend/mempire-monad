@@ -52,15 +52,15 @@ contracts:
 rollback_on_reorg: false
 chains:
   - id: 31337 # anvil (scripts/local-up.sh)
-    start_block: 0 # from shared/deployments/31337.json (startBlock)
+    start_block: 68498747 # from shared/deployments/31337.json (startBlock)
     rpc:
       - url: http://127.0.0.1:8612
         for: sync
         polling_interval: 500
     contracts:
       - name: MempireCards
-        address: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9" # from shared/deployments/31337.json (cards)
+        address: "0x9D3DA37d36BB0B825CD319ed129c2872b893f538" # from shared/deployments/31337.json (cards)
       - name: MempireArena
-        address: "0x0165878A594ca255338adfa4d48449f69242Eb8F" # from shared/deployments/31337.json (arena)
+        address: "0x9d136eEa063eDE5418A6BC7bEafF009bBb6CFa70" # from shared/deployments/31337.json (arena)
       - name: MarketMeta
-        address: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707" # from shared/deployments/31337.json (marketMeta)
+        address: "0x59C4e2c6a6dC27c259D6d067a039c831e1ff4947" # from shared/deployments/31337.json (marketMeta)

@@ -1,14 +1,14 @@
 /*
 THESIS: a royal court for degen bags — the throne room where meme coins fight
 for real pots; refuses the generic dark-dashboard crypto template.
-OWN-WORLD: near-black violet void, one centered 430px column; Solana purple→teal
-gradient owns interaction, royal gold appears only when SOL moves; blackletter
+OWN-WORLD: near-black violet void, one centered 430px column; violet→teal
+gradient owns interaction, royal gold appears only when money moves; blackletter
 display over geometric sans; gilded card frames, crowns for tiers.
 STORY: connect → see your bags as an army → stake power → BATTLE → pot settles
 onchain; every fee stated where it applies.
 FIRST VIEWPORT: crown + wordmark over tier crowns, one glowing BATTLE pill on a
 throne of money rows, live settlements pulsing teal, deck strip at the thumb.
-FORM: portrait arcade-cabinet column (user-pinned layout law + Solana Royale
+FORM: portrait arcade-cabinet column (user-pinned layout law + the royal-court
 world, chosen in interview); battle runs full-column 3D under the same HUD grammar.
 */
 import { lazy, Suspense } from 'react';

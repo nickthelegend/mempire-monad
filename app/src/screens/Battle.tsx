@@ -48,7 +48,7 @@ function ResultOverlay() {
   const nav = useNavigate();
   if (!result) return null;
   /**
-   * Did any lamport actually move for this match.
+   * Did any MON or AUSD actually move for this match.
    *
    * The card below counts a pot up in gold whether or not one exists. A guest,
    * an un-minted deck, or a wallet too thin to cover the stake all leave
@@ -64,7 +64,7 @@ function ResultOverlay() {
    * The figures on this card come from the simulation, and the simulation
    * finishes the moment the clock does. Settlement is a separate, slower
    * thing: both sides report, or one claims a timeout. If the opponent walks
-   * away — or the rollup log was never delegated — the pot sits in escrow and
+   * away, the pot sits in escrow until the timeout and
    * the payout never lands.
    *
    * The card used to announce "You take +0.09 SOL" in gold regardless, and the
@@ -384,7 +384,7 @@ export function Battle() {
   const [selected, setSelected] = useState<number | null>(null);
   const [confirmQuit, setConfirmQuit] = useState(false);
   /**
-   * Whether a lamport is genuinely at risk in this match.
+   * Whether any stake is genuinely at risk in this match.
    *
    * Same test the result card uses. A bot-fallback Ranked match never escrows,
    * so the forfeit warning must not price it as though it had.

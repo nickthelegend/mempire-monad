@@ -14,7 +14,7 @@ import { fetchStrandedMatches, type ChainMatch } from '../chain/read';
 import { useEscrow } from '../state/escrow';
 
 /**
- * Top players by net SOL, from the persistence API.
+ * Top players by net MON / AUSD, from the persistence API.
  *
  * Renders nothing when the API is down or the board is empty — a leaderboard
  * with no rows is dead weight, and the rest of the screen already works
@@ -29,10 +29,10 @@ function Leaderboard({ me }: { me: string }) {
       if (cancelled) return;
       /* Drop the harness accounts.
        *
-       * A load-test wallet sat in the public top ten at 0W · 162L · +0 SOL,
+       * A load-test wallet sat in the public top ten at 0W · 162L · +0,
        * which is not a player and reads to anyone looking as a bot farming the
        * ladder. A row earns its place by having won something or moved some
-       * SOL; nothing legitimate is excluded by that, because a real player with
+       * money; nothing legitimate is excluded by that, because a real player with
        * zero wins and zero net is also ranked nowhere. */
       setRows(r.filter((row) => row.wins > 0 || (row.netAusd ?? 0) !== 0 || (row.netMon ?? 0) !== 0));
     });
@@ -104,7 +104,7 @@ export function Empire() {
   /*
    * Money totals count only matches where money moved. `escrowed` exists for
    * exactly this: an unstaked match reports the pot it *would* have paid, and
-   * summing those printed a "Won" figure of SOL that never existed — the same
+   * summing those printed a "Won" figure that never existed — the same
    * class of lie the result card was cured of. Rating counts all matches;
    * SOL counts escrowed ones.
    */
@@ -215,14 +215,10 @@ export function Empire() {
           <StakeRecovery />
 
           <p className="fine" style={{ fontSize: 12 }}>
-            {/* This used to read "play money and nothing is escrowed", which was
-                simply untrue: on devnet the guest keypair signs its own
-                transactions, so mints and stakes spend the same real SOL a
-                connected wallet would. Saying otherwise contradicted the
-                connect screen and undersold the one thing that is genuinely
-                onchain here. */}
-            {/* On mainnet a guest cannot sign at all — the browser key is
-                devnet-only by policy — so the guest line only exists there. */}
+            {/* A guest's browser key signs its own transactions, so on testnet
+                mints and stakes spend the same real MON a connected wallet
+                would. On mainnet a guest cannot sign at all — the browser key
+                is testnet-only by policy. */}
             {wallet.isGuest
               ? (IS_MAINNET
                 ? 'Guest mode on mainnet is play-only — connect a wallet to mint, stake, or hold anything real. '
@@ -261,7 +257,7 @@ export function Empire() {
  *
  * Whether a stake is stranded is a fact about the chain, so it is read from
  * the chain: any match this wallet is a player in that has not reached
- * Settled still holds their lamports.
+ * Settled still holds their stake.
  */
 function StakeRecovery() {
   const address = useWallet((s) => s.address);

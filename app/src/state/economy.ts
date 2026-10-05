@@ -37,7 +37,7 @@ export interface OpenedChest extends ChestDef {
   droppedTickers: string[];
   /** The seed these drops came from, so the reward screen can show it. */
   seed: string;
-  source: 'vrf' | 'local' | 'chain';
+  source: 'chain';
 }
 
 export const CHESTS: Record<ChestTier, ChestDef> = {
@@ -82,28 +82,11 @@ export interface ChestSlot {
   readyAt: number;
   unlocking: boolean;
   /**
-   * True while the oracle's answer for this chest is still in flight.
-   *
-   * The tier shown before the oracle replies is a local roll, and the player
-   * could start its timer — which `reconcileNewestChest` refuses to overwrite,
-   * so one tap took whichever of the two rolls they preferred. On the single
-   * outcome the house is supposed to decide, `max(local, vrf)` was available
-   * for free. A rolling chest is not actionable until its roll lands.
+   * Where this chest's contents came from. Always `chain`: `MempireCards`
+   * commits to a future block at `open` and `reveal` derives the drops from
+   * that block's hash, so anyone can re-derive them from the seed below.
    */
-  rolling?: boolean;
-  /**
-   * Where this chest's tier came from.
-   *
-   * `vrf` means a MagicBlock oracle rolled it and `randomness` holds the bytes
-   * that produced it, so anyone can re-derive the result. `local` means this
-   * session cannot sign — Guest play — and the roll was made in the browser.
-   *
-   * Recorded rather than assumed because the difference is the whole claim: a
-   * chest is only "provably fair" if it actually went through the oracle, and
-   * a UI that shows the same badge either way is lying about the one mechanic
-   * where the house picks the outcome.
-   */
-  source: 'vrf' | 'local' | 'chain';
+  source: 'chain';
   /**
    * The 32 bytes this chest's contents are derived from, hex-encoded.
    *
@@ -112,8 +95,6 @@ export interface ChestSlot {
    * rather than of an unrecorded `Math.random()` — the difference between "we
    * picked fairly, trust us" and "here is the input, check it yourself".
    *
-   * `source` says who produced it. Only `vrf` was attested by the oracle, and
-   * only `vrf` earns the fairness claim in the UI.
    */
   seed: string;
 }

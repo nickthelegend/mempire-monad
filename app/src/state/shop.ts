@@ -17,8 +17,7 @@ export const REROLL_COST = 35;
 import { IS_MAINNET } from '../chain/provider';
 
 const DAY_MS = 86_400_000;
-/** Devnet demo pacing so a judge sees a rotation without waiting a day. */
-/** The shop day: real 24h on mainnet, 3 minutes on the devnet demo. */
+/** The shop day: real 24h on mainnet, 3 minutes on testnet so a judge sees a rotation. */
 export const DEMO_DAY_MS = IS_MAINNET ? DAY_MS : 3 * 60_000;
 
 export interface ShopOffer {

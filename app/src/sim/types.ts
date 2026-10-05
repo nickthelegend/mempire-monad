@@ -70,7 +70,7 @@ export const ARCHETYPE_NAMES = ['Tank', 'Swarm', 'Ranged', 'Splash', 'Support', 
 
 /** A deck card as it enters a match: identity + level resolved from staked USD. */
 export interface MatchCard {
-  coinId: string; // mint address (or seeded id on devnet)
+  coinId: string; // the roster coin id
   name: string; // coin ticker, e.g. DOGGO
   archetype: Archetype; // hash(mint) % 6, global and permanent
   /**
