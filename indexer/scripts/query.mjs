@@ -6,9 +6,11 @@
 //   node scripts/query.mjs https://indexer.dev.hyperindex.xyz/<id>/v1/graphql latestPlays
 //   node scripts/query.mjs <endpoint> playerHistory --player 0xabc...
 //
-// Endpoint defaults to $ENVIO_GRAPHQL_URL, then http://localhost:8080/v1/graphql
-// (envio dev). Set HASURA_ADMIN_SECRET for a local Hasura that needs it
-// (envio dev's is "testing"). Addresses are stored lowercase.
+// Endpoint defaults to $ENVIO_GRAPHQL_URL, then http://localhost:8090/v1/graphql
+// (the local anvil stack from scripts/local-indexer.sh; plain `envio dev`
+// against testnet serves :8080). Every query works on the public role, no
+// secret needed; set HASURA_ADMIN_SECRET to send one ("testing" locally).
+// Addresses are stored lowercase.
 import { fileURLToPath } from "node:url";
 
 export const QUERIES = {
@@ -148,6 +150,8 @@ export const QUERIES = {
       MarketEpoch(order_by: { epoch: desc }, limit: 1) {
         epoch
         postedAt
+        source
+        poster
         maxBps
         minBps
         topCoin {
@@ -191,24 +195,32 @@ export const QUERIES = {
     }`,
 };
 
-async function run(endpoint, name, variables) {
+export const LOCAL_ENDPOINT = "http://localhost:8090/v1/graphql";
+
+/** POST a GraphQL document; throws on transport or GraphQL errors. */
+export async function gql(endpoint, query, variables = {}) {
   const headers = { "content-type": "application/json" };
   if (process.env.HASURA_ADMIN_SECRET) headers["x-hasura-admin-secret"] = process.env.HASURA_ADMIN_SECRET;
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ query: QUERIES[name], variables }),
-  });
+  const res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify({ query, variables }) });
   const body = await res.json();
-  if (body.errors) throw new Error(`${name}: ${JSON.stringify(body.errors)}`);
+  if (body.errors) throw new Error(JSON.stringify(body.errors));
   return body.data;
+}
+
+/** Run one of the app's named QUERIES. */
+export async function run(endpoint, name, variables) {
+  try {
+    return await gql(endpoint, QUERIES[name], variables);
+  } catch (e) {
+    throw new Error(`${name}: ${e.message}`);
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const playerAt = args.indexOf("--player");
   const player = playerAt >= 0 ? String(args.splice(playerAt, 2)[1]).toLowerCase() : undefined;
-  const endpoint = args.find((a) => a.startsWith("http")) ?? process.env.ENVIO_GRAPHQL_URL ?? "http://localhost:8080/v1/graphql";
+  const endpoint = args.find((a) => a.startsWith("http")) ?? process.env.ENVIO_GRAPHQL_URL ?? LOCAL_ENDPOINT;
   const only = args.find((a) => a in QUERIES);
   const names = only ? [only] : Object.keys(QUERIES).filter((n) => n !== "playerHistory" || player);
   for (const name of names) {

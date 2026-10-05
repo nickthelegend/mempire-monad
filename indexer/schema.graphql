@@ -53,6 +53,13 @@ enum SeatResult {
   Cancelled
 }
 
+# Who wrote an epoch's meta (MarketMeta.MetaSource): 0 = a Chainlink CRE report
+# through the KeystoneForwarder, 1 = postFromPyth (Pyth spot vs EMA momentum).
+enum MetaSourceKind {
+  ChainlinkCRE
+  PythMomentum
+}
+
 enum ChestTier {
   Silver
   Golden
@@ -381,6 +388,11 @@ type MarketEpoch {
   topCoin: Coin
   bottomCoin: Coin
   matches: Int! # matches that snapshotted this epoch at join
+  # From MetaSource, emitted right after MetaPosted in the same transaction.
+  # Unset only if a MetaPosted is ever seen without one.
+  source: MetaSourceKind
+  sourceCode: Int # raw uint8: 0 = Chainlink CRE, 1 = Pyth momentum
+  poster: String # CRE: the forwarder; Pyth: whoever paid the update fee
   modifiers: [CoinModifier!]! @derivedFrom(field: "epoch")
 }
 

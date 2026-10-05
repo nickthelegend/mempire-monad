@@ -4,3 +4,5 @@ generated/
 .envio/types.d.ts
 .env
 *.log
+.local/
+logs/

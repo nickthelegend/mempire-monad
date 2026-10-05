@@ -6,7 +6,7 @@
 //      contract addresses and start_block from it
 //
 //   node scripts/sync-addresses.mjs              # chain 10143 (Monad testnet)
-//   node scripts/sync-addresses.mjs --chain 31337
+//   node scripts/sync-addresses.mjs --chain 31337 --config config.local.yaml   # local anvil
 //   node scripts/sync-addresses.mjs --check      # exit 1 if config.yaml still has placeholders
 //
 // Idempotent: run it after every deploy, then `pnpm codegen`.
@@ -31,7 +31,8 @@ const CONTRACTS = [
   { name: "MarketMeta", key: "marketMeta" },
 ];
 
-const configPath = join(indexerDir, "config.yaml");
+const configArg = args.indexOf("--config");
+const configPath = join(indexerDir, configArg >= 0 ? args[configArg + 1] : "config.yaml");
 
 if (checkOnly) {
   const cfg = readFileSync(configPath, "utf8");
@@ -98,7 +99,7 @@ let cfg = readFileSync(configPath, "utf8");
 const chainBlock = new RegExp(`(- id: ${chainId}\\b[^\\n]*\\n)([\\s\\S]*?)(?=\\n  - id: |$)`);
 const m = cfg.match(chainBlock);
 if (!m) {
-  console.error(`config.yaml has no chain with id ${chainId}`);
+  console.error(`${configPath} has no chain with id ${chainId}`);
   process.exit(1);
 }
 let block = m[2];

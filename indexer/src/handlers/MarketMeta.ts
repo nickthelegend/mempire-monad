@@ -1,9 +1,14 @@
-// MarketMeta: a Chainlink CRE workflow posts one bounded (±15%) modifier per
-// fighter each epoch. A coin left out of an epoch's report reads 0 on chain for
-// that epoch, so every known coin's current modifier is rewritten, not just the
-// ones in the report.
-import { indexer } from "envio";
-import { meta, totals, updateCoin } from "../lib/common.js";
+// MarketMeta: one bounded (±15%) modifier per fighter each epoch, written by a
+// Chainlink CRE report (onReport) or derived from Pyth momentum (postFromPyth).
+// A coin left out of an epoch's report reads 0 on chain for that epoch, so
+// every known coin's current modifier is rewritten, not just the ones in the
+// report. MetaSource follows MetaPosted in the same transaction and records
+// which of the two wrote the epoch.
+import { indexer, type MarketEpoch } from "envio";
+import { addr, meta, totals, updateCoin } from "../lib/common.js";
+
+/** MarketMeta.SOURCE_CRE = 0, SOURCE_PYTH = 1. */
+export const META_SOURCES = ["ChainlinkCRE", "PythMomentum"] as const;
 
 indexer.onEvent({ contract: "MarketMeta", event: "MetaPosted" }, async ({ event, context }) => {
   const m = meta(event);
@@ -23,7 +28,13 @@ indexer.onEvent({ contract: "MarketMeta", event: "MetaPosted" }, async ({ event,
     if (bottom === undefined || b < bottom.bps) bottom = { coinId, bps: b };
   }
 
+  // Keep a source already recorded for this epoch (MetaSource normally comes
+  // second, but the row must not depend on log order within the tx).
+  const prior = await context.MarketEpoch.get(epochId);
   context.MarketEpoch.set({
+    source: prior?.source,
+    sourceCode: prior?.sourceCode,
+    poster: prior?.poster,
     id: epochId,
     epoch,
     postedAt: m.ts,
@@ -57,4 +68,34 @@ indexer.onEvent({ contract: "MarketMeta", event: "MetaPosted" }, async ({ event,
       context.Coin.set({ ...coin, currentModifierBps: 0, modifierEpoch: epoch });
     }
   }
+});
+
+indexer.onEvent({ contract: "MarketMeta", event: "MetaSource" }, async ({ event, context }) => {
+  const m = meta(event);
+  const epoch = event.params.epoch;
+  const epochId = epoch.toString();
+  const code = Number(event.params.source);
+  const sourceFields = {
+    source: META_SOURCES[code],
+    sourceCode: code,
+    poster: addr(event.params.poster),
+  };
+  const existing = await context.MarketEpoch.get(epochId);
+  const base: MarketEpoch = existing ?? {
+    id: epochId,
+    epoch,
+    postedAt: m.ts,
+    blockNumber: m.block,
+    txHash: m.tx,
+    coinCount: 0,
+    maxBps: 0,
+    minBps: 0,
+    topCoin_id: undefined,
+    bottomCoin_id: undefined,
+    matches: 0,
+    source: undefined,
+    sourceCode: undefined,
+    poster: undefined,
+  };
+  context.MarketEpoch.set({ ...base, ...sourceFields });
 });

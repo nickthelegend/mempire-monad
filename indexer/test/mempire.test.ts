@@ -72,6 +72,13 @@ const metaPosted = (epoch: number, coinIds: number[], bps: number[]) => ({
   params: { epoch: BigInt(epoch), coinIds: coinIds.map(BigInt), bps: bps.map(BigInt) },
 });
 
+/** MarketMeta.MetaSource: 0 = Chainlink CRE, 1 = Pyth momentum. */
+const metaSource = (epoch: number, source: number, poster: Address) => ({
+  contract: "MarketMeta" as const,
+  event: "MetaSource" as const,
+  params: { epoch: BigInt(epoch), source: BigInt(source), poster },
+});
+
 const createMatch = (matchId: number, player: Address, tier: number, currency: Address, stake: bigint, cardIds: number[]) => ({
   contract: "MempireArena" as const,
   event: "MatchCreated" as const,
@@ -539,5 +546,48 @@ describe("market meta", () => {
     t.expect([e2.coinCount, e2.topCoin_id, e2.bottomCoin_id]).toEqual([1, "1", "1"]);
     t.expect((await indexer.CoinModifier.getAll()).length).toBe(4);
     t.expect((await indexer.Totals.getOrThrow("global")).currentEpoch).toBe(2n);
+  });
+
+  it("MetaSource records which source wrote each epoch, whatever order the two logs arrive in", async (t) => {
+    const indexer = createTestIndexer();
+    const tx = chainClock();
+    const FORWARDER: Address = "0x00000000000000000000000000000000000f04d1";
+    const KEEPER: Address = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            ...tx([registerCoin(0, "BTC"), registerCoin(1, "ETH")]),
+            // onReport: MetaPosted, then MetaSource(CRE) in the same tx.
+            ...tx([metaPosted(10, [0, 1], [400, -200]), metaSource(10, 0, FORWARDER)]),
+            // postFromPyth, ten minutes later.
+            ...tx([metaPosted(11, [0, 1], [-1500, 900]), metaSource(11, 1, KEEPER)], 600),
+            // A MetaSource seen before its MetaPosted still ends up on the full row.
+            ...tx([metaSource(12, 1, KEEPER), metaPosted(12, [1], [50])], 600),
+          ],
+        },
+      },
+    });
+
+    const e10 = await indexer.MarketEpoch.getOrThrow("10");
+    const e11 = await indexer.MarketEpoch.getOrThrow("11");
+    const e12 = await indexer.MarketEpoch.getOrThrow("12");
+    t.expect([e10.source, e10.sourceCode, e10.poster, e10.coinCount, e10.maxBps]).toEqual([
+      "ChainlinkCRE",
+      0,
+      FORWARDER,
+      2,
+      400,
+    ]);
+    t.expect([e11.source, e11.sourceCode, e11.poster, e11.minBps, e11.topCoin_id]).toEqual([
+      "PythMomentum",
+      1,
+      KEEPER.toLowerCase(),
+      -1500,
+      "1",
+    ]);
+    t.expect([e12.source, e12.coinCount, e12.maxBps, e12.topCoin_id]).toEqual(["PythMomentum", 1, 50, "1"]);
+    t.expect((await indexer.Coin.getOrThrow("1")).currentModifierBps).toBe(50);
+    t.expect((await indexer.Totals.getOrThrow("global")).currentEpoch).toBe(12n);
   });
 });
