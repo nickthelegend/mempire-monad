@@ -1,186 +1,173 @@
 /**
- * Reads a settled match off the chain so the leaderboard never has to
+ * Reads settled matches and payments off the chain so the relay never has to
  * believe a client about money.
  *
- * `/api/match` used to fold client-asserted `payoutSol`/`potSol`/`escrowed`
- * into the public leaderboard's net-SOL column — one crafted POST per five
- * minutes and the top of the board is fiction. The signature middleware
- * proves *who* is talking, not that what they say happened happened. The
- * chain is what happened.
+ * `/api/match` used to fold client-asserted pot and payout figures into the
+ * public leaderboard's money column — one crafted POST per five minutes and the
+ * top of the board is fiction. The signature middleware proves *who* is
+ * talking, not that what they say happened happened. The chain is what
+ * happened.
  *
- * Layouts are decoded by fixed offset from the program's account structs
- * (single source: chain/programs/mempire/src/lib.rs). If the program's
- * account layout ever changes, the discriminator stays the same but offsets
- * shift — bump these together with the program.
+ * Everything here is a `readContract` against `MempireArena`, whose ABI is the
+ * single source of truth for the struct layout — no offsets to keep in step
+ * with the contract by hand.
  */
-import { Connection, PublicKey } from '@solana/web3.js';
+import { formatUnits, parseEventLogs } from 'viem';
+import { abis, currencyOf, deployment, publicClient, sameAddress } from './chain.js';
 
-const RPC = process.env.SOLANA_RPC ?? 'https://api.devnet.solana.com';
-const PROGRAM_ID = new PublicKey(
-  process.env.MEMPIRE_PROGRAM ?? 'BnLDCAREDpBGenqZr8BTyQu7BCoVewF9XEtMPFBqFxeP',
-);
+export const MATCH_STATE_SETTLED = 3;
+const WINNER_TIE = 2;
+const WINNER_NONE = 3;
 
-let conn = null;
-const connection = () => (conn ??= new Connection(RPC, 'confirmed'));
-
-const u64le = (n) => {
-  const b = Buffer.alloc(8);
-  b.writeBigUInt64LE(BigInt(n));
-  return b;
-};
-
-const matchPda = (id) => PublicKey.findProgramAddressSync(
-  [Buffer.from('match'), u64le(id)], PROGRAM_ID,
-)[0];
-const configPda = () => PublicKey.findProgramAddressSync(
-  [Buffer.from('config')], PROGRAM_ID,
-)[0];
-
-// Config { admin 32, treasury 32, mint_fee u64, rake_bps u16, tie_rake_bps u16, ... }
-let cachedRake = null;
+/*
+ * The arena's rake, cached for a few minutes.
+ *
+ * The rates can change (`setRules`), and the match struct does not record
+ * which rate it settled under, so a match settled before a change and read
+ * after it is credited at the new rate. That error is bounded by the
+ * difference between two rakes on one pot; re-reading per match would spend
+ * two RPC calls per report to shave it. Ten minutes keeps a change visible
+ * quickly without a read per request.
+ */
+let rakeCache = null;
+const RAKE_TTL_MS = 10 * 60_000;
 async function rakeBps() {
-  if (cachedRake) return cachedRake;
-  const info = await connection().getAccountInfo(configPda());
-  if (!info) throw new Error('config account missing');
-  const d = info.data;
-  cachedRake = {
-    rake: d.readUInt16LE(8 + 64 + 8),
-    tieRake: d.readUInt16LE(8 + 64 + 8 + 2),
-  };
-  return cachedRake;
+  if (rakeCache && Date.now() - rakeCache.at < RAKE_TTL_MS) return rakeCache;
+  const client = publicClient();
+  const read = (functionName) => client.readContract({ address: deployment.arena, abi: abis.arena, functionName });
+  const [rake, tieRake] = await Promise.all([read('rakeBps'), read('tieRakeBps')]);
+  rakeCache = { at: Date.now(), rake: BigInt(rake), tieRake: BigInt(tieRake) };
+  return rakeCache;
 }
 
-export const MATCH_STATE_SETTLED = 2;
-
 /**
- * Returns the verified money facts for `address` in match `matchId`, or null
- * when the chain does not support the claim (no such match, not settled, or
- * the address is not a player). Callers treat null as "no lamports moved".
+ * The verified money facts for `address` in arena match `matchId`, or null when
+ * the chain does not support the claim (no such match, not settled, an unknown
+ * stake currency, or the address is not a seat). Callers treat null as "no
+ * money moved".
+ *
+ * Returns `{ currency: 'MON'|'AUSD', net, netUnits, pot, won, draw, players }`,
+ * where `net` is the player's change in display units (a JS number, for the
+ * leaderboard's `$inc`) and `netUnits` the exact base-unit figure as a string.
+ * MON and AUSD are reported separately and must be credited separately: adding
+ * 0.05 MON to 5 AUSD gives a number that means nothing.
  */
 export async function verifySettledMatch(matchId, address) {
+  if (!deployment) return null;
   const id = Number(matchId);
-  if (!Number.isInteger(id) || id < 0) return null;
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
 
-  const info = await connection().getAccountInfo(matchPda(id));
-  if (!info || !info.owner.equals(PROGRAM_ID)) return null;
+  const m = await publicClient().readContract({
+    address: deployment.arena,
+    abi: abis.arena,
+    functionName: 'getMatch',
+    args: [BigInt(id)],
+  });
 
-  const d = info.data;
-  // MatchAccount { id u64, tier u8, stake u64, players 2x32, deck_hash 64,
-  //                power 8, state u8, ..., winner u8 (at 178) }
-  const stakeLamports = d.readBigUInt64LE(8 + 8 + 1);
-  const players = [
-    new PublicKey(d.subarray(25, 57)).toBase58(),
-    new PublicKey(d.subarray(57, 89)).toBase58(),
-  ];
-  const state = d.readUInt8(161);
-  const winner = d.readUInt8(178);
-
-  if (state !== MATCH_STATE_SETTLED) return null;
-  const seat = players.indexOf(String(address));
+  if (Number(m.state) !== MATCH_STATE_SETTLED) return null;
+  const players = [m.p0, m.p1];
+  const seat = players.findIndex((p) => sameAddress(p, address));
   if (seat === -1) return null;
+  const currency = currencyOf(m.currency);
+  if (!currency) return null;
 
-  const { rake, tieRake } = await rakeBps();
-  const stake = Number(stakeLamports) / 1e9;
-  const pot = stake * 2;
+  const stake = BigInt(m.stake);
+  const pot = stake * 2n;
+  const winner = Number(m.winner);
 
   /*
    * Every value `winner` can hold, and no `else`.
    *
-   * The program writes four: 0 or 1 for a seat, 2 for a tie or a disputed
-   * timeout, 3 for `cancel_match`, and `u8::MAX` at creation. This ended with
-   * a bare `else { netSol = -stake }`, so both of the last two landed there.
-   * A cancelled match — one nobody ever joined, whose stake `cancel_match`
-   * hands straight back — was published on the money leaderboard as a
-   * full-stake loss that never happened. It is the one column on that board
-   * claiming to be read from the chain, so inventing a number for it is worse
-   * than declining to.
+   * The arena writes four: 0 or 1 for a seat, 2 for a tie, and 3 for a match
+   * that paid nobody — cancelled before anyone joined, voided because the two
+   * claims disagreed, or timed out with no claim at all. All three of those
+   * refund every stake in full, so the honest figure is zero, not a loss. This
+   * is the one column on the board that claims to be read from the chain, so
+   * inventing a number for it is worse than declining to.
    */
-  let netSol;
+  let net;
   let won = false;
   let draw = false;
-  if (winner === 3) {
-    // cancel_match: no opponent ever joined, the whole stake was refunded.
-    netSol = 0;
-  } else if (winner === 2) {
-    /*
-     * A tie and a disputed timeout both write 2, and they pay differently:
-     * `settle_from_log` takes `tie_rake_bps`, while `claim_timeout`'s dispute
-     * branch refunds in full and rakes nothing. The account does not record
-     * which happened, so this cannot tell them apart — it reports the tie,
-     * which is the common case and errs by at most half the tie rake.
-     */
+  if (winner === WINNER_NONE) {
+    net = 0n;
+  } else if (winner === WINNER_TIE) {
+    // Mirrors `_settle`: the tie rake comes off the pot, then each seat gets
+    // half of what is left (the odd unit goes to the treasury).
+    const { tieRake } = await rakeBps();
+    const half = (pot - (pot * tieRake) / 10_000n) / 2n;
     draw = true;
-    netSol = (pot * (1 - tieRake / 10_000)) / 2 - stake;
+    net = half - stake;
   } else if (winner === seat) {
+    const { rake } = await rakeBps();
     won = true;
-    netSol = pot * (1 - rake / 10_000) - stake;
+    net = pot - (pot * rake) / 10_000n - stake;
   } else if (winner === 0 || winner === 1) {
-    netSol = -stake;
+    net = -stake;
   } else {
-    // Settled with an unset winner is a state the program should never leave
-    // behind. Report nothing rather than guess at it.
+    // A settled match with a winner the contract never writes. Report nothing
+    // rather than guess at it.
     return null;
   }
-  return { netSol, potSol: pot, won, draw, players };
+  return {
+    currency: currency.symbol,
+    net: Number(formatUnits(net, currency.decimals)),
+    netUnits: net.toString(),
+    pot: Number(formatUnits(pot, currency.decimals)),
+    won,
+    draw,
+    players: players.map((p) => p.toLowerCase()),
+  };
+}
+
+/** The treasury game fees are paid to — `MempireCards.treasury()`. */
+export async function treasuryAddress() {
+  if (!deployment) throw new Error('no deployment for this chain');
+  return publicClient().readContract({
+    address: deployment.cards, abi: abis.cards, functionName: 'treasury',
+  });
 }
 
 /**
- * Was `signature` a payment of at least `minTokens` $MEMPIRE from `payer` to
- * the treasury?
+ * Was transaction `hash` a payment of at least `minUnits` of `token` from
+ * `payer` to `treasury`?
  *
  * The clan charter is charged by the browser, and the browser is not evidence.
  * `POST /api/clans` validated a wallet signature — which proves who is
- * talking, not that anyone paid — and then created the clan. The undo it
- * relied on was the *same browser* calling `leave` if the player cancelled, so
- * a caller that simply never ran that code founded a clan for nothing. This is
- * the check that makes the fee a fee.
+ * talking, not that anyone paid. This is the check that makes the fee a fee.
  *
- * Balances rather than instructions: `postTokenBalances` minus
- * `preTokenBalances` for the treasury's account is what actually arrived, and
- * it cannot be fooled by an unusual instruction shape, a CPI, or a transfer
- * split across several instructions.
+ * Transfer events rather than calldata: the sum of the token's own `Transfer`
+ * logs from the payer to the treasury in that receipt is what actually
+ * arrived, and it cannot be fooled by a router, a multicall, or a transfer
+ * split across several calls. The transaction must also have been sent by the
+ * payer, or anyone could cite somebody else's payment.
  *
  * Returns { ok: true, amount } or { ok: false, reason }.
  */
-export async function verifyTokenPayment(signature, payer, mint, treasury, minBaseUnits) {
-  if (typeof signature !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{64,96}$/.test(signature)) {
-    return { ok: false, reason: 'that is not a transaction signature' };
+export async function verifyTokenPayment(hash, payer, token, treasury, minUnits) {
+  if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+    return { ok: false, reason: 'that is not a transaction hash' };
   }
-  let tx;
+  let receipt;
   try {
-    tx = await connection().getParsedTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: 'confirmed',
-    });
+    receipt = await publicClient().getTransactionReceipt({ hash });
   } catch (e) {
-    return { ok: false, reason: `could not read that transaction: ${String(e?.message ?? e).slice(0, 80)}` };
+    if (e?.name === 'TransactionReceiptNotFoundError') {
+      return { ok: false, reason: 'that transaction is not on chain yet' };
+    }
+    return { ok: false, reason: `could not read that transaction: ${String(e?.shortMessage ?? e?.message ?? e).slice(0, 80)}` };
   }
-  if (!tx) return { ok: false, reason: 'that transaction is not on chain yet' };
-  if (tx.meta?.err) return { ok: false, reason: 'that transaction failed on chain' };
-
-  // The payer must have signed it, or anyone could cite somebody else's payment.
-  const signers = (tx.transaction?.message?.accountKeys ?? [])
-    .filter((k) => k.signer)
-    .map((k) => String(k.pubkey));
-  if (!signers.includes(String(payer))) {
-    return { ok: false, reason: 'that payment was not signed by this wallet' };
+  if (receipt.status !== 'success') return { ok: false, reason: 'that transaction failed on chain' };
+  if (!sameAddress(receipt.from, payer)) {
+    return { ok: false, reason: 'that payment was not sent by this wallet' };
   }
 
-  const want = String(mint);
-  const to = String(treasury);
-  const sum = (rows) => (rows ?? [])
-    .filter((b) => String(b.mint) === want && String(b.owner) === to)
-    .reduce((n, b) => n + BigInt(b.uiTokenAmount?.amount ?? '0'), 0n);
-  const delta = sum(tx.meta?.postTokenBalances) - sum(tx.meta?.preTokenBalances);
-  if (delta < BigInt(minBaseUnits)) {
-    return { ok: false, reason: `the treasury received ${delta} of the required ${minBaseUnits}` };
+  const transfers = parseEventLogs({ abi: abis.erc20, eventName: 'Transfer', logs: receipt.logs });
+  const delta = transfers
+    .filter((l) => sameAddress(l.address, token)
+      && sameAddress(l.args.from, payer) && sameAddress(l.args.to, treasury))
+    .reduce((n, l) => n + l.args.value, 0n);
+  if (delta < BigInt(minUnits)) {
+    return { ok: false, reason: `the treasury received ${delta} of the required ${minUnits}` };
   }
   return { ok: true, amount: delta.toString() };
-}
-
-/** The treasury the program is currently configured to pay. */
-export async function treasuryAddress() {
-  const info = await connection().getAccountInfo(configPda());
-  if (!info) throw new Error('config account missing');
-  return new PublicKey(info.data.subarray(8 + 32, 8 + 64)).toBase58();
 }

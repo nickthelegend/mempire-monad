@@ -1,35 +1,48 @@
 /**
- * Mempire persistence API.
+ * Mempire relay: persistence, onboarding, chain reads, and the PvP matchmaker.
  *
  * The browser cannot talk to Atlas directly, so player state lives behind this
  * thin service. One document per wallet address; the client owns game logic and
  * this only stores the result, so a compromised client can't do anything it
- * couldn't already do locally. Real balances move onchain, never here.
+ * couldn't already do locally. Real balances move on chain, never here — the
+ * one key this process signs with is the relayer's, and it can mint a starter
+ * deck and pay a testnet drip, nothing more.
  */
 import cors from 'cors';
 import express from 'express';
-import { requireWallet, setReplayStore, setWalletLimiter } from './auth.js';
-import { verifySettledMatch } from './chain-verify.js';
-import { registerBagsRoutes, bagsConfigured } from './bags.js';
 import { MongoClient } from 'mongodb';
-import { readFileSync } from 'node:fs';
+import { requireWallet, setReplayStore, setWalletLimiter } from './auth.js';
+import { CHAIN_ID, RPC_URL, deployment, normAddress } from './chain.js';
+import { verifySettledMatch } from './chain-verify.js';
 import { registerClanRoutes } from './clans.js';
-import { registerFaucetRoutes } from './faucet.js';
+import { createMemoryDb } from './memstore.js';
+import { registerMarketRoutes } from './market.js';
+import { registerNftRoutes } from './nft.js';
+import { registerOnboardRoutes } from './onboard.js';
 import { registerPlayerRoutes } from './player.js';
+import { registerPythRoutes } from './pyth.js';
+import { relayerAddress } from './relayer.js';
 import { recordEvent, registerTelemetryRoutes } from './telemetry.js';
-import { registerTvlRoutes } from './tvl.js';
 import { registerInsightRoutes } from './insights.js';
 import { errorRecorder, rateLimiter, registerOpsRoutes, walletLimiter } from './ops.js';
 import { applyMatch, leagueFor } from './ranking.js';
 import { registerMatchmaker } from './matchmaker.js';
 
 const { MONGODB_URI, MONGODB_DB = 'mempire', PORT = 8787 } = process.env;
-if (!MONGODB_URI) {
-  console.error('MONGODB_URI missing — copy server/.env.example to server/.env');
-  process.exit(1);
-}
 
-const client = new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+/*
+ * Mongo when configured, process memory when not.
+ *
+ * A deployment sets MONGODB_URI and gets the database it always had. Without
+ * one the relay used to exit, which made a local chain test depend on an Atlas
+ * account; now it runs on `memstore.js` and says so on every boot and in
+ * `/api/health`, because "everything vanished on restart" should never be a
+ * surprise.
+ */
+const client = MONGODB_URI ? new MongoClient(MONGODB_URI, { serverSelectionTimeoutMS: 8000 }) : null;
+if (!client) {
+  console.warn('MONGODB_URI not set — running on an in-memory store; nothing persists across a restart');
+}
 let players;
 let leaderboard;
 let ladder;
@@ -46,7 +59,7 @@ let pairings;
 let db;
 
 const app = express();
-// Heroku terminates TLS at its router, so without this req.ip is the router
+// The host terminates TLS at its edge proxy, so without this req.ip is the proxy
 // for every client — one shared limiter bucket, and one noisy player 429s the
 // whole playerbase. One hop only: trusting the whole chain would make the key
 // a spoofable X-Forwarded-For.
@@ -90,36 +103,71 @@ app.use((err, _req, res, next) => {
  */
 let credits = null;
 let limit = null;
-let bagsLimit = null;
 /*
  * A bucket for the public GETs that are not free to serve.
  *
  * Most reads here are a Mongo lookup and the shared limiter rightly waves them
- * through. Two are not: the faucet status endpoint and the TVL dashboard both
- * spend the relay's RPC quota, and that is the same quota `chain-verify` needs
- * to establish who was paid what. Leaving them on the read exemption meant an
- * anonymous loop against a status endpoint could throttle our egress IP and
- * take money verification down with it.
+ * through. Some are not: onboarding status, card metadata and the Pyth proxy
+ * each spend the relay's RPC quota or its Hermes key, and the RPC quota is the
+ * same one `chain-verify` needs to establish who was paid what. Leaving them on
+ * the read exemption meant an anonymous loop against a status endpoint could
+ * throttle our egress IP and take money verification down with it.
  */
 let readLimit = null;
+/*
+ * And a much tighter one for the route that gives things away.
+ *
+ * `POST /api/onboard` is signed and once per address, but a script with a
+ * thousand fresh keys passes both guards a thousand times. Per IP it gets a
+ * handful of claims and then one a minute — slower than any honest
+ * household of players, far too slow to drain a relayer.
+ */
+let onboardLimit = null;
 app.use((req, res, next) => (limit ? limit(req, res, next) : next()));
+const readGate = (req, res, next) => (readLimit ? readLimit(req, res, next) : next());
+const onboardGate = (req, res, next) => (onboardLimit ? onboardLimit(req, res, next) : next());
 
-const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/; // base58, Solana pubkey shape
-const badAddress = (a) => !a || !ADDRESS.test(a);
+/**
+ * Route addresses arrive in whatever case the wallet produced. Every key this
+ * service stores is lowercase (see `normAddress`), so params are normalised
+ * once, here, and anything that is not a 20-byte hex address is refused before
+ * it reaches a database.
+ */
+const paramAddress = (req) => normAddress(req.params.address);
+
+/** The arena's stake currencies, and the leaderboard column each one ranks in. */
+const CURRENCIES = ['MON', 'AUSD'];
+const NET_FIELD = { MON: 'netMon', AUSD: 'netAusd' };
+
+/*
+ * Chain-facing reads that need no database: roster prices, the Pyth update
+ * proxy, and card metadata. Registered at load so they sit ahead of the
+ * catch-all error handler like everything else.
+ */
+registerMarketRoutes(app);
+registerPythRoutes(app, readGate);
+registerNftRoutes(app, readGate);
 
 app.get('/api/health', async (_req, res) => {
+  const chain = {
+    chainId: CHAIN_ID,
+    rpc: RPC_URL,
+    deployment: Boolean(deployment),
+    relayer: relayerAddress(),
+  };
+  if (!client) return res.json({ ok: true, db: 'memory', persistent: false, chain });
   try {
     await client.db(MONGODB_DB).command({ ping: 1 });
-    res.json({ ok: true, db: MONGODB_DB });
+    res.json({ ok: true, db: MONGODB_DB, persistent: true, chain });
   } catch (e) {
-    res.status(503).json({ ok: false, error: e.message });
+    res.status(503).json({ ok: false, error: e.message, chain });
   }
 });
 
 /** Full saved state for a wallet, or null if this is their first visit. */
 app.get('/api/player/:address', async (req, res) => {
-  const { address } = req.params;
-  if (badAddress(address)) return res.status(400).json({ error: 'bad address' });
+  const address = paramAddress(req);
+  if (!address) return res.status(400).json({ error: 'bad address' });
   try {
     const doc = await players.findOne({ _id: address }, { projection: { _id: 0 } });
     res.json(doc ?? null);
@@ -143,11 +191,10 @@ const num = (v, lo, hi, fallback = 0) => {
 };
 
 app.put('/api/player/:address', requireWallet('player.put'), async (req, res) => {
-  const { address } = req.params;
-  if (badAddress(address)) return res.status(400).json({ error: 'bad address' });
+  const address = req.wallet;
   const {
-    cards, deck, tier, sol, history, nextId,
-    slots, slot, gems, chests, nextChestId, gemsSpent, solSpentOnGems, shop,
+    cards, deck, tier, mon, history, nextId,
+    slots, slot, gems, chests, nextChestId, gemsSpent, monSpentOnGems, shop,
   } = req.body ?? {};
   if (!Array.isArray(cards) || !Array.isArray(deck)) {
     return res.status(400).json({ error: 'cards and deck are required arrays' });
@@ -164,7 +211,7 @@ app.put('/api/player/:address', requireWallet('player.put'), async (req, res) =>
           cards,
           deck,
           tier: num(tier, 0, 3),
-          sol: num(sol, 0, 1_000_000),
+          mon: num(mon, 0, 1_000_000),
           nextId: num(nextId, 1, 1_000_000, 1),
           history: Array.isArray(history) ? history.slice(0, 50) : [],
           slots: Array.isArray(slots) ? slots.slice(0, 3).map((s) => (Array.isArray(s) ? s.slice(0, 8) : [])) : [],
@@ -173,7 +220,7 @@ app.put('/api/player/:address', requireWallet('player.put'), async (req, res) =>
           chests: Array.isArray(chests) ? chests.slice(0, 4) : [],
           nextChestId: num(nextChestId, 1, 10_000_000, 1),
           gemsSpent: num(gemsSpent, 0, 100_000_000),
-          solSpentOnGems: num(solSpentOnGems, 0, 1_000_000),
+          monSpentOnGems: num(monSpentOnGems, 0, 1_000_000),
           shop: shop && typeof shop === 'object'
             ? {
               offers: Array.isArray(shop.offers) ? shop.offers.slice(0, 8) : [],
@@ -203,10 +250,9 @@ app.put('/api/player/:address', requireWallet('player.put'), async (req, res) =>
 
 /** Append one settled match and bump the player's standing. */
 app.post('/api/match/:address', requireWallet('match.post'), async (req, res) => {
-  const { address } = req.params;
-  if (badAddress(address)) return res.status(400).json({ error: 'bad address' });
+  const address = req.wallet;
   const {
-    won, draw, potSol, payoutSol, rakeSol, crowns, escrowed, voided, hashes, matchId,
+    won, draw, pot, payout, rake, currency, crowns, escrowed, voided, hashes, matchId,
   } = req.body ?? {};
   try {
     const now = new Date();
@@ -215,12 +261,12 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
      * Money facts come from the chain or they do not count.
      *
      * The signature on this request proves who sent it, not that the match
-     * it describes happened — `escrowed: true, payoutSol: 999` was accepted
-     * at face value and ranked on the public board. Now an escrowed claim
-     * must name its on-chain match, and the pot, the winner, and the net
-     * movement are read from the settled account itself; a claim the chain
-     * does not support ranks as zero. W/L and crowns still record either
-     * way — rating is the relay's to keep, money is not.
+     * it describes happened — `escrowed: true, payout: 999` was accepted at
+     * face value and ranked on the public board. Now an escrowed claim must
+     * name its arena match, and the currency, the pot, the winner and the net
+     * movement are read from `MempireArena.getMatch` itself; a claim the
+     * chain does not support ranks as zero. W/L and crowns still record
+     * either way — rating is the relay's to keep, money is not.
      */
     let verified = null;
     /*
@@ -247,9 +293,9 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
        * But the claim and the *money* are two different debts, and collapsing
        * them cost honest winners their pot on the board. A client reports the
        * moment its match ends, which is before settlement has landed on chain
-       * — `settle_from_log` is a separate transaction, sent after both seats
-       * agree. So `verifySettledMatch` routinely finds nothing, `netSol` goes
-       * in as zero, and the slot is spent: every later attempt is a duplicate
+       * — the second seat's `claim` is a separate transaction, sent after its
+       * own sim finishes. So `verifySettledMatch` routinely finds nothing, the
+       * net goes in as zero, and the slot is spent: every later attempt is a duplicate
        * and the money is never credited at all. The one column that is
        * chain-verified was the one column guaranteed to be wrong.
        *
@@ -277,15 +323,14 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
           { _id: creditId },
           { $set: { moneyCredited: true, creditedAt: new Date() } },
         );
-        await leaderboard.updateOne({ _id: address }, { $inc: { netSol: late.netSol } });
-        return res.json({ ok: true, duplicate: true, credited: late.netSol });
+        await leaderboard.updateOne({ _id: address }, { $inc: { [NET_FIELD[late.currency]]: late.net } });
+        return res.json({ ok: true, duplicate: true, credited: late.net, currency: late.currency });
       }
       verified = await verifySettledMatch(mid, address).catch(() => null);
       if (verified) {
         await credits.updateOne({ _id: creditId }, { $set: { moneyCredited: true } });
       }
     }
-    const chainNetSol = verified ? verified.netSol : 0;
     await leaderboard.updateOne(
       { _id: address },
       {
@@ -294,11 +339,13 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
           wins: won ? 1 : 0,
           losses: !won && !draw ? 1 : 0,
           draws: draw ? 1 : 0,
-          // Only when lamports actually moved. `potSol` is what the tier says a
-          // pot is worth and is present whether or not escrow opened, so
-          // counting it unconditionally made this column a running total of
-          // money that never existed — a guest's unstaked wins included.
-          netSol: chainNetSol,
+          // Only when money actually moved, and only in the currency it moved
+          // in. `pot` is what the tier says a pot is worth and is present
+          // whether or not escrow opened, so counting it unconditionally made
+          // this column a running total of money that never existed — a
+          // guest's unstaked wins included.
+          netMon: verified?.currency === 'MON' ? verified.net : 0,
+          netAusd: verified?.currency === 'AUSD' ? verified.net : 0,
           /*
            * Bounded, because three towers is all there are.
            *
@@ -322,7 +369,16 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
       {
         $push: {
           history: {
-            $each: [{ won: !!won, draw: !!draw, potSol, payoutSol, rakeSol, crowns, at: now }],
+            $each: [{
+              won: !!won,
+              draw: !!draw,
+              pot: Number(pot) || 0,
+              payout: Number(payout) || 0,
+              rake: Number(rake) || 0,
+              currency: CURRENCIES.includes(currency) ? currency : null,
+              crowns,
+              at: now,
+            }],
             $position: 0,
             $slice: 50,
           },
@@ -350,126 +406,15 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
         draw: !!draw,
         staked: !!escrowed,
         voided: !!voided,
-        potSol: Number(potSol) || 0,
-        rakeSol: Number(rakeSol) || 0,
+        currency: verified?.currency ?? (CURRENCIES.includes(currency) ? currency : null),
+        pot: Number(pot) || 0,
+        rake: Number(rake) || 0,
         hashes: Number(hashes) || 0,
       },
     });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
-  }
-});
-
-// ── Live meme coin feed ──────────────────────────────────────────────────────
-// Sourced server-side so the browser is not blocked by CORS and upstreams see
-// one cached call rather than one per player. Anything that fails to parse is
-// skipped rather than failing the whole list.
-
-const COIN_TTL_MS = 60_000;
-const MIN_LIQUIDITY_USD = 25_000;
-const MIN_AGE_HOURS = 48;
-let coinCache = { at: 0, coins: [] };
-
-const HUE_STEPS = [38, 320, 265, 205, 130, 52, 12, 350, 88, 228, 190, 28, 165, 300, 15];
-
-/**
- * The Solana meme coins worth building a game economy on: deep liquidity, real
- * culture, recognisable art. Addresses ending in `pump` are pump.fun natives.
- * Searching by keyword returned only the PUMP token itself, so the roster is
- * explicit and enriched live.
- */
-const MEME_MINTS = [
-  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK
-  'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF
-  '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', // POPCAT
-  '2qEHjDLDLbuBgRYvsxhc5D6uDWAivNFZGan56P1tpump', // PNUT
-  'A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump', // FWOG
-  'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump', // GOAT
-  'Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump', // CHILLGUY
-  'ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY', // MOODENG
-  'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC', // ai16z
-  '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN', // TRUMP
-  'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5', // MEW
-  'CATSrLdvUWzxXcnKzEVy9M5vBvfSHXDaAysu9DnEpump', // CATS
-];
-
-/** Enrich the roster with live DexScreener market data. */
-async function fetchPumpCoins() {
-  const urls = [
-    `https://api.dexscreener.com/latest/dex/tokens/${MEME_MINTS.join(',')}`,
-  ];
-  const seen = new Map();
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { headers: { accept: 'application/json' } });
-      if (!res.ok) continue;
-      const body = await res.json();
-      const pairs = Array.isArray(body?.pairs) ? body.pairs : [];
-      for (const p of pairs) {
-        if (p.chainId !== 'solana') continue;
-        const mint = p.baseToken?.address;
-        const symbol = p.baseToken?.symbol;
-        if (!mint || !symbol) continue;
-        const liquidityUsd = Math.round(p.liquidity?.usd ?? 0);
-        const priceUsd = Number(p.priceUsd ?? 0);
-        if (!priceUsd || liquidityUsd < MIN_LIQUIDITY_USD) continue;
-        const createdAt = p.pairCreatedAt ? Number(p.pairCreatedAt) : 0;
-        const ageHours = createdAt ? (Date.now() - createdAt) / 3_600_000 : 9999;
-        if (ageHours < MIN_AGE_HOURS) continue;
-        // several pools per token — keep the deepest, it has the best data
-        const prior = seen.get(mint);
-        if (prior && prior.liquidityUsd >= liquidityUsd) continue;
-        seen.set(mint, {
-          mint,
-          /*
-           * Trimmed, because upstream is not.
-           *
-           * DexScreener returns symbols and names with trailing spaces —
-           * `"PNUT "`, `"Peanut the Squirrel "` were both live in the response.
-           * A ticker with a trailing space still renders fine, which is exactly
-           * what makes it dangerous: every lookup keyed on ticker
-           * (`coinByTicker`, art paths, metadata filenames) misses, and it
-           * misses silently. Normalising at the boundary means nothing
-           * downstream has to know upstream is dirty.
-           */
-          // some symbols already ship a leading $; the UI adds its own
-          ticker: symbol.trim().replace(/^\$+/, '').trim().toUpperCase().slice(0, 10),
-          name: (p.baseToken?.name || symbol).trim().slice(0, 28),
-          priceUsd,
-          liquidityUsd,
-          ageHours: Math.round(ageHours),
-          fdvUsd: Math.round(p.fdv ?? p.marketCap ?? 0),
-          change24h: Number(p.priceChange?.h24 ?? 0),
-          volume24h: Math.round(p.volume?.h24 ?? 0),
-          imageUrl: p.info?.imageUrl ?? null,
-          pumpFun: /pump$/i.test(mint) || p.dexId === 'pumpswap',
-          url: p.url ?? null,
-        });
-      }
-    } catch {
-      // upstream flaked — try the next source
-    }
-  }
-
-  const all = [...seen.values()];
-  // pump.fun natives first, then by liquidity
-  all.sort((a, b) => (Number(b.pumpFun) - Number(a.pumpFun)) || b.liquidityUsd - a.liquidityUsd);
-  return all.slice(0, 40).map((c, i) => ({ ...c, hue: HUE_STEPS[i % HUE_STEPS.length] }));
-}
-
-app.get('/api/coins', async (_req, res) => {
-  if (Date.now() - coinCache.at < COIN_TTL_MS && coinCache.coins.length) {
-    return res.json({ coins: coinCache.coins, cached: true });
-  }
-  try {
-    const coins = await fetchPumpCoins();
-    if (coins.length) coinCache = { at: Date.now(), coins };
-    res.json({ coins: coinCache.coins, cached: false });
-  } catch (e) {
-    // serve stale rather than nothing — the game must stay playable
-    res.json({ coins: coinCache.coins, error: e.message });
   }
 });
 
@@ -480,8 +425,8 @@ app.get('/api/coins', async (_req, res) => {
 
 /** One player's ladder standing, plus their rank. */
 app.get('/api/ladder/:address', async (req, res) => {
-  const { address } = req.params;
-  if (badAddress(address)) return res.status(400).json({ error: 'bad address' });
+  const address = paramAddress(req);
+  if (!address) return res.status(400).json({ error: 'bad address' });
   try {
     const doc = await ladder.findOne({ _id: address });
     const trophies = doc?.trophies ?? 0;
@@ -507,8 +452,7 @@ app.get('/api/ladder/:address', async (req, res) => {
 
 /** Apply one ranked result. Returns the new standing. */
 app.post('/api/ladder/:address', requireWallet('ladder.post'), async (req, res) => {
-  const { address } = req.params;
-  if (badAddress(address)) return res.status(400).json({ error: 'bad address' });
+  const address = req.wallet;
   const { outcome, pairKey } = req.body ?? {};
   if (!['win', 'loss', 'draw'].includes(outcome)) {
     return res.status(400).json({ error: 'bad outcome' });
@@ -644,15 +588,24 @@ app.get('/api/ladder', async (_req, res) => {
   }
 });
 
-/** Top players by net SOL — powers the Empire leaderboard. */
-app.get('/api/leaderboard', async (_req, res) => {
+/**
+ * Top players by chain-verified winnings — powers the Empire leaderboard.
+ *
+ * `?currency=MON` (default) or `?currency=AUSD` picks the column to rank by.
+ * Both columns ride on every row; they are never added together.
+ */
+app.get('/api/leaderboard', async (req, res) => {
+  const currency = String(req.query.currency ?? 'MON').toUpperCase();
+  if (!CURRENCIES.includes(currency)) return res.status(400).json({ error: 'currency must be MON or AUSD' });
   try {
     const rows = await leaderboard
-      .find({}, { projection: { netSol: 1, wins: 1, losses: 1, crowns: 1, matches: 1 } })
-      .sort({ netSol: -1 })
+      .find({}, { projection: { netMon: 1, netAusd: 1, wins: 1, losses: 1, crowns: 1, matches: 1 } })
+      .sort({ [NET_FIELD[currency]]: -1 })
       .limit(25)
       .toArray();
-    res.json(rows.map((r) => ({ address: r._id, ...r, _id: undefined })));
+    res.json(rows.map(({ _id, ...r }) => ({
+      address: _id, netMon: 0, netAusd: 0, wins: 0, losses: 0, crowns: 0, matches: 0, ...r,
+    })));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -672,8 +625,12 @@ app.get('/api/leaderboard', async (_req, res) => {
  * unreachable, or a data file the image did not ship.
  */
 const server = await (async () => {
-  await client.connect();
-  db = client.db(MONGODB_DB);
+  if (client) {
+    await client.connect();
+    db = client.db(MONGODB_DB);
+  } else {
+    db = createMemoryDb(MONGODB_DB);
+  }
   players = db.collection('players');
   leaderboard = db.collection('leaderboard');
   ladder = db.collection('ladder');
@@ -693,60 +650,29 @@ const server = await (async () => {
    */
   credits = db.collection('match_credits');
   await credits.createIndex({ at: 1 }, { expireAfterSeconds: 400 * 24 * 3600 });
-  await leaderboard.createIndex({ netSol: -1 });
+  await leaderboard.createIndex({ netMon: -1 });
+  await leaderboard.createIndex({ netAusd: -1 });
   // Both the ladder listing and every rank lookup sort on this.
   await ladder.createIndex({ trophies: -1 });
   registerClanRoutes(app, db);
 
-  // The starter kit. Reads the same registry the client does, chosen by the
-  // RPC the relay is pointed at — one env var decides the cluster and
-  // everything derives from it. The mainnet file comes from
-  // chain/build-mainnet-registry.mjs (Jupiter-verified identities); the
-  // faucet itself refuses to register on a mainnet RPC regardless.
-  const isMainnetRpc = /mainnet/i.test(process.env.SOLANA_RPC ?? '');
-  const registryCoins = JSON.parse(
-    readFileSync(new URL(isMainnetRpc ? './mainnet-coins.json' : './devnet-coins.json', import.meta.url), 'utf8'),
-  ).coins;
-  registerFaucetRoutes(app, db, registryCoins, (req, res, next) => (
-    readLimit ? readLimit(req, res, next) : next()
-  ));
+  // Onboarding: the starter deck, AUSD and the MON drip, signed by the
+  // relayer. Registers either way and reports itself unavailable (503) when
+  // this chain has no deployment or no relayer key, rather than 404ing.
+  registerOnboardRoutes(app, db, { ipGate: onboardGate, readGate });
   registerPlayerRoutes(app, db);
-  // The $MEMPIRE market. Registers either way — the routes report
-  // `configured: false` until BAGS_API_KEY and MEMPIRE_MINT are both set,
-  // which is a state the swap screen already knows how to render honestly.
-  /*
-   * A late-binding shim, not the value.
-   *
-   * `limit` is still the `null` it was declared as at this point — it is
-   * assigned a dozen lines below — and JavaScript passes the value, so handing
-   * it over directly froze the Bags gate to its no-op fallback for the life of
-   * the process. Every `/api/market/*` route ran unlimited, and the three GET
-   * ones were exempt from the global limiter too, which left a paid API key
-   * spendable by anonymous traffic. The routes get their own tighter bucket
-   * that counts reads, because each one is an outbound call on our key.
-   */
-  registerBagsRoutes(app, (req, res, next) => (
-    bagsLimit ? bagsLimit(req, res, next) : next()
-  ));
-  console.log(`bags market: ${bagsConfigured() ? 'configured' : 'not configured (no key or mint yet)'}`);
   registerTelemetryRoutes(app, db, requireWallet);
-  // Value locked, read straight from chain — the one set of numbers on the
-  // dashboard that no client reports and nothing here can inflate.
   registerInsightRoutes(app, db);
   registerOpsRoutes(app, db);
-  registerTvlRoutes(app, {
-    programId: 'BnLDCAREDpBGenqZr8BTyQu7BCoVewF9XEtMPFBqFxeP',
-    amm: JSON.parse(readFileSync(new URL('./amm.json', import.meta.url), 'utf8')),
-  }, (req, res, next) => (readLimit ? readLimit(req, res, next) : next()));
 
   // Now that there is a database, the shared limiter can take over from the
   // pass-through installed at module load.
   limit = rateLimiter(db);
-  // Tighter, and it counts GETs: every one of these is a call on our Bags key.
-  bagsLimit = rateLimiter(db, { capacity: 30, refillPerSec: 1, includeReads: true });
-  // Generous — these are legitimate dashboard polls — but bounded, and reads
-  // count because reads are what costs.
+  // Generous — these are legitimate polls and card renders — but bounded, and
+  // reads count because reads are what costs.
   readLimit = rateLimiter(db, { capacity: 60, refillPerSec: 2, includeReads: true });
+  // Ten signed attempts, then one a minute, per IP.
+  onboardLimit = rateLimiter(db, { capacity: 10, refillPerSec: 1 / 60 });
   setWalletLimiter(walletLimiter(db));
 
   // Replay protection: one row per seen signature, expiring shortly after the
@@ -768,7 +694,8 @@ const server = await (async () => {
   // handler registered after everything that could throw.
   app.use(errorRecorder(db).middleware);
 
-  console.log(`mongo connected → ${MONGODB_DB}`);
+  console.log(client ? `mongo connected → ${MONGODB_DB}` : 'store: in-memory');
+  console.log(`chain ${CHAIN_ID} via ${RPC_URL} · ${deployment ? 'deployment loaded' : 'no deployment for this chain'}`);
   const httpServer = app.listen(PORT, () => console.log(`mempire api on :${PORT}`));
   registerMatchmaker(httpServer, db);
   return httpServer;
@@ -786,7 +713,7 @@ const server = await (async () => {
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, async () => {
     server.close();
-    await client.close();
+    await client?.close();
     process.exit(0);
   });
 }

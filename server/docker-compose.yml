@@ -1,7 +1,7 @@
 # The API and a database, runnable with one command and no external accounts.
 #
 #   docker compose up --build
-#   npx tsx test-api.mjs          # hits every endpoint against it
+#   node test-api.mjs             # hits every endpoint against it
 #
 # The bundled Mongo is the point, not a convenience. It means the whole stack
 # runs with no Atlas credentials at all — useful for CI, useful for anyone
@@ -42,10 +42,21 @@ services:
       # Unset means open, which is right for local work and wrong in production.
       # Set it to the deployed app's origin(s), comma-separated.
       CORS_ORIGIN: ${CORS_ORIGIN:-}
+      # The chain side; see .env.example. Without a relayer key onboarding
+      # answers 503 and everything else still runs.
+      CHAIN_ID: ${CHAIN_ID:-10143}
+      RPC_URL: ${RPC_URL:-https://testnet-rpc.monad.xyz}
+      RELAYER_PRIVATE_KEY: ${RELAYER_PRIVATE_KEY:-}
+      AUSD_FAUCET: ${AUSD_FAUCET:-}
+      ONBOARD_MON_DRIP: ${ONBOARD_MON_DRIP:-0.05}
+      PYTH_API_KEY: ${PYTH_API_KEY:-}
+      PYTH_HERMES_URL: ${PYTH_HERMES_URL:-https://pyth.dourolabs.app/hermes}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://mempire.fun}
     depends_on:
       mongo:
-        # Waits for the healthcheck, not just for the container to exist — the
-        # API exits on a failed connect, so starting it early is a crash loop.
+        # Waits for the healthcheck, not just for the container to exist — with
+        # MONGODB_URI set the API exits on a failed connect, so starting it
+        # early is a crash loop.
         condition: service_healthy
 
 volumes:

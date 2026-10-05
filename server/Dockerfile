@@ -11,14 +11,7 @@ COPY package.json package-lock.json ./
 # `npm ci` rather than `install`: it installs exactly the lockfile and fails if
 # the two have drifted, which is the behaviour you want in a build that nobody
 # is watching.
-# `npm install`, not `npm ci`.
-#
-# `@solana/codecs` — a transitive of spl-token — declares a peer dependency on
-# `typescript >= 5`, which npm resolves to the TypeScript 7 platform packages.
-# Those land in the tree but not in a lockfile generated with `--omit=dev`, so
-# `npm ci` refuses the whole install over a type-checker the server never runs.
-# Resolving in the container costs a few seconds and cannot drift.
-RUN npm install --omit=dev --ignore-scripts --no-audit --no-fund
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 # ── runtime ──────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
@@ -30,19 +23,12 @@ ENV NODE_ENV=production
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node *.js ./
-# The seeded coin registries the faucet hands out from, and the deployed AMM
-# addresses the TVL reader prices the pool against. Neither is code, so neither
-# is caught by the *.js copy above, and the server refuses to start without
-# them — a data file added beside a new module is the easy half of the change
-# to forget.
-#
-# Which is exactly what happened: `mainnet-coins.json` was missing from this
-# line while `index.js` picks the registry by cluster —
-# `readFileSync(isMainnetRpc ? './mainnet-coins.json' : './devnet-coins.json')`.
-# Devnet was fine because devnet's file was here; the mainnet image would have
-# thrown ENOENT at boot and crash-looped, and the first anyone would have
-# learned of it is launch day. BOTH registries ship, always.
-COPY --chown=node:node devnet-coins.json mainnet-coins.json amm.json ./
+# The roster, the contract ABIs and the deployment addresses, vendored from the
+# repo's `shared/` by `npm run sync-shared`. None of it is code, so none of it
+# is caught by the *.js copy above — and the server refuses to start without
+# it. A data directory beside the modules is the easy half of a change to
+# forget, which is why it is named here on its own line.
+COPY --chown=node:node shared ./shared
 
 # `wget` is in busybox already, so the healthcheck costs no extra layer.
 # Mongo may take a moment on cold start, hence the generous start period.

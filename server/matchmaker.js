@@ -14,16 +14,46 @@
  *
  * The seed mixes the match id, both deck commitments and a fresh server-side
  * random word, so neither player — nor this server picking who is player 0 —
- * can grind a favourable opening hand.
+ * can grind a favourable opening hand. It is chosen here at pairing time for
+ * every match, staked or not: both clients start the battle at the shared
+ * `startAt` while the arena's create and join transactions are still in
+ * flight, so the seed has to exist before the chain knows about the match.
  */
 import { randomBytes } from 'node:crypto';
-import { wsVerified } from './auth.js';
 import { WebSocketServer } from 'ws';
-
-/** base58, Solana pubkey shape — the same test the HTTP routes use. */
-const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+import { wsVerified } from './auth.js';
+import { abis, deployment, normAddress, publicClient } from './chain.js';
 
 const TIERS = 4;
+/** The arena's two stake currencies. Both seats of an escrow must use the same one. */
+const CURRENCIES = ['MON', 'AUSD'];
+
+/*
+ * The market-meta epoch, read at most every thirty seconds.
+ *
+ * `MarketMeta` posts a bounded stat modifier per fighter each epoch, and the
+ * sim applies them — so two clients simulating with different epochs are
+ * simulating different games, which is a desync with extra steps. The relay
+ * reads the epoch once per pairing and hands both seats the identical number.
+ * A stale read is fine (an epoch lasts far longer than thirty seconds); a
+ * failed one falls back to 0, the unmodified game, which both seats then
+ * share as well.
+ */
+const EPOCH_TTL_MS = 30_000;
+let epochCache = { at: 0, value: 0 };
+let epochInflight = null;
+async function currentMetaEpoch() {
+  if (!deployment?.marketMeta) return 0;
+  if (Date.now() - epochCache.at < EPOCH_TTL_MS) return epochCache.value;
+  epochInflight ??= publicClient().readContract({
+    address: deployment.marketMeta, abi: abis.marketMeta, functionName: 'currentEpoch',
+  })
+    .then((v) => { epochCache = { at: Date.now(), value: Number(v) }; return epochCache.value; })
+    .catch(() => 0)
+    .finally(() => { epochInflight = null; });
+  // Bounded: a slow RPC must not hold two players on the pairing screen.
+  return Promise.race([epochInflight, new Promise((r) => { setTimeout(() => r(0), 3_000).unref?.(); })]);
+}
 
 /**
  * How far apart two ratings may be, widening with wait time. Mirrors
@@ -41,10 +71,15 @@ const HASH_WINDOW = 400; // remember this many recent checkpoint ticks per match
  * to enforce game rules — the sims do that — but because this payload is
  * relayed verbatim into the *other* player's createMatch. Junk must fail at
  * the door of the sender, never in the runtime of their opponent.
+ *
+ * `coinId` is the roster's numeric id; a short string id is still accepted for
+ * decks built from local, unminted cards.
  */
+const validCoinId = (id) => (Number.isSafeInteger(id) && id >= 0)
+  || (typeof id === 'string' && id.length > 0 && id.length <= 64);
 function validDeck(deck) {
   return Array.isArray(deck) && deck.length === 8 && deck.every((c) => c
-    && typeof c.coinId === 'string' && c.coinId.length > 0 && c.coinId.length <= 64
+    && validCoinId(c.coinId)
     && typeof c.name === 'string' && c.name.length <= 24
     && Number.isInteger(c.archetype) && c.archetype >= 0 && c.archetype <= 5
     && Number.isInteger(c.level) && c.level >= 1 && c.level <= 10);
@@ -117,9 +152,11 @@ export function registerMatchmaker(server, db) {
    * Format is non-negotiable — a 30-second Rush seated against a 3-minute
    * standard match would desync on the first tick, because the sim's timing
    * lives in the format. Ranked is separate so a ladder match is never paired
-   * with a casual one, and tier keeps stakes equal.
+   * with a casual one, and tier and currency keep stakes equal: the arena
+   * makes the joiner match the opener's stake exactly, so a MON player paired
+   * with an AUSD player is a join that can only revert.
    */
-  const queueKey = (tier, format, ranked) => `${tier}:${format}:${ranked ? 'r' : 'c'}`;
+  const queueKey = (tier, currency, format, ranked) => `${tier}:${currency}:${format}:${ranked ? 'r' : 'c'}`;
 
   /**
    * Picks the closest-rated waiting opponent inside the band.
@@ -134,8 +171,8 @@ export function registerMatchmaker(server, db) {
     for (let i = 0; i < list.length; i += 1) {
       const e = list[i];
       if (e.ws.readyState !== 1) continue;
-      // Same wallet in both seats is a self-match; the program refuses it
-      // onchain, so the matchmaker refuses it here too.
+      // Same wallet in both seats is a self-match; the arena refuses it on
+      // chain (`SelfMatch`), so the matchmaker refuses it here too.
       if (e.address === address) continue;
       const gap = Math.abs((e.trophies ?? 0) - trophies);
       // Either side having waited long enough is sufficient — the player who
@@ -200,7 +237,21 @@ export function registerMatchmaker(server, db) {
       }
     });
 
+    /*
+     * Messages are handled strictly in arrival order, per socket.
+     *
+     * Verifying a queue signature is asynchronous, and without this a `queue`
+     * followed at once by `cancel` could finish in the other order — the
+     * player cancels, and is then queued anyway by the message they sent
+     * first. Chaining each socket's handlers keeps the protocol sequential
+     * without making one slow socket wait for any other.
+     */
+    ws.inbox = Promise.resolve();
     ws.on('message', (raw) => {
+      ws.inbox = ws.inbox.then(() => handle(raw)).catch(() => { /* one bad frame must not stall the socket */ });
+    });
+
+    const handle = async (raw) => {
       let msg;
       try { msg = JSON.parse(String(raw)); } catch { return; }
 
@@ -218,7 +269,10 @@ export function registerMatchmaker(server, db) {
            * demotion to casual rather than a rejection, which keeps the
            * failure mode "cannot rank" instead of "cannot play".
            */
-          if (!ADDRESS.test(String(msg.address)) || !validDeck(msg.deck)) return;
+          const address = normAddress(msg.address);
+          if (!address || !validDeck(msg.deck)) return;
+          const currency = CURRENCIES.includes(String(msg.currency).toUpperCase())
+            ? String(msg.currency).toUpperCase() : 'MON';
 
           /*
            * Ranked play requires a proven address; casual does not.
@@ -231,7 +285,7 @@ export function registerMatchmaker(server, db) {
            * could damage. The `queued` ack already reports the ranked flag
            * back, so the client knows which game it is in.
            */
-          if (msg.ranked && !wsVerified(msg, 'queue')) msg.ranked = false;
+          if (msg.ranked && !(await wsVerified(msg, 'queue'))) msg.ranked = false;
           // A socket already in a live match cannot queue for another — that
           // would orphan the first match's opponent mid-battle.
           if (matches.has(ws.matchId)) return;
@@ -240,11 +294,11 @@ export function registerMatchmaker(server, db) {
           const format = msg.format === 'rush' ? 'rush' : 'standard';
           const ranked = Boolean(msg.ranked);
           const trophies = Number.isFinite(Number(msg.trophies)) ? Number(msg.trophies) : 0;
-          const key = queueKey(tier, format, ranked);
+          const key = queueKey(tier, currency, format, ranked);
           const list = queues.get(key) ?? [];
           const now = Date.now();
 
-          const idx = findOpponent(list, msg.address, trophies, now);
+          const idx = findOpponent(list, address, trophies, now);
           if (idx >= 0) {
             const waiting = list[idx];
             list.splice(idx, 1);
@@ -340,7 +394,7 @@ export function registerMatchmaker(server, db) {
             const inputDelayTicks = Math.min(80, Math.max(16, Math.ceil((assumed * 3) / 50)));
             const m = {
               players: [waiting.ws, ws],
-              addr: [waiting.address, msg.address],
+              addr: [waiting.address, address],
               hashes: new Map(),
               done: false,
               createdAt: Date.now(),
@@ -361,7 +415,7 @@ export function registerMatchmaker(server, db) {
             if (pairings) {
               pairings.insertOne({
                 _id: pairKey,
-                seats: [waiting.address, msg.address],
+                seats: [waiting.address, address],
                 trophies: [waiting.trophies ?? 0, trophies],
                 ranked: Boolean(msg.ranked) && Boolean(waiting.ranked),
                 reports: {},
@@ -369,15 +423,24 @@ export function registerMatchmaker(server, db) {
               }).catch(() => { /* the ladder simply refuses reports it cannot verify */ });
             }
 
+            /*
+             * Everything above is synchronous: both entries are out of the
+             * queue and the room exists before this first await, so no other
+             * message can pair either socket again while the epoch is read.
+             * One read, one number, sent to both.
+             */
+            const metaEpoch = await currentMetaEpoch();
             send(waiting.ws, {
               t: 'matched', matchId: id, pairKey, role: 0, seed: seed || 0x9e3779b9, startAt, serverNow, inputDelayTicks, format,
+              currency, metaEpoch,
               opponent: {
-                address: msg.address, name: msg.name ?? null,
+                address, name: msg.name ?? null,
                 power: msg.power ?? 0, deck: msg.deck, trophies,
               },
             });
             send(ws, {
               t: 'matched', matchId: id, pairKey, role: 1, seed: seed || 0x9e3779b9, startAt, serverNow, inputDelayTicks, format,
+              currency, metaEpoch,
               opponent: {
                 address: waiting.address, name: waiting.name ?? null,
                 power: waiting.power ?? 0, deck: waiting.deck, trophies: waiting.trophies ?? 0,
@@ -385,12 +448,12 @@ export function registerMatchmaker(server, db) {
             });
           } else {
             list.push({
-              ws, address: msg.address, name: msg.name ?? null,
+              ws, address, name: msg.name ?? null,
               power: msg.power ?? 0, deck: msg.deck, deckHash: msg.deckHash ?? '',
               trophies, since: now,
             });
             queues.set(key, list);
-            send(ws, { t: 'queued', ranked, format });
+            send(ws, { t: 'queued', ranked, format, currency });
           }
           break;
         }
@@ -446,29 +509,28 @@ export function registerMatchmaker(server, db) {
         /**
          * Escrow handshake, relayed verbatim.
          *
-         * Seat 0 opens the match on Solana and has to tell seat 1 which match
+         * Seat 0 opens the match on the arena and has to tell seat 1 which match
          * id to join — there is no other channel between two browsers, and the
          * id is only knowable after the create transaction lands.
          *
          * Deliberately not validated beyond its shape and not acted on: the
          * relay must never become a second authority on an escrow the chain
-         * already owns. Both clients verify the match account themselves
-         * before staking anything, so a lying peer costs nothing but a
-         * refused join.
+         * already owns. Both clients read `getMatch` themselves before staking
+         * anything, so a lying peer costs nothing but a refused join.
          */
         case 'chain': {
           const m = matches.get(ws.matchId);
           if (!m || m.done) return;
           const stage = String(msg.stage ?? '');
           if (!['opened', 'joined', 'failed'].includes(stage)) return;
-          const matchAccount = typeof msg.matchAccount === 'string'
-            ? msg.matchAccount.slice(0, 64) : null;
+          const id = Number(msg.onchainMatchId);
+          const txHash = typeof msg.txHash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(msg.txHash)
+            ? msg.txHash : null;
           send(opponentOf(m, ws), {
             t: 'chain',
             stage,
-            onchainMatchId: Number.isFinite(Number(msg.onchainMatchId))
-              ? Number(msg.onchainMatchId) : null,
-            matchAccount,
+            onchainMatchId: Number.isSafeInteger(id) && id > 0 ? id : null,
+            txHash,
             reason: typeof msg.reason === 'string' ? msg.reason.slice(0, 120) : null,
           });
           break;
@@ -533,7 +595,7 @@ export function registerMatchmaker(server, db) {
         default:
           break;
       }
-    });
+    };
 
     ws.on('close', () => {
       leaveQueue(ws);

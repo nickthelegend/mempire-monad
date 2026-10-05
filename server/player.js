@@ -6,8 +6,8 @@
  * The three deck slots lived in a zustand store and nowhere else. Not
  * localStorage — memory. A refresh wiped them, so every player who spent five
  * minutes building a counter-deck lost it by pressing F5, and nobody could
- * play from two devices. Cards are PDAs and survive; the *arrangement* of them
- * did not survive a tab reload.
+ * play from two devices. Cards are ERC-721s and survive; the *arrangement* of
+ * them did not survive a tab reload.
  *
  * # What belongs here and what does not
  *
@@ -23,6 +23,7 @@
  * their own row.
  */
 import { requireWallet } from './auth.js';
+import { normAddress } from './chain.js';
 import { recordEvent } from './telemetry.js';
 
 const DECK_SLOTS = 3;
@@ -65,7 +66,8 @@ export function registerPlayerRoutes(app, db) {
    * clan and ladder screens already publish names and ratings.
    */
   app.get('/api/player/:address', async (req, res) => {
-    const address = String(req.params.address ?? '').slice(0, 64);
+    const address = normAddress(req.params.address);
+    if (!address) return res.status(400).json({ error: 'bad address' });
     const row = await players.findOne({ _id: address });
     if (!row) {
       return res.json({
@@ -172,7 +174,8 @@ export function registerPlayerRoutes(app, db) {
         outcome,
         mode: typeof b.mode === 'string' ? b.mode.slice(0, 16) : null,
         staked: !!b.staked,
-        stakeSol: Number.isFinite(Number(b.stakeSol)) ? Number(b.stakeSol) : 0,
+        stake: Number.isFinite(Number(b.stake)) ? Number(b.stake) : 0,
+        currency: ['MON', 'AUSD'].includes(b.currency) ? b.currency : null,
         onchainMatchId: Number.isFinite(Number(b.onchainMatchId)) ? Number(b.onchainMatchId) : null,
         durationMs: Number.isFinite(Number(b.durationMs)) ? Number(b.durationMs) : null,
         crowns: Number.isFinite(Number(b.crowns)) ? Number(b.crowns) : null,

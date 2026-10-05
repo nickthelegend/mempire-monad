@@ -1,5 +1,5 @@
 import { requireWallet } from './auth.js';
-import { readFileSync } from 'node:fs';
+import { deployment, normAddress } from './chain.js';
 import { verifyTokenPayment, treasuryAddress } from './chain-verify.js';
 /**
  * Clans.
@@ -10,11 +10,11 @@ import { verifyTokenPayment, treasuryAddress } from './chain-verify.js';
  *  - **Trophies → crowns.** Mempire already earns crowns per felled tower, so a
  *    clan's standing is the sum of its members' crowns. No parallel ladder.
  *  - **Card donations → lend requests.** Clash donates fungible cards. Mempire's
- *    cards are NFTs backed by staked tokens, so they cannot be duplicated on
- *    request. A lend request is a favour: a clanmate answers it, the answer is
- *    counted, and the lender earns gems. The card itself only ever changes hands
- *    onchain — this tracks the social contract, not custody of the asset, and the
- *    UI says so.
+ *    cards are ERC-721s with a level earned by merging, so they cannot be
+ *    duplicated on request. A lend request is a favour: a clanmate answers it,
+ *    the answer is counted, and the lender earns gems. The card itself only ever
+ *    changes hands on chain — this tracks the social contract, not custody of
+ *    the asset, and the UI says so.
  *
  * Members are embedded in the clan document. Fifty members is nowhere near the
  * 16MB ceiling, it makes reading a clan one query, and it makes join/leave a
@@ -35,7 +35,6 @@ export const REGIONS = [
   'Global', 'North America', 'South America', 'Europe', 'Asia', 'Africa', 'Oceania',
 ];
 
-const ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const TAG = /^[A-HJ-NP-Z2-9]{6}$/;
 
 /** Ambiguous glyphs (0/O, 1/I/L) are excluded so a tag can be read aloud. */
@@ -108,7 +107,7 @@ const clanDetail = (c) => ({
   ...clanSummary(c),
   members: rankMembers(c.members),
   feed: (c.feed ?? []).slice(0, FEED_MAX),
-  treasurySol: c.treasurySol ?? 0,
+  treasuryMon: c.treasuryMon ?? 0,
 });
 
 function feedEntry(kind, address, extra = {}) {
@@ -118,10 +117,10 @@ function feedEntry(kind, address, extra = {}) {
 /**
  * Registers every clan route.
  *
- * Auth is by wallet address in the body, which is the same trust model the rest
- * of this service already uses: the client owns game logic, this stores results,
- * and nothing here can move funds. Anything that touches money stays onchain.
- * A signature check is the obvious next hardening step and is noted in ROADMAP.
+ * Every write is signature-authenticated: the acting wallet is `req.wallet`,
+ * the address the signature proves, and never an address read from the body.
+ * The client owns game logic, this stores results, and nothing here can move
+ * funds. Anything that touches money stays on chain.
  */
 export function registerClanRoutes(app, db) {
   const clans = db.collection('clans');
@@ -157,53 +156,49 @@ export function registerClanRoutes(app, db) {
      *
      * `sparse` is not enough here: it skips documents where the field is
      * *missing*, not ones where it is present and null, so every clan founded
-     * without a payment (the no-mint-configured case) would collide with the
+     * without a payment (the no-token-deployed case) would collide with the
      * next on `null`. A partial index keyed on the field actually being a
      * string is the version that means what this wants.
      */
-    await clans.dropIndex('charterSignature_1').catch(() => {});
-    await clans.createIndex({ charterSignature: 1 }, {
+    await clans.createIndex({ charterTx: 1 }, {
       unique: true,
-      partialFilterExpression: { charterSignature: { $type: 'string' } },
+      partialFilterExpression: { charterTx: { $type: 'string' } },
     });
   })();
 
   /*
    * The charter fee, and the promise that it was actually paid.
    *
-   * Mirrors the client's `PRICES.clanCharter`. A signature may found exactly
-   * one clan: it is stored on the clan document under a unique index, so
-   * replaying one payment to found a second clan is a duplicate-key error
-   * rather than a free clan.
+   * Mirrors the client's `PRICES.clanCharter`. A payment may found exactly one
+   * clan: its transaction hash is stored on the clan document under a unique
+   * index, so replaying one payment to found a second clan is a duplicate-key
+   * error rather than a free clan.
    */
-  const CHARTER_TOKENS = 250;
-  const charterMint = () => process.env.MEMPIRE_MINT
-    || JSON.parse(readFileSync(new URL('./amm.json', import.meta.url), 'utf8')).mempireMint;
-  const charterDecimals = () => Number(
-    JSON.parse(readFileSync(new URL('./amm.json', import.meta.url), 'utf8')).mempireDecimals ?? 6,
-  );
+  const CHARTER_TOKENS = 250n;
+  const MEMPIRE_DECIMALS = 18n;
 
-  async function requireCharter(address, signature) {
-    const mint = charterMint();
-    if (!mint) {
-      // No token on this cluster yet: there is nothing to charge, and refusing
+  async function requireCharter(address, txHash) {
+    const token = deployment?.token;
+    if (!token) {
+      // No $MEMPIRE on this chain yet: there is nothing to charge, and refusing
       // every clan would be worse than charging none.
-      return { ok: true, skipped: 'no $MEMPIRE mint configured' };
+      return { ok: true, skipped: 'no $MEMPIRE token deployed on this chain' };
     }
-    if (!signature) {
-      return { ok: false, reason: `the charter costs ${CHARTER_TOKENS} $MEMPIRE — pay it, then send the signature` };
+    if (!txHash) {
+      return { ok: false, reason: `the charter costs ${CHARTER_TOKENS} $MEMPIRE — pay it, then send the transaction hash as paymentTx` };
     }
-    if (await clans.findOne({ charterSignature: String(signature) })) {
+    const hash = String(txHash).toLowerCase();
+    if (await clans.findOne({ charterTx: hash })) {
       return { ok: false, reason: 'that payment has already chartered a clan' };
     }
-    const min = BigInt(CHARTER_TOKENS) * (10n ** BigInt(charterDecimals()));
+    const min = CHARTER_TOKENS * (10n ** MEMPIRE_DECIMALS);
     const treasury = await treasuryAddress();
-    const paid = await verifyTokenPayment(signature, address, mint, treasury, min);
+    const paid = await verifyTokenPayment(hash, address, token, treasury, min);
     if (!paid.ok) return { ok: false, reason: paid.reason };
-    return { ok: true, signature: String(signature) };
+    return { ok: true, txHash: hash };
   }
 
-  const badAddress = (a) => !a || !ADDRESS.test(a);
+  const badAddress = (a) => !normAddress(a);
 
   const fail = (res, code, error) => res.status(code).json({ error });
 
@@ -315,7 +310,7 @@ export function registerClanRoutes(app, db) {
   // ── my clan ──────────────────────────────────────────────────────────────
   app.get('/api/clans/mine/:address', async (req, res) => {
     await ready;
-    const { address } = req.params;
+    const address = normAddress(req.params.address);
     if (badAddress(address)) return fail(res, 400, 'bad address');
     try {
       const clan = await clanOf(address);
@@ -343,9 +338,10 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans', requireWallet('clan.create'), async (req, res) => {
     await ready;
     const {
-      address, name, description, region, crest, requiredPower, joinMode, memberName, power,
-      paymentSignature,
+      name, description, region, crest, requiredPower, joinMode, memberName, power,
+      paymentTx,
     } = req.body ?? {};
+    const address = req.wallet;
     if (badAddress(address)) return fail(res, 400, 'bad address');
 
     const cleanName = clean(name, NAME_MAX);
@@ -364,10 +360,10 @@ export function registerClanRoutes(app, db) {
        * so a caller who skipped it founded one for nothing — the fee was a
        * suggestion, exactly like the leaderboard's money column was before
        * `chain-verify` existed. It is the same fix: the client sends the
-       * signature of the payment it already made, and the server reads what
+       * hash of the payment it already made, and the server reads what
        * actually arrived at the treasury.
        */
-      const charter = await requireCharter(address, paymentSignature);
+      const charter = await requireCharter(address, paymentTx);
       if (!charter.ok) return fail(res, 402, charter.reason);
 
       // The tag does not exist yet — it is drawn in the retry loop below — so
@@ -386,7 +382,7 @@ export function registerClanRoutes(app, db) {
         joinMode: ['open', 'request', 'closed'].includes(joinMode) ? joinMode : 'open',
         crowns: 0,
         weeklyLent: 0,
-        treasurySol: 0,
+        treasuryMon: 0,
         createdBy: address,
         createdAt: now,
         updatedAt: now,
@@ -404,7 +400,7 @@ export function registerClanRoutes(app, db) {
         feed: [feedEntry('founded', address, { name: cleanName })],
         // Omitted entirely rather than set to null when there was nothing to
         // charge, so the index above has nothing to key on.
-        ...(charter.signature ? { charterSignature: charter.signature } : {}),
+        ...(charter.txHash ? { charterTx: charter.txHash } : {}),
       };
 
       // Tag collisions are possible but rare; retry a few times rather than
@@ -437,15 +433,13 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/join', requireWallet('clan.join'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address, memberName, power } = req.body ?? {};
+    const { memberName, power } = req.body ?? {};
+    const address = req.wallet;
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address)) return fail(res, 400, 'bad address');
 
     try {
       if (await clanOf(address)) return fail(res, 409, 'leave your current clan first');
-      if (!await claimMembership(address, tag)) {
-        return fail(res, 409, 'leave your current clan first');
-      }
       const clan = await clans.findOne({ _id: tag });
       if (!clan) return fail(res, 404, 'clan not found');
       if (clan.joinMode === 'closed') return fail(res, 403, 'this clan is closed');
@@ -454,6 +448,17 @@ export function registerClanRoutes(app, db) {
       const deckPower = Number(power) || 0;
       if (deckPower < (clan.requiredPower ?? 0)) {
         return fail(res, 403, `needs ${clan.requiredPower} deck power — yours is ${deckPower}`);
+      }
+      /*
+       * The membership lock is taken only once every refusal above has been
+       * passed. It used to be taken first, and none of those early returns
+       * released it — so an underpowered or closed-clan refusal left the
+       * wallet holding a claim on a clan it never joined, and every join it
+       * tried for the next thirty seconds answered "leave your current clan
+       * first" about a clan it was not in.
+       */
+      if (!await claimMembership(address, tag)) {
+        return fail(res, 409, 'leave your current clan first');
       }
 
       const now = new Date();
@@ -497,7 +502,7 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/leave', requireWallet('clan.leave'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address } = req.body ?? {};
+    const address = req.wallet;
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address)) return fail(res, 400, 'bad address');
 
@@ -598,7 +603,9 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/role', requireWallet('clan.role'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address, target, role } = req.body ?? {};
+    const { role } = req.body ?? {};
+    const address = req.wallet;
+    const target = normAddress(req.body?.target);
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address) || badAddress(target)) return fail(res, 400, 'bad address');
     if (!ROLES.includes(role)) return fail(res, 400, 'bad role');
@@ -679,7 +686,8 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/kick', requireWallet('clan.kick'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address, target } = req.body ?? {};
+    const address = req.wallet;
+    const target = normAddress(req.body?.target);
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address) || badAddress(target)) return fail(res, 400, 'bad address');
     if (address === target) return fail(res, 400, 'use leave instead');
@@ -722,7 +730,8 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/request', requireWallet('clan.request'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address, archetype, note } = req.body ?? {};
+    const { archetype, note } = req.body ?? {};
+    const address = req.wallet;
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address)) return fail(res, 400, 'bad address');
     const arch = Number(archetype);
@@ -763,7 +772,8 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/lend', requireWallet('clan.lend'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address, requestId } = req.body ?? {};
+    const { requestId } = req.body ?? {};
+    const address = req.wallet;
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address)) return fail(res, 400, 'bad address');
 
@@ -808,7 +818,8 @@ export function registerClanRoutes(app, db) {
   app.post('/api/clans/:tag/crowns', requireWallet('clan.crowns'), async (req, res) => {
     await ready;
     const tag = String(req.params.tag).toUpperCase();
-    const { address, crowns, power } = req.body ?? {};
+    const { crowns, power } = req.body ?? {};
+    const address = req.wallet;
     if (!TAG.test(tag)) return fail(res, 400, 'bad clan tag');
     if (badAddress(address)) return fail(res, 400, 'bad address');
     const n = Math.max(0, Math.min(3, Number(crowns) || 0));

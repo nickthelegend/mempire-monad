@@ -8,14 +8,28 @@
  *
  * Cleans up after itself so it can be run repeatedly.
  *
- * Run: node test-clans.mjs      (server must be running)
+ * Every write is signed by the wallet it names, exactly as the client signs
+ * it: the action is derived from the route, so a test cannot accidentally
+ * exercise the 401 path while believing it is testing a clan rule.
+ *
+ * Run: node test-clans.mjs      (server must be running; a chain with no
+ * $MEMPIRE deployment, so founding a clan carries no charter fee)
  */
+import { freshAccount, signed } from './test-util.mjs';
+
 const API = process.env.API ?? 'http://localhost:8787';
 
-// Valid base58 Solana-shaped addresses; distinct wallets for the role tests.
-const A = 'ANoNKiNG7xR4qJ9mPvE2wYbTzC5dHgU8fLsWjkQ3VtXu';
-const B = 'BqrTz4mWnHs8vY2xKpL9dGfC3jRtN6uZaE5bXcVwQ1Yh';
-const C = 'Cmn2Wq8xTvB5jHd3RpL7yKfN9uZaG6cE4bXsVtQwM1Yj';
+// Fresh keys per run; the server stores addresses lowercase, so the test does too.
+const accounts = [freshAccount(), freshAccount(), freshAccount()];
+const [A, B, C] = accounts.map((a) => a.address.toLowerCase());
+const byAddress = new Map(accounts.map((a) => [a.address.toLowerCase(), a]));
+
+/** The signed action for a clan write, read off the route the way the server names it. */
+function actionFor(method, path) {
+  if (method === 'PATCH') return 'clan.settings';
+  if (path === '/api/clans') return 'clan.create';
+  return `clan.${path.split('/').pop()}`;
+}
 
 let pass = 0;
 let fail = 0;
@@ -23,7 +37,9 @@ const check = (label, ok, detail = '') => {
   if (ok) { pass += 1; console.log(`  PASS  ${label}${detail ? ` — ${detail}` : ''}`); } else { fail += 1; console.log(`  FAIL  ${label}${detail ? ` — ${detail}` : ''}`); }
 };
 
-async function req(method, path, body) {
+async function req(method, path, rawBody) {
+  const signer = rawBody?.address && byAddress.get(rawBody.address);
+  const body = signer ? await signed(signer, actionFor(method, path), rawBody, rawBody.address) : rawBody;
   const res = await fetch(`${API}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,

@@ -2,7 +2,7 @@
  * Every HTTP endpoint the API exposes, against a running instance.
  *
  * The existing suites test behaviour in depth — matchmaking, clan rules, Elo.
- * This one tests *coverage*: that all twenty-two routes exist, answer, validate
+ * This one tests *coverage*: that every route exists, answers, validates
  * their input, and return the shape the client expects. A route that 404s
  * because it was renamed, or 500s because an index is missing, is invisible to
  * a behavioural test that never calls it.
@@ -12,13 +12,16 @@
  * a bad address is refused before it reaches Mongo, the rate limiter actually
  * limits, and the WebSocket upgrade is served from the same port.
  *
- *   docker compose up --build -d
+ *   node index.js            # no MONGODB_URI: the in-memory store is enough
  *   node test-api.mjs
  *
- * API=http://host:port to point it elsewhere.
+ * API=http://host:port to point it elsewhere. Writes are signed by fresh
+ * throwaway keys, as the client signs them; run it against a chain with no
+ * $MEMPIRE deployment, or founding the test clan needs a real charter payment.
  */
 import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
+import { freshAccount, signed } from './test-util.mjs';
 
 const API = process.env.API ?? 'http://localhost:8787';
 
@@ -40,7 +43,12 @@ async function check(name, fn) {
   }
 }
 
-async function req(method, path, body) {
+/**
+ * A request, signed by `as` for `action` when both are given. The address in
+ * the body is the signer's, as the server requires.
+ */
+async function req(method, path, rawBody, as, action) {
+  const body = as && action ? await signed(as, action, rawBody ?? {}) : rawBody;
   const res = await fetch(`${API}${path}`, {
     method,
     headers: body ? { 'content-type': 'application/json' } : undefined,
@@ -51,17 +59,6 @@ async function req(method, path, body) {
   return { status: res.status, json };
 }
 
-/** Base58, Solana pubkey shape — the same thing the server validates against. */
-const addr = (seed) => {
-  const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let out = '';
-  let x = seed >>> 0;
-  for (let i = 0; i < 43; i += 1) {
-    x = (x * 1664525 + 1013904223) >>> 0;
-    out += B58[x % B58.length];
-  }
-  return out;
-};
 
 /**
  * Fresh actors every run.
@@ -71,10 +68,12 @@ const addr = (seed) => {
  * `POST /api/clans` returned 409 and took nine assertions down with it. A suite
  * that only passes against an empty database is a suite that passes once.
  */
-const RUN = Date.now() >>> 0;
-const ALICE = addr(RUN + 1);
-const BOB = addr(RUN + 2);
-const CAROL = addr(RUN + 3);
+const alice = freshAccount();
+const bob = freshAccount();
+const carol = freshAccount();
+const ALICE = alice.address;
+const BOB = bob.address;
+const CAROL = carol.address;
 /**
  * Allocated by the server, not chosen here.
  *
@@ -99,6 +98,7 @@ await check('GET /api/health reports the database, not just the process', async 
   // A health check that returns ok without touching Mongo would let a
   // deployment with a dead database pass its readiness probe.
   assert.ok(json.db, 'health did not name the database it pinged');
+  assert.equal(typeof json.chain?.chainId, 'number', 'health did not name the chain');
 });
 
 // ── player state ────────────────────────────────────────────────────────────
@@ -114,15 +114,27 @@ await check('GET /api/player/:address returns null for an unknown wallet', async
 await check('PUT /api/player/:address saves, and GET reads it back', async () => {
   cover('PUT', '/api/player/:address');
   const state = {
-    cards: [], deck: [], tier: 1, sol: 4.2, nextId: 7, history: [],
+    cards: [], deck: [], tier: 1, mon: 4.2, nextId: 7, history: [],
     gems: 120, chests: [], nextChestId: 1,
   };
-  const put = await req('PUT', `/api/player/${ALICE}`, state);
+  const put = await req('PUT', `/api/player/${ALICE}`, state, alice, 'player.put');
   assert.ok(put.status < 300, `save returned ${put.status}`);
-  const got = await req('GET', `/api/player/${ALICE}`);
+  // Read back under the other spelling: one account, one row.
+  const got = await req('GET', `/api/player/${ALICE.toLowerCase()}`);
   assert.equal(got.status, 200);
-  assert.equal(got.json.sol, 4.2, 'the saved value did not come back');
+  assert.equal(got.json.mon, 4.2, 'the saved value did not come back');
   assert.equal(got.json.gems, 120);
+});
+
+await check('an unsigned write is refused', async () => {
+  const { status } = await req('PUT', `/api/player/${ALICE}`, { cards: [], deck: [] });
+  assert.equal(status, 401);
+});
+
+await check('a write signed by someone else is refused', async () => {
+  const forged = await signed(bob, 'player.put', { cards: [], deck: [] }, ALICE);
+  const { status } = await req('PUT', `/api/player/${ALICE}`, forged);
+  assert.equal(status, 401);
 });
 
 await check('a malformed address is refused before it reaches Mongo', async () => {
@@ -133,9 +145,21 @@ await check('a malformed address is refused before it reaches Mongo', async () =
 await check('POST /api/match/:address records a settled match', async () => {
   cover('POST', '/api/match/:address');
   const { status } = await req('POST', `/api/match/${ALICE}`, {
-    won: true, crowns: 3, netSol: 0.045, tier: 1, opponent: BOB, at: Date.now(),
-  });
+    won: true, crowns: [3, 0], pot: 0.1, payout: 0.09, currency: 'MON', tier: 1,
+  }, alice, 'match.post');
   assert.ok(status < 300, `record returned ${status}`);
+});
+
+await check('an escrowed claim the chain cannot back credits no money', async () => {
+  // No such arena match exists on this relay's chain, so the money column
+  // must stay at zero however large the claimed payout.
+  await req('POST', `/api/match/${ALICE}`, {
+    won: true, crowns: [1, 0], escrowed: true, matchId: 999999, payout: 999, currency: 'MON',
+  }, alice, 'match.post');
+  const { json } = await req('GET', '/api/leaderboard');
+  const row = json.find((r) => r.address === ALICE.toLowerCase());
+  assert.ok(row, 'the reporting wallet is not on the board');
+  assert.equal(row.netMon, 0, `a claim the chain does not support was credited: ${row.netMon}`);
 });
 
 await check('GET /api/leaderboard returns rows shaped for the client', async () => {
@@ -146,7 +170,7 @@ await check('GET /api/leaderboard returns rows shaped for the client', async () 
   if (json.length) {
     const r = json[0];
     assert.ok(typeof r.address === 'string', 'a row has no address');
-    assert.ok('netSol' in r, 'a row has no netSol');
+    assert.ok('netMon' in r && 'netAusd' in r, 'a row is missing a per-currency money column');
     assert.ok(!('_id' in r) || r._id === undefined, 'Mongo _id leaked to the client');
   }
 });
@@ -161,31 +185,40 @@ await check('GET /api/ladder/:address starts a new player at the floor', async (
   assert.ok(typeof json.trophies === 'number', 'no trophy count');
 });
 
-await check('POST /api/ladder/:address moves trophies and returns the new state', async () => {
+/** Queues `who` ranked, signed, and resolves the `matched` message. */
+function queueRanked(who) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`${API.replace(/^http/, 'ws')}/ws`);
+    const timer = setTimeout(() => { ws.close(); reject(new Error('no pairing within 6s')); }, 6000);
+    ws.on('open', async () => {
+      ws.send(JSON.stringify({
+        t: 'queue', ...(await signed(who, 'queue')), tier: 0, ranked: true,
+        deck: Array.from({ length: 8 }, (_, i) => ({ coinId: i, name: `C${i}`, archetype: i % 6, level: 1 })),
+      }));
+    });
+    ws.on('message', (raw) => {
+      const m = JSON.parse(String(raw));
+      if (m.t === 'matched') { clearTimeout(timer); ws.close(); resolve(m); }
+    });
+    ws.on('error', reject);
+  });
+}
+
+await check('POST /api/ladder/:address moves trophies once both seats agree', async () => {
   cover('POST', '/api/ladder/:address');
   const before = (await req('GET', `/api/ladder/${CAROL}`)).json.trophies;
-  const { status, json } = await req('POST', `/api/ladder/${CAROL}`, {
-    opponentTrophies: 600, outcome: 'win',
-  });
-  assert.ok(status < 300, `ladder post returned ${status}`);
-  assert.ok(json.trophies > before, `trophies did not rise: ${before} -> ${json.trophies}`);
+  const [mc] = await Promise.all([queueRanked(carol), queueRanked(bob)]);
+  const first = await req('POST', `/api/ladder/${CAROL}`, { outcome: 'win', pairKey: mc.pairKey }, carol, 'ladder.post');
+  assert.equal(first.json?.pending, true, `the first report settled alone: ${JSON.stringify(first.json)}`);
+  const second = await req('POST', `/api/ladder/${BOB}`, { outcome: 'loss', pairKey: mc.pairKey }, bob, 'ladder.post');
+  assert.ok(second.status < 300, `ladder post returned ${second.status}`);
+  const after = (await req('GET', `/api/ladder/${CAROL}`)).json.trophies;
+  assert.ok(after > before, `trophies did not rise: ${before} -> ${after}`);
 });
 
-await check('a win against a far weaker opponent pays almost nothing', async () => {
-  // Elo, not a flat counter — but the gap has to be an *Elo* gap. Beating a
-  // 1-trophy opponent from 31 trophies is still worth 15, because 30 points is
-  // nothing on a 400-point scale. Climb first, then check the payout collapses.
-  for (let i = 0; i < 12; i += 1) {
-    await req('POST', `/api/ladder/${CAROL}`, { opponentTrophies: 2500, outcome: 'win' });
-  }
-  const high = (await req('GET', `/api/ladder/${CAROL}`)).json.trophies;
-  assert.ok(high > 300, `only reached ${high} trophies; the sweep did not climb`);
-  const { json } = await req('POST', `/api/ladder/${CAROL}`, {
-    opponentTrophies: 1, outcome: 'win',
-  });
-  const paid = json.trophies - high;
-  assert.ok(paid <= 3,
-    `from ${high} trophies, beating a 1-trophy opponent paid ${paid}`);
+await check('a rating report needs a pairing the relay made', async () => {
+  const { status } = await req('POST', `/api/ladder/${CAROL}`, { outcome: 'win', pairKey: 'nope' }, carol, 'ladder.post');
+  assert.equal(status, 409);
 });
 
 await check('GET /api/ladder returns the top table', async () => {
@@ -202,7 +235,42 @@ await check('GET /api/coins answers', async () => {
   cover('GET', '/api/coins');
   const { status, json } = await req('GET', '/api/coins');
   assert.equal(status, 200);
-  assert.ok(Array.isArray(json) || typeof json === 'object');
+  // Possibly empty while the upstream rate-limits; never invented.
+  assert.ok(Array.isArray(json), 'coins is not a list');
+  for (const c of json) {
+    assert.ok(Number.isInteger(c.coinId) && typeof c.ticker === 'string' && c.priceUsd > 0, JSON.stringify(c));
+  }
+});
+
+// ── chain-backed reads ──────────────────────────────────────────────────────
+console.log('\nchain');
+
+await check('GET /api/onboard/:address answers or says the chain is not deployed', async () => {
+  cover('GET', '/api/onboard/:address');
+  const { status, json } = await req('GET', `/api/onboard/${ALICE}`);
+  assert.ok(status === 200 || status === 503, `status ${status}`);
+  if (status === 200) assert.equal(typeof json.starterClaimed, 'boolean');
+  assert.equal((await req('GET', '/api/onboard/0x1234')).status, 400);
+});
+
+await check('POST /api/onboard refuses an unsigned claim', async () => {
+  cover('POST', '/api/onboard');
+  assert.equal((await req('POST', '/api/onboard', { address: ALICE })).status, 401);
+});
+
+await check('GET /api/pyth/update validates coin ids before spending the key', async () => {
+  cover('GET', '/api/pyth/update');
+  const { status } = await req('GET', '/api/pyth/update?coinIds=0');
+  assert.ok(status === 200 || status === 503, `status ${status}`);
+  const bad = await req('GET', '/api/pyth/update?coinIds=99999');
+  assert.ok(bad.status === 400 || bad.status === 503, `status ${bad.status}`);
+});
+
+await check('GET /nft/:id is metadata, a 404, or a 503 — never a 500', async () => {
+  cover('GET', '/nft/:id');
+  const { status } = await req('GET', '/nft/1');
+  assert.ok([200, 404, 503].includes(status), `status ${status}`);
+  assert.equal((await req('GET', '/nft/abc')).status, 404);
 });
 
 // ── clans ───────────────────────────────────────────────────────────────────
@@ -211,14 +279,13 @@ console.log('\nclans');
 await check('POST /api/clans founds one and returns its allocated tag', async () => {
   cover('POST', '/api/clans');
   const { status, json } = await req('POST', '/api/clans', {
-    address: ALICE,
     name: `API Test ${Date.now().toString(36).slice(-6)}`,
     description: 'created by the endpoint suite',
     region: 'Global',
     joinMode: 'open',
     memberName: 'alice',
     power: 30,
-  });
+  }, alice, 'clan.create');
   assert.equal(status, 201, `found returned ${status}: ${JSON.stringify(json).slice(0, 140)}`);
   TAG = json.tag ?? json._id;
   assert.ok(TAG, `no tag in the response: ${JSON.stringify(json).slice(0, 140)}`);
@@ -246,57 +313,58 @@ await check('GET /api/clans/mine/:address finds the founder in it', async () => 
   const { status, json } = await req('GET', `/api/clans/mine/${ALICE}`);
   assert.equal(status, 200);
   assert.ok(json && json.tag === TAG, 'the founder is not shown as a member');
+  assert.ok(json.members.some((m) => m.address === ALICE.toLowerCase()), 'the roster is not keyed by the lowercase address');
 });
 
 await check('POST /api/clans/:tag/join adds a second member', async () => {
   cover('POST', '/api/clans/:tag/join');
   const { status } = await req('POST', `/api/clans/${TAG}/join`, {
-    address: BOB, memberName: 'bob', power: 25,
-  });
+    memberName: 'bob', power: 25,
+  }, bob, 'clan.join');
   assert.ok(status < 300, `join returned ${status}`);
 });
 
 await check('PATCH /api/clans/:tag edits settings', async () => {
   cover('PATCH', '/api/clans/:tag');
   const { status } = await req('PATCH', `/api/clans/${TAG}`, {
-    address: ALICE, description: 'edited by the api test',
+    description: 'edited by the api test',
     region: 'Global', requiredPower: 10, joinMode: 'request',
-  });
+  }, alice, 'clan.settings');
   assert.ok(status < 300, `patch returned ${status}`);
 });
 
 await check('POST /api/clans/:tag/role promotes a member', async () => {
   cover('POST', '/api/clans/:tag/role');
   const { status } = await req('POST', `/api/clans/${TAG}/role`, {
-    address: ALICE, target: BOB, role: 'elder',
-  });
+    target: BOB, role: 'elder',
+  }, alice, 'clan.role');
   assert.ok(status < 300, `role returned ${status}`);
 });
 
 await check('POST /api/clans/:tag/crowns credits a war contribution', async () => {
   cover('POST', '/api/clans/:tag/crowns');
   const { status } = await req('POST', `/api/clans/${TAG}/crowns`, {
-    address: ALICE, crowns: 3, power: 30,
-  });
+    crowns: 3, power: 30,
+  }, alice, 'clan.crowns');
   assert.ok(status < 300, `crowns returned ${status}`);
 });
 
 await check('POST /api/clans/:tag/request asks for a card', async () => {
   cover('POST', '/api/clans/:tag/request');
   const { status, json } = await req('POST', `/api/clans/${TAG}/request`, {
-    address: BOB, archetype: 0, note: 'need a tank',
-  });
+    archetype: 0, note: 'need a tank',
+  }, bob, 'clan.request');
   assert.ok(status < 300 || status === 409, `request returned ${status}`);
-  REQUEST_ID = json?.requestId ?? json?.id ?? (json?.requests?.[0]?.id ?? null);
+  REQUEST_ID = json?.feed?.find((f) => f.kind === 'request' && !f.filledBy)?.id ?? null;
+  assert.ok(REQUEST_ID, 'the new request is not in the feed');
 });
 
 await check('POST /api/clans/:tag/lend fulfils one', async () => {
   cover('POST', '/api/clans/:tag/lend');
   const { status } = await req('POST', `/api/clans/${TAG}/lend`, {
-    address: ALICE, requestId: REQUEST_ID,
-  });
-  // 404/409 are legitimate when there is nothing outstanding; a 500 is not.
-  assert.ok(status < 500, `lend returned ${status}`);
+    requestId: REQUEST_ID,
+  }, alice, 'clan.lend');
+  assert.ok(status < 300, `lend returned ${status}`);
 });
 
 await check('GET /api/clans-top ranks clans', async () => {
@@ -309,21 +377,21 @@ await check('GET /api/clans-top ranks clans', async () => {
 await check('POST /api/clans/:tag/kick removes a member', async () => {
   cover('POST', '/api/clans/:tag/kick');
   const { status } = await req('POST', `/api/clans/${TAG}/kick`, {
-    address: ALICE, target: BOB,
-  });
+    target: BOB,
+  }, alice, 'clan.kick');
   assert.ok(status < 300, `kick returned ${status}`);
 });
 
 await check('POST /api/clans/:tag/leave lets the founder out last', async () => {
   cover('POST', '/api/clans/:tag/leave');
-  const { status } = await req('POST', `/api/clans/${TAG}/leave`, { address: ALICE });
+  const { status } = await req('POST', `/api/clans/${TAG}/leave`, {}, alice, 'clan.leave');
   assert.ok(status < 300, `leave returned ${status}`);
 });
 
 await check('a non-member cannot edit a clan', async () => {
   const { status } = await req('PATCH', `/api/clans/${TAG}`, {
-    address: CAROL, description: 'should not land',
-  });
+    description: 'should not land',
+  }, carol, 'clan.settings');
   assert.ok(status >= 400, `a stranger edited the clan (${status})`);
 });
 
@@ -358,8 +426,10 @@ await check('the rate limiter actually limits writes', async () => {
   // The bucket is 80 with 5/s refill, so a burst well past it must start
   // refusing. A limiter that never trips is a limiter nobody tested.
   const burst = await Promise.all(
+    // Unsigned on purpose: the IP limiter sits in front of authentication, so
+    // a flood is refused before any signature is even checked.
     Array.from({ length: 140 }, () => req('POST', `/api/match/${BOB}`, {
-      won: false, crowns: 0, netSol: -0.01, tier: 1, opponent: ALICE, at: Date.now(),
+      won: false, crowns: [0, 0], tier: 1,
     })),
   );
   const limited = burst.filter((r) => r.status === 429).length;
@@ -377,6 +447,7 @@ const ROUTES = [
   'PATCH /api/clans/:tag', 'POST /api/clans/:tag/role', 'POST /api/clans/:tag/kick',
   'POST /api/clans/:tag/request', 'POST /api/clans/:tag/lend',
   'POST /api/clans/:tag/crowns', 'GET /api/clans-top',
+  'GET /api/onboard/:address', 'POST /api/onboard', 'GET /api/pyth/update', 'GET /nft/:id',
 ];
 const missed = ROUTES.filter((r) => !seen.has(r));
 

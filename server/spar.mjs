@@ -11,13 +11,16 @@
  * under test. It stays connected so the pairing is real from the relay's side.
  */
 import WebSocket from 'ws';
+import { freshAccount, signed } from './test-util.mjs';
 
-const WS = 'wss://mempire-relay-production.up.railway.app/ws';
-const ADDR = 'GKLFeUT1cqG82iVkRsBekyZh5eCbhHSDjdvZLA1HZzxj';
+const WS = process.env.WS ?? 'ws://localhost:8787/ws';
 const HOLD_MS = Number(process.env.HOLD_MS ?? 180000);
+// A throwaway key per run: the ranked queue needs a signature, and a key
+// that exists only for this process is the only kind worth signing with here.
+const me = freshAccount();
 
 const deck = Array.from({ length: 8 }, (_, i) => ({
-  coinId: `sparmint${i}`.padEnd(32, 'z'),
+  coinId: i,
   name: `S${i}`,
   archetype: i % 6,
   level: 1,
@@ -26,10 +29,10 @@ const deck = Array.from({ length: 8 }, (_, i) => ({
 const ws = new WebSocket(WS);
 const t0 = Date.now();
 
-ws.on('open', () => {
-  console.log('spar: connected, queueing tier 0 ranked');
+ws.on('open', async () => {
+  console.log(`spar: connected as ${me.address}, queueing tier 0 ranked`);
   ws.send(JSON.stringify({
-    t: 'queue', tier: 0, address: ADDR, deck,
+    t: 'queue', ...(await signed(me, 'queue')), tier: 0, deck,
     format: 'standard', ranked: true, trophies: 16, name: 'Sparring Partner',
   }));
 });

@@ -81,8 +81,12 @@ export function registerInsightRoutes(app, db) {
               voided: { $sum: { $cond: ['$props.voided', 1, 0] } },
               staked: { $sum: { $cond: ['$props.staked', 1, 0] } },
               draws: { $sum: { $cond: ['$props.draw', 1, 0] } },
-              potSol: { $sum: '$props.potSol' },
-              rakeSol: { $sum: '$props.rakeSol' },
+              // Per currency: a MON pot and an AUSD pot do not add up to
+              // anything, so they are never summed together.
+              potMon: { $sum: { $cond: [{ $eq: ['$props.currency', 'MON'] }, '$props.pot', 0] } },
+              rakeMon: { $sum: { $cond: [{ $eq: ['$props.currency', 'MON'] }, '$props.rake', 0] } },
+              potAusd: { $sum: { $cond: [{ $eq: ['$props.currency', 'AUSD'] }, '$props.pot', 0] } },
+              rakeAusd: { $sum: { $cond: [{ $eq: ['$props.currency', 'AUSD'] }, '$props.rake', 0] } },
               checkpoints: { $avg: '$props.hashes' },
             },
           },
@@ -172,8 +176,8 @@ export function registerInsightRoutes(app, db) {
           // Expressed as a rate rather than a count: three voids means nothing
           // without knowing whether it was out of five matches or five hundred.
           voidRate: total > 0 ? (health.voided ?? 0) / total : null,
-          potSol: health.potSol ?? 0,
-          rakeSol: health.rakeSol ?? 0,
+          pot: { MON: health.potMon ?? 0, AUSD: health.potAusd ?? 0 },
+          rake: { MON: health.rakeMon ?? 0, AUSD: health.rakeAusd ?? 0 },
           avgCheckpoints: health.checkpoints ?? 0,
         },
         series: { matchDays },

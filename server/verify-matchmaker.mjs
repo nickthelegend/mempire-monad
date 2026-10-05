@@ -6,12 +6,13 @@
  */
 import WebSocket from 'ws';
 
-const WS = process.env.WS ?? 'wss://mempire-relay-production.up.railway.app/ws';
-const A = '2cmeus9ph2SzixtHfcpActu8tvjaMVN58H95MivMDCyE';
-const B = 'GKLFeUT1cqG82iVkRsBekyZh5eCbhHSDjdvZLA1HZzxj';
+const WS = process.env.WS ?? 'ws://localhost:8787/ws';
+// Throwaway addresses: this queues casual, and a casual queue needs no signature.
+const A = '0x2c00000000000000000000000000000000000a0a';
+const B = '0x2c00000000000000000000000000000000000b0b';
 
-const deck = (seed) => Array.from({ length: 8 }, (_, i) => ({
-  coinId: `mint${seed}${i}`.padEnd(32, 'x'),
+const deck = () => Array.from({ length: 8 }, (_, i) => ({
+  coinId: i,
   name: `C${i}`,
   archetype: i % 6,
   level: 1,
@@ -25,7 +26,7 @@ function client(label, address, trophies) {
     ws.on('open', () => {
       ws.send(JSON.stringify({
         t: 'queue', tier: 0, address, deck: deck(label),
-        format: 'standard', ranked: true, trophies, name: label,
+        format: 'standard', ranked: false, trophies, name: label,
       }));
     });
     ws.on('message', (raw) => {

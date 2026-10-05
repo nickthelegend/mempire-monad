@@ -2,123 +2,119 @@
  * A sparring partner that actually stakes.
  *
  * The plain `spar.mjs` holds a queue slot but never touches the chain, so the
- * match it pairs into stays `Open` — and the browser seat correctly declines to
- * delegate a rollup log for a match nobody joined. That made C5's settlement
- * half and C7 untestable rather than broken.
+ * arena match it pairs into stays Open — the browser seat correctly waits for
+ * a join that never comes, which made the settlement half of a staked match
+ * untestable rather than broken.
  *
- * This one joins the escrow for real with wallet B: same `join_match`
- * instruction, same deck-hash commitment, same locked-card remaining accounts
- * as the client. Once it joins, the match reaches `Active` and the browser's
- * `prepareLog` has something to delegate.
+ * This one joins the escrow for real: when the browser (seat 0) announces its
+ * arena match over the relay's `chain` handshake, it reads the match with
+ * `getMatch`, checks the opener is its opponent, and calls `joinMatch` with
+ * eight unlocked cards of eight distinct coins at the same stake — approving
+ * the arena first when the stake is AUSD. Once it joins, the match is Active
+ * and the browser's play log has a second seat to run against.
  *
- * It plays no cards. The simulation is the browser's; this exists so the money
- * half of the flow has a genuine second party.
+ * It plays no cards and never claims; the simulation is the browser's. If the
+ * browser claims alone, `claimTimeout` settles it after the deadline.
+ *
+ *   SPAR_PRIVATE_KEY=0x… [CHAIN_ID=10143] [RPC_URL=…] [WS=wss://…/ws] [CURRENCY=MON|AUSD] node spar-escrow.mjs
+ *
+ * The key needs a starter deck (onboard it once) and MON for gas and stake.
  */
 import WebSocket from 'ws';
-import anchor from '@coral-xyz/anchor';
-import { Connection, Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
-import bs58 from 'bs58';
-import { readFileSync } from 'node:fs';
+import { createWalletClient, http, maxUint256 } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { abis, chain, deployment, publicClient, sameAddress, RPC_URL, ZERO_ADDRESS } from './chain.js';
+import { signed } from './test-util.mjs';
 
-const WS = 'wss://mempire-relay-production.up.railway.app/ws';
-const RPC = 'https://api.devnet.solana.com';
-const PROGRAM = new PublicKey('BnLDCAREDpBGenqZr8BTyQu7BCoVewF9XEtMPFBqFxeP');
-const idl = JSON.parse(readFileSync(new URL('../app/src/chain/mempire.idl.json', import.meta.url)));
-const demo = JSON.parse(readFileSync(new URL('../app/.demo-wallets.json', import.meta.url)));
+const WS = process.env.WS ?? 'ws://localhost:8787/ws';
+const CURRENCY = String(process.env.CURRENCY ?? 'MON').toUpperCase();
+const key = process.env.SPAR_PRIVATE_KEY;
+if (!key) { console.log('spar-escrow: set SPAR_PRIVATE_KEY'); process.exit(1); }
+if (!deployment) { console.log('spar-escrow: no deployment for this CHAIN_ID'); process.exit(1); }
 
-const kp = Keypair.fromSecretKey(Uint8Array.from(demo['1']));
-const conn = new Connection(RPC, 'confirmed');
-const wallet = {
-  publicKey: kp.publicKey,
-  signTransaction: async (t) => { t.partialSign(kp); return t; },
-  signAllTransactions: async (ts) => ts.map((t) => { t.partialSign(kp); return t; }),
-};
-const provider = new anchor.AnchorProvider(conn, wallet, { commitment: 'confirmed' });
-const program = new anchor.Program(idl, provider);
+const me = privateKeyToAccount(key);
+const pub = publicClient();
+const wallet = createWalletClient({ account: me, chain, transport: http(RPC_URL) });
+const NO_PERMIT = { deadline: 0n, v: 0, r: `0x${'00'.repeat(32)}`, s: `0x${'00'.repeat(32)}` };
 
-const le = (n) => new anchor.BN(n).toArrayLike(Buffer, 'le', 8);
-const pda = (...seeds) => PublicKey.findProgramAddressSync(seeds, PROGRAM)[0];
-const configPda = () => pda(Buffer.from('config'));
-const matchPda = (id) => pda(Buffer.from('match'), le(id));
-const cardPda = (id) => pda(Buffer.from('card'), le(id));
-
-/** FNV-1a over the deck's mints, in order — byte-identical to the client. */
-function deckHashBytes(mints) {
-  const out = new Uint8Array(32);
-  let h = 0x811c9dc5;
-  const text = mints.join(',');
-  for (let i = 0; i < text.length; i += 1) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  for (let i = 0; i < 32; i += 1) { out[i] = h & 0xff; h = Math.imul(h, 0x01000193) >>> 0; }
-  return out;
+/** Estimated, with the same 15% margin the relayer uses: Monad bills the limit. */
+async function send(call) {
+  const gas = await pub.estimateContractGas({ account: me, ...call });
+  const hash = await wallet.writeContract({ ...call, gas: (gas * 115n) / 100n });
+  const r = await pub.waitForTransactionReceipt({ hash });
+  if (r.status !== 'success') throw new Error(`${call.functionName} reverted (${hash})`);
+  return hash;
 }
 
-// Eight unlocked cards, one per coin — the same rule the deck enforces.
-const DEFAULT = PublicKey.default.toBase58();
-const owned = await program.account.card.all([
-  { memcmp: { offset: 16, bytes: kp.publicKey.toBase58() } },
-]);
+// Eight unlocked cards, one per coin — the same rule `lockDeck` enforces.
+const [ids, cards, locked] = await pub.readContract({
+  address: deployment.cards, abi: abis.cards, functionName: 'cardsOf', args: [me.address],
+});
 const byCoin = new Map();
-for (const c of owned) {
-  if (c.account.lockedBy.toBase58() !== DEFAULT) continue;
-  const mint = c.account.coinMint.toBase58();
-  if (!byCoin.has(mint)) byCoin.set(mint, c.account.id.toNumber());
-}
-const deckIds = [...byCoin.values()].slice(0, 8);
-const deckMints = [...byCoin.keys()].slice(0, 8);
-if (deckIds.length < 8) {
-  console.log(`spar-escrow: only ${deckIds.length} free distinct coins — need 8`);
+ids.forEach((id, i) => {
+  if (!locked[i] && !byCoin.has(cards[i].coinId)) byCoin.set(cards[i].coinId, { id, card: cards[i] });
+});
+const deck = [...byCoin.values()].slice(0, 8);
+if (deck.length < 8) {
+  console.log(`spar-escrow: only ${deck.length} free distinct coins — onboard this key first`);
   process.exit(1);
 }
-console.log('spar-escrow: deck ready', deckIds.join(','));
+console.log(`spar-escrow: ${me.address} deck ready`, deck.map((d) => d.id).join(','));
 
-const relayDeck = deckMints.map((m, i) => ({
-  coinId: m, name: `S${i}`, archetype: i % 6, level: 1,
+const relayDeck = deck.map((d, i) => ({
+  coinId: Number(d.card.coinId), name: `S${i}`, archetype: Number(d.card.archetype), level: Number(d.card.level),
 }));
 
 const ws = new WebSocket(WS);
-ws.on('open', () => {
-  console.log('spar-escrow: queueing');
+let opponent = null;
+
+ws.on('open', async () => {
+  console.log(`spar-escrow: queueing tier 0, ${CURRENCY}`);
   ws.send(JSON.stringify({
-    t: 'queue', tier: 0, address: kp.publicKey.toBase58(), deck: relayDeck,
+    t: 'queue', ...(await signed(me, 'queue')), tier: 0, currency: CURRENCY, deck: relayDeck,
     format: 'standard', ranked: true, trophies: 16, name: 'Sparring Partner',
   }));
 });
 
 ws.on('message', async (raw) => {
   let m; try { m = JSON.parse(String(raw)); } catch { return; }
-  if (m.t !== 'matched') return;
-  console.log('spar-escrow: matched, role', m.role, 'opponent', m.opponent?.address);
-  if (m.role === 0) { console.log('spar-escrow: we are seat 0 — the browser must queue first'); return; }
+  if (m.t === 'matched') {
+    console.log('spar-escrow: matched, role', m.role, 'opponent', m.opponent?.address, 'epoch', m.metaEpoch);
+    if (m.role === 0) console.log('spar-escrow: we are seat 0 — the browser must queue first');
+    opponent = m.opponent?.address ?? null;
+    return;
+  }
+  if (m.t !== 'chain' || m.stage !== 'opened' || !m.onchainMatchId) return;
 
-  // Seat 1: find the opponent's open match and match their stake.
-  for (let i = 0; i < 30; i += 1) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const all = await program.account.matchAccount.all();
-    const open = all
-      .map((x) => ({ id: x.account.id.toNumber(), state: x.account.state, players: x.account.players.map((p) => p.toBase58()) }))
-      .filter((x) => x.state === 0 && x.players[0] === m.opponent.address)
-      .sort((a, b) => b.id - a.id)[0];
-    if (!open) { console.log('spar-escrow: waiting for their CreateMatch…'); continue; }
-    try {
-      const sig = await program.methods
-        .joinMatch(Array.from(deckHashBytes(deckMints)))
-        .accounts({
-          config: configPda(),
-          matchAccount: matchPda(open.id),
-          player: kp.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .remainingAccounts(deckIds.map((id) => ({ pubkey: cardPda(id), isWritable: true, isSigner: false })))
-        .rpc();
-      console.log(`spar-escrow: JOINED match #${open.id} — ${sig}`);
-      return;
-    } catch (e) {
-      console.log('spar-escrow: join failed —', e.message?.slice(0, 160));
+  const id = BigInt(m.onchainMatchId);
+  try {
+    // Never trust the peer's announcement: read the match it names.
+    const match = await pub.readContract({ address: deployment.arena, abi: abis.arena, functionName: 'getMatch', args: [id] });
+    if (Number(match.state) !== 1 || !sameAddress(match.p0, opponent)) {
+      console.log(`spar-escrow: match #${id} is not an open match by our opponent — not joining`);
       return;
     }
+    const isMon = sameAddress(match.currency, ZERO_ADDRESS);
+    if (!isMon) {
+      const allowance = await pub.readContract({
+        address: match.currency, abi: abis.erc20, functionName: 'allowance', args: [me.address, deployment.arena],
+      });
+      if (allowance < match.stake) {
+        await send({ address: match.currency, abi: abis.erc20, functionName: 'approve', args: [deployment.arena, maxUint256] });
+      }
+    }
+    const hash = await send({
+      address: deployment.arena,
+      abi: abis.arena,
+      functionName: 'joinMatch',
+      args: [id, deck.map((d) => d.id), ZERO_ADDRESS, NO_PERMIT],
+      value: isMon ? match.stake : 0n,
+    });
+    console.log(`spar-escrow: JOINED match #${id} — ${hash}`);
+    ws.send(JSON.stringify({ t: 'chain', stage: 'joined', onchainMatchId: Number(id), txHash: hash }));
+  } catch (e) {
+    console.log('spar-escrow: join failed —', String(e?.shortMessage ?? e?.message).slice(0, 160));
+    ws.send(JSON.stringify({ t: 'chain', stage: 'failed', onchainMatchId: Number(id), reason: 'sparring partner could not join' }));
   }
 });
 

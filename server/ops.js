@@ -20,6 +20,7 @@
  * limit is the limit however many instances are up.
  */
 export function rateLimiter(db, { capacity = 80, refillPerSec = 5, includeReads = false } = {}) {
+  if (db.inMemory) return memoryRateLimiter({ capacity, refillPerSec, includeReads });
   const buckets = db.collection('rate_buckets');
   // Mongo drops these on its own once a bucket has been idle long enough to
   // have refilled completely, so the collection cannot grow without bound.
@@ -30,10 +31,11 @@ export function rateLimiter(db, { capacity = 80, refillPerSec = 5, includeReads 
      * Reads are free by default, and must not be on a credentialed proxy.
      *
      * Exempting GET is right for our own cheap endpoints. It is wrong for a
-     * route that spends someone else's quota on every call: the Bags proxy
-     * carries this project's paid `x-api-key`, so an anonymous loop over
-     * `GET /api/market/quote` bills us and eventually takes the swap screen
-     * down for everyone. Those routes pass `includeReads`.
+     * route that spends someone else's quota on every call: the Pyth proxy
+     * carries this project's Hermes key, and the chain-backed reads spend the
+     * relay's RPC quota, so an anonymous loop over either bills us and
+     * eventually takes the route down for everyone. Those routes pass
+     * `includeReads`.
      */
     if (!includeReads && (req.method === 'GET' || req.method === 'OPTIONS')) return next();
     const key = req.ip ?? 'unknown';
@@ -97,6 +99,34 @@ export function rateLimiter(db, { capacity = 80, refillPerSec = 5, includeReads 
       // exists to prevent.
       return next();
     }
+  };
+}
+
+/**
+ * The same token bucket in process memory, for a relay running without Mongo.
+ *
+ * This is exactly the limiter the Mongo version replaced, and the reasons it
+ * was replaced still hold for a fleet. A memory-mode relay is one process by
+ * construction — it has no shared store to coordinate replicas with — and for
+ * one process a local bucket is correct. Same capacity, same refill, same
+ * deliberate overdraft.
+ */
+function memoryRateLimiter({ capacity, refillPerSec, includeReads }) {
+  const buckets = new Map();
+  return function limit(req, res, next) {
+    if (!includeReads && (req.method === 'GET' || req.method === 'OPTIONS')) return next();
+    const key = req.ip ?? 'unknown';
+    const now = Date.now();
+    const b = buckets.get(key) ?? { tokens: capacity, at: now };
+    b.tokens = Math.min(capacity, b.tokens + ((now - b.at) / 1000) * refillPerSec) - 1;
+    b.at = now;
+    buckets.set(key, b);
+    // Idle buckets have refilled completely, so forgetting them changes nothing.
+    if (buckets.size > 10_000) {
+      for (const [k, v] of buckets) if (now - v.at > 900_000) buckets.delete(k);
+    }
+    if (b.tokens < 0) return res.status(429).json({ error: 'slow down' });
+    return next();
   };
 }
 
