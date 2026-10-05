@@ -268,12 +268,21 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
             >
               Replay tutorial
             </button>
+            {wallet.kind === 'passkey' && (
+              <button
+                onClick={() => { wallet.lock(); setOpen(false); }}
+                className="menu-item"
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 10px', borderRadius: 8, fontSize: 13, minHeight: 44, fontWeight: 700, color: 'var(--dim-on-wood)' }}
+              >
+                Lock session (zero the key)
+              </button>
+            )}
             <button
               onClick={() => { wallet.disconnect(); setOpen(false); }}
               className="menu-item"
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 10px', borderRadius: 8, fontSize: 13, minHeight: 44, fontWeight: 700, color: 'var(--red-on-wood)' }}
             >
-              Disconnect
+              {wallet.kind === 'passkey' ? 'Sign out' : 'Disconnect'}
             </button>
           </div>
         </>
