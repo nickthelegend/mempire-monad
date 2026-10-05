@@ -5,9 +5,10 @@
 #   - our contracts deployed with real signed transactions
 #   - a real MongoDB (own mongod on :27019, data in .local/mongo)
 #   - the relay on :8799 (signs live prices for the local oracle with anvil #4)
+#   - the app on http://localhost:5181 (Vite, chain 31337)
 #
-#   ./scripts/local-up.sh            # chain + contracts + db + relay
-#   ./scripts/local-up.sh --no-relay
+#   ./scripts/local-up.sh            # chain + contracts + db + relay + app
+#   ./scripts/local-up.sh --no-relay  # chain + contracts + db only
 #   ./scripts/local-up.sh --relay-only   # restart just the relay (stop it first)
 #   ./scripts/local-down.sh
 set -euo pipefail
@@ -55,6 +56,15 @@ if [ "${1:-}" != "--no-relay" ]; then
     ORACLE_PRIVATE_KEY="$(cast wallet private-key "$MNEMONIC" 4)" \
     AUSD_FAUCET="$(jq -r .ausdFaucet "$ROOT/shared/deployments/31337.json")" \
     nohup node index.js >"$RUN/relay.log" 2>&1 </dev/null & echo $! >"$RUN/relay.pid")
-  for _ in $(seq 60); do curl -sf localhost:8799/api/health >/dev/null && break; sleep 0.25; done
+  # A cold boot off a busy disk can take ~30 s.
+  for _ in $(seq 240); do curl -sf localhost:8799/api/health >/dev/null && break; sleep 0.5; done
   echo "relay  http://localhost:8799"
+fi
+
+if [ "${1:-}" = "" ] && ! lsof -iTCP:5181 -sTCP:LISTEN >/dev/null 2>&1; then
+  INDEXER=""; curl -sf -m 2 localhost:8090/healthz >/dev/null 2>&1 && INDEXER=http://localhost:8090/v1/graphql
+  (cd "$ROOT/app" && exec >/dev/null && PORT=5181 VITE_CHAIN_ID=31337 VITE_API_URL=http://localhost:8799 \
+    VITE_INDEXER_URL="$INDEXER" nohup npx vite --host 127.0.0.1 >"$RUN/vite.log" 2>&1 </dev/null & echo $! >"$RUN/vite.pid")
+  for _ in $(seq 120); do curl -sf localhost:5181 >/dev/null && break; sleep 0.5; done
+  echo "app    http://localhost:5181${INDEXER:+  (indexer $INDEXER)}"
 fi

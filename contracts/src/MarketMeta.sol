@@ -128,6 +128,11 @@ contract MarketMeta is IReceiver, Ownable2Step {
         if (address(pyth) == address(0) || address(cards) == address(0)) revert PythNotSet();
         epoch = uint64(block.timestamp / EPOCH_SECONDS);
         if (epoch <= currentEpoch) revert StaleEpoch();
+        // Effects before any external call: the epoch is claimed first, so a
+        // re-entrant post for the same window fails `StaleEpoch`.
+        currentEpoch = epoch;
+        epochTimestamp[epoch] = uint64(block.timestamp);
+        epochSource[epoch] = SOURCE_PYTH;
         uint256 fee = pyth.getUpdateFee(priceUpdate);
         if (msg.value < fee) revert WrongPayment();
         pyth.updatePriceFeeds{value: fee}(priceUpdate);
@@ -140,9 +145,6 @@ contract MarketMeta is IReceiver, Ownable2Step {
             bps[i] = momentumBps(p.price, e.price);
             modifierBps[epoch][coinIds[i]] = bps[i];
         }
-        currentEpoch = epoch;
-        epochTimestamp[epoch] = uint64(block.timestamp);
-        epochSource[epoch] = SOURCE_PYTH;
         emit MetaPosted(epoch, coinIds, bps);
         emit MetaSource(epoch, SOURCE_PYTH, msg.sender);
 
