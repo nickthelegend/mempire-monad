@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Project** | Mempire: a real-time 1v1 card battler where the market is the meta |
-| **Track** | **02 · Consumer Products & Payments** |
-| **Network** | Monad testnet (10143) |
+| **Track** | **03 · Social, Attention & Culture** (recommended; currently registered as 02, see below) |
+| **Network** | Monad testnet (10143) — *not deployed yet; everything runs on a local anvil chain (`scripts/local-up.sh`) until the team says deploy* |
 | **Live app** | `TODO: Vercel URL` |
 | **Repo** | https://github.com/nickthelegend/mempire-monad (MIT) |
 | **Demo video (≤ 3 min)** | `TODO` |
@@ -25,21 +25,37 @@ Most of a consumer crypto product is the first five minutes, so that is where mo
 - **Payment and settlement are the same transaction.** The second seat's result claim pays 90% to the winner and 10% rake, atomically. Disagreement refunds both. Abandonment can't lock a pot.
 - **No popups while playing.** A per-match session key is funded in the stake transaction. It can log plays and claim for its own seat and nothing else, and its unspent gas is swept back to the player afterwards.
 
-## Bounties claimed
+## Track: recommend moving to **03 · Social, Attention & Culture**
 
-| Bounty | Track | What qualifies it |
+Polaris, from the same team, is in Track 2 and is the stronger fit for Agora's T2-only cross-border bounty. Two entries from one team in one track would compete for the same three places. Mempire's real strength is cultural:
+- every ticker is a fighter with a community behind it;
+- the market's mood buffs and nerfs it daily;
+- clans, a ladder, a live play feed and shareable cards.
+
+Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 also opens Tencent Hunyuan (credits), which the OpenAI-compatible AI layer could add as a commentary provider. If it stays in T2, the consumer-payments framing below still holds.
+
+## Bounties targeted (status: built and tested on a local chain; keys are listed in `docs/SPONSOR-GAP.md`)
+
+| Bounty | Track | How Mempire meets the stated requirement |
 |---|---|---|
-| **Monad Foundation: Best Mera-Powered UX** | All | Mera is the whole account layer, with one passkey ceremony and no email or OTP. **Time to first transaction:** the starter deck lands about a second after sign-in. **Session design:** prompt-free signing for play, a 30-minute idle / 2-hour hard expiry with a countdown on the account chip, a locked state that reopens with one prompt, and step-up re-derivation for stakes from the Duke tier up. **Stateless test:** clear storage or switch device, sign in with the same passkey, and the same address comes back. Real testnet transactions throughout. |
-| **Mera: One Passkey, Many Keys** | All | PRF namespace `mempire.locker.v1` does non-account work: HKDF splits it into a non-extractable AES-256-GCM key and a 256-bit storage id. Decks and scouting notes are encrypted in the browser and stored under an id the relay cannot link to the account. Salts are namespaced, nothing derived is persisted, and the locker opens on a second device with the same passkey. |
-| **Chainlink: Best workflow with CRE** | All | `cre/market-meta` is the orchestration layer for the game's balance: cron trigger, then HTTP with DON consensus (a median per coin), then a `(uint64,uint16[],int16[])` report written by `writeReport` to `MarketMeta.onReport`. That contract is an `IReceiver`, gated to the forwarder, and rejects stale epochs. Matches snapshot the epoch on chain and the simulation applies it, so the workflow decides real game outcomes. Simulated with `cre workflow simulate --broadcast` against the testnet MockKeystoneForwarder (tx: `TODO`). 33 tests. |
-| **Envio: Best use of Envio** | All | HyperIndex V3 on Monad testnet, with a non-trivial schema and derived entities: player records, net MON and AUSD, per-fighter win rates split by buffed and nerfed days, a play feed resolved to fighter and level, chests, epochs and daily stats. It powers the **Live on Monad** panel. 6 handler tests. |
-| **Monad Foundation: Best Community Team Project** | All | `TODO: only if the team was onboarded through a Metropolis community supporter. Set it in the portal profile.` |
+| **Privy: beyond login** | All | Email sign-in creates a Privy **embedded wallet**. Its own transactions are **gas-sponsored** (`sponsor: true`). A **session signer** (`addSigners`) bound by a **policy** (default deny; only arena `play`/`checkpoint`/`claim`, value 0, this chain) sends in-match calls as the player, so there are no popups and no path to funds. 29 end-to-end checks. |
+| **Monad Foundation: Mera UX** | All | Mera is the account layer, with one passkey ceremony and nothing secret stored. Signing is prompt-free. Sessions have idle and hard expiry, a visible countdown, a lock option, and step-up for big stakes. The stateless test passes. The starter deck lands about 1–3 s after sign-up. |
+| **Mera: Many Keys** | All | The `mempire.locker.v1` PRF namespace feeds HKDF, which yields an AES-256-GCM key and an unlinkable storage id. That powers an end-to-end encrypted deck and notes locker that opens on any device with the passkey. |
+| **Chainlink CRE** | All | A cron, HTTP-consensus, `writeReport` workflow into the `MarketMeta` receiver sets each fighter's daily ±15% modifier, which the deterministic sim applies. 33 tests, compiled to WASM. Simulation needs `cre login`. |
+| **Envio** | All | HyperIndex V3 with derived entities (records, net per currency, per-fighter win rates on buffed and nerfed days, the play feed, epochs with source). It runs on the local chain, and verify-local checks indexed rows against the chain (52/52). The app's **Live on Monad** panel reads it. |
+| **Kimi** | All | Kimi is the AI opponent's strategist, using tool calling (`deploy_card`, `wait`, `get_market_meta`). Its moves are validated and played through the human input path, and it provides the caster lines. 58 checks against the mock and a fake Moonshot server. |
+| **Monad Foundation: Community Team** | All | Only if the team was onboarded through a Metropolis community supporter. |
 
-**Considered but not claimed:**
-- **Privy** and **Dynamic**: Mera is the account layer, and a second account SDK would muddle it.
-- **Agora Cross-Border Payments**: requires a mobile remittance app.
-- **Kuru**, **Perpl** and **MetaMask**: T1 only, or trading-specific.
-- **Alchemy**: the app accepts any RPC, but nothing Alchemy-specific is load-bearing, so claiming it would be a URL swap.
+**Also integrated** (not a separate cash bounty):
+- **Pyth:** a fresh update is pushed in the same transaction for minting and for **price-driven stats**. `MarketMeta.postFromPyth` derives modifiers from spot vs EMA on chain.
+- **Agora AUSD:** the stake currency, pulled with an EIP-2612 permit.
+
+**Not claimed:**
+- Agora: a mobile trading app (T1) or cross-border remittance (T2), neither of which fits.
+- Dynamic: Privy and Mera already cover the account layer.
+- Kuru, Perpl, MetaMask: T1 and trading.
+- Alchemy: only a URL swap here.
+- Nansen: no real use for its data in a game.
 
 ## Monad integration
 
@@ -65,4 +81,5 @@ Most of a consumer crypto product is the first five minutes, so that is where mo
 - **Simulation:** `npx tsx app/scripts/sim-test.ts` is deterministic with and without the market meta. The client and contract archetype derivations match for all 36 fighters.
 - **CRE:** `bun test` gives 33/33.
 - **Indexer:** `pnpm test` gives 6/6.
-- **Testnet:** `TODO` (addresses, a settled match id, the CRE report transaction).
+- **Every suite at once:** `./scripts/local-up.sh --relay && ./scripts/test-all.sh` runs 13 suites, all green. They include `test-e2e.mjs`, which walks the whole game on the local chain in 22 checks, `test-privy.mjs` (29) and `test-ai.mjs` (58).
+- **Testnet:** `TODO` once deployment is allowed (addresses, a settled match id, the CRE report transaction).
