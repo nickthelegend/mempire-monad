@@ -110,7 +110,7 @@ export function ClanCreateSheet({ onClose, onFounded }: {
       requiredPower,
       joinMode,
       power,
-      paymentSignature: signature,
+      paymentTx: signature,
     });
     if (err) {
       // Still paid, still unspent — say so, so a retry does not read as

@@ -34,7 +34,7 @@ function Leaderboard({ me }: { me: string }) {
        * ladder. A row earns its place by having won something or moved some
        * SOL; nothing legitimate is excluded by that, because a real player with
        * zero wins and zero net is also ranked nowhere. */
-      setRows(r.filter((row) => row.wins > 0 || row.netSol !== 0));
+      setRows(r.filter((row) => row.wins > 0 || (row.netAusd ?? 0) !== 0 || (row.netMon ?? 0) !== 0));
     });
     return () => { cancelled = true; };
   }, []);
@@ -76,9 +76,11 @@ function Leaderboard({ me }: { me: string }) {
               </span>
               <span
                 className="money"
-                style={{ fontSize: 13, flexShrink: 0, color: r.netSol >= 0 ? 'var(--gold)' : 'var(--red)' }}
+                style={{ fontSize: 13, flexShrink: 0, color: (r.netAusd || r.netMon || 0) >= 0 ? 'var(--gold)' : 'var(--red)' }}
               >
-                {r.netSol >= 0 ? '+' : '−'}{fmtMon(Math.abs(r.netSol))}
+                {r.netAusd
+                  ? `${r.netAusd >= 0 ? '+' : '−'}${fmtStake(Math.abs(r.netAusd), 'AUSD')}`
+                  : `${(r.netMon ?? 0) >= 0 ? '+' : '−'}${fmtMon(Math.abs(r.netMon ?? 0))}`}
               </span>
             </div>
           );

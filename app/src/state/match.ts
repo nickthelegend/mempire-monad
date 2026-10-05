@@ -48,6 +48,8 @@ export interface MatchOpts {
 export interface MatchResult {
   won: boolean;
   draw: boolean;
+  /** What the pot was in. Absent on results saved before the Monad port. */
+  currency?: StakeCurrency;
   potSol: number;
   payoutSol: number; // what the player received (0 on loss)
   rakeSol: number;
@@ -763,6 +765,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
         trophies: useLadder.getState().trophies,
         ranked,
         format: rush ? 'rush' : 'standard',
+        currency: deck.currency,
       });
     })();
     // Ranked has no bot timer at all: there is nothing to fall back to.
@@ -1394,6 +1397,7 @@ function settleVoid(reason: string): void {
     // above is what decides whether there is anything to claim against.
     escrowed: useEscrow.getState().matchId !== null,
     matchId: useEscrow.getState().matchId,
+    currency: useMatch.getState().currency,
     potSol: stakeSol * 2,
     payoutSol: stakeSol,
     rakeSol: 0,
@@ -1523,7 +1527,8 @@ function settle(): void {
     : null;
 
   const result: MatchResult = {
-    won, draw, potSol: pot, payoutSol, rakeSol, hashes: hashes.length, crowns, chest,
+    won, draw, currency: useMatch.getState().currency,
+    potSol: pot, payoutSol, rakeSol, hashes: hashes.length, crowns, chest,
     escrowed: ['waiting', 'live', 'claiming', 'claimed', 'settled', 'refunded']
       .includes(useEscrow.getState().phase),
     matchId: useEscrow.getState().matchId,

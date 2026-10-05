@@ -27,7 +27,7 @@ export interface SavedState {
   chests?: ChestSlot[];
   nextChestId?: number;
   gemsSpent?: number;
-  solSpentOnGems?: number;
+  monSpentOnGems?: number;
   /** The day's shop, so bought flags and rerolls survive a reload. */
   shop?: { offers: ShopOffer[]; day: number; rerollsUsed: number };
 }
@@ -72,7 +72,14 @@ export function savePlayer(address: string, state: SavedState): void {
  */
 export function recordMatch(address: string, result: MatchResult, attempt = 0): void {
   if (!address) return;
-  void apiPost(`/api/match/${address}`, 'match.post', result as unknown as Record<string, unknown>)
+  // The relay's fields are currency-neutral (`pot`, `payout`, `rake`, plus
+  // `currency`); the result object still carries the old names internally.
+  const body = {
+    ...result,
+    pot: result.potSol, payout: result.payoutSol, rake: result.rakeSol,
+    currency: result.currency ?? 'MON',
+  } as unknown as Record<string, unknown>;
+  void apiPost(`/api/match/${address}`, 'match.post', body)
     .then(async (r) => {
       if (!r?.ok) { online = false; return; }
       const body = await r.json().catch(() => null);
@@ -91,7 +98,9 @@ export function recordMatch(address: string, result: MatchResult, attempt = 0): 
 
 export interface LeaderRow {
   address: string;
-  netSol: number;
+  netSol?: number;
+  netMon?: number;
+  netAusd?: number;
   wins: number;
   losses: number;
   crowns: number;

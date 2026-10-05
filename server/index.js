@@ -15,6 +15,7 @@ import { requireWallet, setReplayStore, setWalletLimiter } from './auth.js';
 import { CHAIN_ID, RPC_URL, deployment, normAddress } from './chain.js';
 import { verifySettledMatch } from './chain-verify.js';
 import { registerClanRoutes } from './clans.js';
+import { registerLockerRoutes } from './locker.js';
 import { createMemoryDb } from './memstore.js';
 import { registerMarketRoutes } from './market.js';
 import { registerNftRoutes } from './nft.js';
@@ -661,6 +662,7 @@ const server = await (async () => {
   // this chain has no deployment or no relayer key, rather than 404ing.
   registerOnboardRoutes(app, db, { ipGate: onboardGate, readGate });
   registerPlayerRoutes(app, db);
+  registerLockerRoutes(app, db, { gate: (req, res, next) => (readLimit ? readLimit(req, res, next) : next()) });
   registerTelemetryRoutes(app, db, requireWallet);
   registerInsightRoutes(app, db);
   registerOpsRoutes(app, db);

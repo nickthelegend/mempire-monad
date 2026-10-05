@@ -130,7 +130,7 @@ export interface ClanDraft {
   memberName?: string;
   power?: number;
   /** Signature of the charter payment. The server verifies it before founding. */
-  paymentSignature?: string;
+  paymentTx?: string;
 }
 
 /**
