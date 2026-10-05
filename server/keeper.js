@@ -10,12 +10,18 @@
  * On by default on the local chain (signed local oracle), opt-in elsewhere with
  * `META_KEEPER=1`. When a CRE workflow is the meta's writer, leave it off: the
  * two share one epoch clock and whichever posts first owns the window.
+ *
+ * A post re-derives all 36 fighters and costs ~1.7M gas (~0.17 MON at 100
+ * gwei), so every window would be ~25 MON a day. `META_KEEPER_EVERY=n` posts
+ * every n-th window instead (36 = every six hours); a match snapshots whatever
+ * epoch was posted last, so the gaps are safe.
  */
 import { abis, deployment, IS_DEV_CHAIN, publicClient, roster } from './chain.js';
 import { fetchPythUpdate, pythConfigured } from './pyth.js';
 import { relayerAddress, sendRelayerTx } from './relayer.js';
 
 const WINDOW = 600;
+const EVERY = BigInt(Math.max(1, Math.floor(Number(process.env.META_KEEPER_EVERY ?? 1)) || 1));
 const pythAbi = [{
   type: 'function', name: 'getUpdateFee', stateMutability: 'view',
   inputs: [{ type: 'bytes[]', name: 'updateData' }], outputs: [{ type: 'uint256' }],
@@ -36,7 +42,7 @@ export async function tickKeeper(now = Math.floor(Date.now() / 1000)) {
   const client = publicClient();
   const want = BigInt(Math.floor(now / WINDOW));
   const current = await client.readContract({ address: deployment.marketMeta, abi: abis.marketMeta, functionName: 'currentEpoch' });
-  if (current >= want) return null;
+  if (current >= want || want - current < EVERY) return null;
   const ids = roster.map((c) => c.coinId);
   const { updateData, prices } = await fetchPythUpdate(ids);
   const coinIds = prices.map((p) => p.coinId);
@@ -61,5 +67,5 @@ export function startKeeper() {
   const run = () => { void tickKeeper().catch((e) => { last = { ...last, error: String(e?.message ?? e) }; }); };
   setTimeout(run, 2_000);
   setInterval(run, 60_000);
-  console.log('keeper: posting Pyth momentum meta each ten-minute window');
+  console.log(`keeper: posting Pyth momentum meta every ${EVERY === 1n ? 'ten-minute window' : `${EVERY} windows (${Number(EVERY) * 10} min)`}`);
 }

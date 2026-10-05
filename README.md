@@ -4,8 +4,8 @@
 
 Sign in with a passkey: no seed phrase, no extension, no wallet popups during a match.
 
-- **Play:** `TODO: Vercel URL` (Monad testnet)
-- **Track:** 02 · Consumer Products & Payments
+- **Play:** `TODO: Vercel URL` (Monad testnet, deploying on the team's go). Today it runs end to end on your machine with one command: see [Run it locally](#run-it-locally).
+- **Track:** 03 · Social, Attention & Culture (recommended; see [SUBMISSION.md](SUBMISSION.md))
 - **Demo video:** `TODO`
 
 > Built for Monad Metropolis (Sep 1 – Oct 13 2026). Ported from the Solana version of Mempire, see [Attribution](#attribution-and-pre-existing-work).
@@ -46,12 +46,14 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
  │ session key per match ────────────┼──►│               two-claim settle │
  └────────┬──────────────────────────┘   │ MempireCards  ERC-721 · merge  │
           │ ws (lockstep relay)          │               chests · Pyth    │
- ┌────────▼──────────┐                   │ MarketMeta    CRE receiver     │
- │ relay (Railway)   │── relayer key ───►│ MempireToken  $MEMPIRE         │
- │ matchmaker, hash  │                   └───────▲───────────────▲────────┘
- │ referee, onboard, │                           │               │
- │ Pyth proxy, NFT   │          Chainlink CRE workflow     Envio HyperIndex
- │ metadata, locker  │          (24h moves → ±15% meta)    (leaderboard, feed)
+ ┌────────▼──────────┐                   │ MarketMeta    CRE receiver ·   │
+ │ relay (Railway)   │── relayer key ───►│               Pyth momentum    │
+ │ matchmaker, hash  │                   │ MempireToken  $MEMPIRE         │
+ │ referee, onboard, │                   └───────▲───────────────▲────────┘
+ │ Pyth proxy + meta │                           │               │
+ │ keeper, NFT meta, │          Chainlink CRE workflow     Envio HyperIndex
+ │ locker, Privy     │          (24h moves → ±15% meta)    (leaderboard, feed)
+ │ signer, Kimi      │
  └───────────────────┘
 ```
 
@@ -61,10 +63,12 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
 |---|---|
 | `MempireCards` | Every fighter is an ERC-721. **Mint** for 0.01 MON or 250 $MEMPIRE, with a fresh **Pyth** price posted in the same transaction (no live price, no mint); the card records the price it was minted at. **Merge** a duplicate for a level (100 × level $MEMPIRE, capped at 10). **Chests** are granted by wins, unlocked on a timer and opened against a future block hash. **Starter decks** come from the relayer, once per address. The archetype is `keccak256(feedId) % 6`, fixed by the asset's identity. |
 | `MempireArena` | Stakes in **MON or AUSD** on four fixed tiers enforced by the contract. Per-match **session keys** are funded from the stake transaction. **Play log**: `play(tick, card, x, y)` and `checkpoint(tick, hash)`. **Two-claim settlement**: agreement pays 90/10, disagreement voids and refunds, and after the deadline a lone claim stands (no claims at all refunds both). Cards are locked by reference to a live match, so settling is unlocking; no path can strand a card or a pot. |
-| `MarketMeta` | A Chainlink CRE receiver. Each epoch it stores a bounded (±15%) hp and damage modifier per fighter. Matches snapshot the epoch at join. |
+| `MarketMeta` | Each ten-minute epoch it stores a bounded (±15%) hp and damage modifier per fighter, from either of two writers: a Chainlink **CRE** report (`onReport`), or **Pyth momentum** (`postFromPyth`: anyone pays the update fee and the contract derives spot-vs-EMA on chain, so the poster can't choose the numbers). Each epoch records its source. Matches snapshot the latest epoch at join. |
 | `MempireToken` | $MEMPIRE: fixed supply, no mint after construction. Every use in the game is a sink. The only emission is the capped win reward. |
 
-**Tests:** `cd contracts && forge test` runs **50 tests**, including a fuzz test that settlement conserves value across every tier and claim combination.
+`LocalPriceOracle` exists only for the local chain. It is IPyth-compatible and accepts only updates signed by the relay's oracle key, built from live market quotes, so local mints and the local meta use real prices without Hermes.
+
+**Tests:** `cd contracts && forge test` runs **61 tests**, including a fuzz test that settlement conserves value across every tier and claim combination. Slither is triaged in [docs/QUALITY.md](docs/QUALITY.md).
 
 ### Deployed addresses (Monad testnet, chain 10143)
 
@@ -80,6 +84,11 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
 External: Pyth `0x2880aB155794e7179c9eE2e38200202908C17B43`, AUSD `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`, CRE simulation forwarder `0xB9F79d863261869B234c481D1f9A7af84AeAd192`.
 
 ### The market is the meta
+
+Two writers share one epoch clock; whichever posts first owns the window.
+
+- **Pyth momentum** (`MarketMeta.postFromPyth`): the relay's keeper posts fresh Pyth updates, and the contract computes `clamp((spot − EMA)/EMA × 2, ±1500 bps)` per fighter in the same transaction.
+- **Chainlink CRE**:
 
 A Chainlink **CRE** workflow (`cre/market-meta`) runs on a cron schedule:
 
@@ -109,7 +118,11 @@ Express + `ws`:
 - matchmaker, lockstep relay and hash referee;
 - signed-request auth (EIP-191);
 - `/api/onboard` (starter deck, AUSD, gas drip from a relayer key that is never the owner key);
-- a Pyth Hermes proxy, since Hermes now needs an API key and the key stays server-side;
+- a Pyth Hermes proxy, since Hermes now needs an API key and the key stays server-side (on the local chain it signs live quotes for `LocalPriceOracle` instead);
+- the meta keeper (`postFromPyth` every n-th window);
+- live market data: OKX tickers first, then CoinGecko, never invented;
+- Privy routes: the session-signer policy and in-match sends as the player (only with Privy keys);
+- Kimi routes: the AI opponent's plan and the caster (only with a Moonshot key);
 - ERC-721 metadata;
 - chain-verified leaderboard;
 - clans;
@@ -123,25 +136,39 @@ Envio **HyperIndex V3** on Monad testnet. It indexes every event into:
 - a live play feed resolved to fighter and level;
 - chests, market epochs and daily aggregates.
 
-The **Live on Monad** panel in the app reads it.
+The **Live on Monad** panel in the app reads it. Locally, `indexer/scripts/local-indexer.sh up` runs it against the fork with its own Postgres and Hasura, and `verify-local.mjs` checks the indexed rows against the chain (52/52).
 
 ---
 
 ## Run it locally
 
+One command brings up the whole game on your machine, with no mocks:
+
 ```bash
 git clone --recurse-submodules https://github.com/nickthelegend/mempire-monad && cd mempire-monad
-# contracts
-cd contracts && forge test && cd ..
-# local chain with mock Pyth + AUSD (port 8611)
-anvil --port 8611 --prune-history 300 &
-# app against the local chain
-cd app && npm install && VITE_CHAIN_ID=31337 npm run dev
-# relay
-cd server && npm install && cp .env.example .env && npm run dev
+(cd app && npm install) && (cd server && npm install)
+./scripts/local-up.sh        # then open http://localhost:5181
+./scripts/local-down.sh      # stop everything it started
 ```
 
-Simulation harness: `cd app && npx tsx scripts/sim-test.ts`.
+`local-up.sh` starts:
+- **anvil forking Monad testnet** on :8612 (chain 31337). It only reads testnet; no testnet transaction is ever sent. Agora's **real AUSD** contract and its **real faucet** are on the fork.
+- **our contracts**, deployed with real signed transactions;
+- a **`LocalPriceOracle`** fed by the relay with **live OKX/CoinGecko quotes**, signed by an oracle key;
+- **MongoDB** on :27019 (data in `.local/mongo`, survives restarts);
+- the **relay** on :8799, with its meta keeper posting live momentum every window;
+- the **app** on :5181.
+
+It needs Foundry, Node 22+, `jq` and `mongod`. The indexer is optional: `cd indexer && pnpm i && ./scripts/local-indexer.sh up` (Docker), then rerun `local-up.sh` so the app picks it up.
+
+Without keys, the sponsor features that need them say so instead of pretending:
+- email sign-in (Privy) is not offered;
+- "vs Kimi" reads "Kimi · not configured" and the opponent is the classic bot;
+- every `/api/privy/*` and `/api/ai/*` route answers 503 naming the missing key.
+
+**Tests:** `./scripts/test-all.sh` runs 14 suites. The chain suites start their own throwaway fork on :8613 (chain 31338) and tear it down. Results are in [docs/QUALITY.md](docs/QUALITY.md). The simulation harness alone: `cd app && npx tsx scripts/sim-test.ts`.
+
+Going live is an ordered, under-an-hour runbook: [docs/DEPLOY-LATER.md](docs/DEPLOY-LATER.md).
 
 ---
 
@@ -153,7 +180,9 @@ Simulation harness: `cd app && npx tsx scripts/sim-test.ts`.
 | **Mera: One Passkey, Many Keys** | `mempire.locker.v1` does non-account work: HKDF derives an AES-GCM key and an unlinkable storage id for an end-to-end encrypted locker that opens on any device with the same passkey. | `app/src/lib/locker.ts` |
 | **Agora AUSD** | The stake currency: dollar pots, pulled by EIP-2612 permit inside the stake transaction. New accounts get test AUSD from Agora's testnet faucet on first sign-in. | `MempireArena.sol`, `app/src/chain/actions.ts` |
 | **Chainlink CRE** | Orchestration layer for the market meta: cron → HTTP with DON consensus (median per coin) → `writeReport` → `MarketMeta.onReport` (a correct `IReceiver`, forwarder-gated, stale epochs rejected). | `cre/`, `contracts/src/MarketMeta.sol` |
-| **Pyth** | The eligibility gate: a card can only be minted with a fresh Pyth price posted in the same transaction, and it records the price it was minted at. | `MempireCards.mint`, `server` Pyth proxy |
+| **Privy** (beyond login) | Email sign-in gives an embedded wallet. Its own transactions are **gas-sponsored**. A **session signer** under a default-deny **policy** (only arena `play`/`checkpoint`/`claim`, value 0, this chain) sends in-match calls as the player, so there are no popups and no path to funds. The relay checks the same policy before asking Privy. Env-gated: without keys the option is hidden. | `server/privy.js`, `app/src/lib/privy.ts`, `PrivyGate.tsx` |
+| **Kimi** (Moonshot) | The AI opponent's strategist, using tool calls (`deploy_card`, `wait`, `get_market_meta`). Its moves are validated and played through the same input path as a human's. Kimi also writes the caster's lines. Env-gated: without a key the app offers only the classic bot. | `server/ai.js`, `app/src/lib/ai.ts` |
+| **Pyth** | The eligibility gate: a card can only be minted with a fresh Pyth price posted in the same transaction, and it records the price it was minted at. Also the second meta writer (`postFromPyth`, spot vs EMA on chain). | `MempireCards.mint`, `MarketMeta.postFromPyth`, `server/pyth.js`, `server/keeper.js` |
 | **Envio** | HyperIndex V3 with derived and aggregated entities powering the leaderboard, the live play feed and fighter win rates. | `indexer/`, `app/src/components/LiveOnMonad.tsx` |
 
 ---
@@ -162,7 +191,8 @@ Simulation harness: `cd app && npx tsx scripts/sim-test.ts`.
 
 - **Pre-existing (ours):** the game client, art, audio, the deterministic simulation, and the relay's matchmaker and clans were built for the Solana version of Mempire ([github.com/nickthelegend/mempire](https://github.com/nickthelegend/mempire)) in Jul–Aug 2026. The first commit in this repository imports them unchanged so the port is visible in the history. Everything chain-related was rewritten for Monad during Metropolis: the contracts, the accounts, the stakes and escrow, the play log, the market meta, the indexer, and onboarding.
 - **External code:** OpenZeppelin Contracts v5.4 (MIT), forge-std (MIT/Apache-2.0), viem (MIT), `@category-labs/mera` (MIT/Apache-2.0), `@scure/bip32` and `@scure/bip39` (MIT), the Chainlink CRE SDK, the Envio HyperIndex CLI, three.js and React Three Fiber (MIT). Character models are KayKit (CC0). `IReceiver.sol` is copied from Chainlink's CRE consumer-contract guide.
-- **AI tools:** this port was written with Claude Code (Anthropic), which wrote most of the code, tests and documentation under the author's direction. Card art and audio were generated earlier with Higgsfield.
+- **Built during Metropolis (Sep 1 – Oct 13):** all four contracts and their tests; the Mera passkey account layer and the locker; AUSD stakes with permits; per-match session keys and the on-chain play log; the market meta (CRE workflow, Pyth momentum, the sim modifier); the Envio indexer; Privy and Kimi; onboarding; the fork-based local stack and the throwaway-fork test suites.
+- **AI tools:** this port was written with Claude Code (Anthropic), which wrote most of the code, tests and documentation under the author's direction. Card art and audio were generated earlier with Higgsfield. Kimi is used at runtime as the AI opponent.
 
 ## License
 
