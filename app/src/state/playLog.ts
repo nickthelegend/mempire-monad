@@ -25,7 +25,7 @@ import { CLAIM_RESERVE_WEI, sessionFor } from '../chain/session';
 
 export type LogPhase = 'off' | 'live' | 'done';
 
-const PLAY_COST_WEI = 48_000n * 110_000_000_000n; // limit × a little over the 100 gwei floor
+const PLAY_COST_WEI = 45_000n * 110_000_000_000n; // a typical play's limit × a little over the 100 gwei floor
 
 interface PlayLogState {
   phase: LogPhase;

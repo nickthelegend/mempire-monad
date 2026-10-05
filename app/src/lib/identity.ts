@@ -17,8 +17,21 @@ import { IS_MAINNET } from '../chain/provider';
  * key in localStorage is refused for anything that holds value.
  */
 
-const GUEST_SK = 'mempire_guest_evm_sk';
-const GUEST_ON = 'mempire_guest_on';
+/*
+ * `?guest=2` (testnet only) gives a tab its own guest, so two tabs on one
+ * machine can play each other — which is how a staked match is demoed on a
+ * single laptop. Without the parameter every tab shares the one guest.
+ */
+const slot = (() => {
+  try {
+    const g = new URLSearchParams(window.location.search).get('guest');
+    return g && /^[1-9]$/.test(g) && g !== '1' ? `_${g}` : '';
+  } catch {
+    return '';
+  }
+})();
+const GUEST_SK = `mempire_guest_evm_sk${slot}`;
+const GUEST_ON = `mempire_guest_on${slot}`;
 
 /** The exact bytes the relay verifies. Any drift here fails every request. */
 export function authMessage(address: string, action: string, ts: number): string {

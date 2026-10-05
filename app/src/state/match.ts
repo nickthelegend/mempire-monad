@@ -444,7 +444,11 @@ function buildDecks(): { player: MatchCard[]; bot: MatchCard[] } | null {
   if (player.length !== 8) return null;
   // bot mirrors the player's power so brackets feel honest
   const levels = player.map((p) => p.level);
-  const bot = COINS.slice(0, 10).filter((c) => c.liquidityUsd >= 25000).slice(0, 8).map((c, i) => ({
+  // The bot fields eight fighters the player is not using, so a practice match
+  // shows the player something new rather than a mirror of their own deck.
+  const mine = new Set(player.map((p) => p.coinId.toLowerCase()));
+  const pool = COINS.filter((c) => !mine.has(c.mint));
+  const bot = (pool.length >= 8 ? pool : COINS).slice(0, 8).map((c, i) => ({
     coinId: c.mint,
     name: c.ticker,
     archetype: archetypeForMint(c.mint),

@@ -1,5 +1,5 @@
 import {
-  decodeEventLog, erc20Abi, maxUint256, parseSignature, zeroAddress, type Abi, type Address, type Hash, type Hex,
+  decodeEventLog, encodeFunctionData, erc20Abi, maxUint256, parseSignature, zeroAddress, type Abi, type Address, type Hash, type Hex,
 } from 'viem';
 import { apiFetch } from '../lib/api';
 import { track } from '../lib/track';
@@ -293,33 +293,30 @@ export async function withdrawOwedTx(currency: Currency): Promise<TxResult> {
 /**
  * Log one card play on chain, from the match's session key.
  *
- * Gas is fixed rather than estimated: the call is identical every time, an
- * estimate is a round trip a 20-tick-per-second game cannot spare, and Monad
- * bills the limit — so the limit is the measured cost plus a little.
+ * Gas is estimated per call, plus 15%. A fixed limit looked attractive — the
+ * call is the same every time — but it is not the same cost every time: the
+ * first play of a match writes the play counters from zero, which is ~22k gas
+ * more than every later one, and a fixed 48k limit reverted exactly that play
+ * (and Monad bills a reverted transaction its whole limit). The estimate is one
+ * round trip, and the play is never awaited by the battle.
  */
-const PLAY_GAS = 48_000n;
-const CHECKPOINT_GAS = 40_000n;
+async function sendLogged(session: Signer, data: Hex, fallbackGas: bigint): Promise<Hash> {
+  const to = dep().arena;
+  let gas = fallbackGas;
+  try {
+    gas = ((await publicClient().estimateGas({ account: session.address, to, data })) * 115n) / 100n;
+  } catch { /* the fallback is sized for a first play */ }
+  return session.wallet.sendTransaction({ account: session.account, chain: session.wallet.chain, to, data, gas });
+}
 
 export async function playTx(session: Signer, matchId: number, tick: number, cardIndex: number, x: number, y: number): Promise<Hash> {
-  const { encodeFunctionData } = await import('viem');
-  return session.wallet.sendTransaction({
-    account: session.account,
-    chain: session.wallet.chain,
-    to: dep().arena,
-    data: encodeFunctionData({ abi: ARENA_ABI, functionName: 'play', args: [BigInt(matchId), tick, cardIndex, x, y] }),
-    gas: PLAY_GAS,
-  });
+  const data = encodeFunctionData({ abi: ARENA_ABI, functionName: 'play', args: [BigInt(matchId), tick, cardIndex, x, y] });
+  return sendLogged(session, data, 75_000n);
 }
 
 export async function checkpointTx(session: Signer, matchId: number, tick: number, stateHash: bigint): Promise<Hash> {
-  const { encodeFunctionData } = await import('viem');
-  return session.wallet.sendTransaction({
-    account: session.account,
-    chain: session.wallet.chain,
-    to: dep().arena,
-    data: encodeFunctionData({ abi: ARENA_ABI, functionName: 'checkpoint', args: [BigInt(matchId), tick, stateHash] }),
-    gas: CHECKPOINT_GAS,
-  });
+  const data = encodeFunctionData({ abi: ARENA_ABI, functionName: 'checkpoint', args: [BigInt(matchId), tick, stateHash] });
+  return sendLogged(session, data, 45_000n);
 }
 
 export async function readMatch(matchId: number): Promise<ChainMatch | null> {
