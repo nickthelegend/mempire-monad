@@ -16,3 +16,4 @@ indexer/build/
 cre/**/node_modules/
 cre/**/.env
 .vercel
+.local/

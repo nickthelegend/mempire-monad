@@ -15,6 +15,8 @@ import { requireWallet, setReplayStore, setWalletLimiter } from './auth.js';
 import { CHAIN_ID, RPC_URL, deployment, normAddress } from './chain.js';
 import { verifySettledMatch } from './chain-verify.js';
 import { registerClanRoutes } from './clans.js';
+import { keeperStatus, startKeeper } from './keeper.js';
+import { pythMode } from './pyth.js';
 import { registerLockerRoutes } from './locker.js';
 import { createMemoryDb } from './memstore.js';
 import { registerMarketRoutes } from './market.js';
@@ -155,6 +157,8 @@ app.get('/api/health', async (_req, res) => {
     rpc: RPC_URL,
     deployment: Boolean(deployment),
     relayer: relayerAddress(),
+    pyth: pythMode(),
+    keeper: keeperStatus(),
   };
   if (!client) return res.json({ ok: true, db: 'memory', persistent: false, chain });
   try {
@@ -700,6 +704,7 @@ const server = await (async () => {
   console.log(`chain ${CHAIN_ID} via ${RPC_URL} · ${deployment ? 'deployment loaded' : 'no deployment for this chain'}`);
   const httpServer = app.listen(PORT, () => console.log(`mempire api on :${PORT}`));
   registerMatchmaker(httpServer, db);
+  startKeeper();
   return httpServer;
 })().catch((e) => {
   console.error(`startup failed: ${e?.message ?? e}`);

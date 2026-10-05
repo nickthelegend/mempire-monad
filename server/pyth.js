@@ -13,15 +13,89 @@
  * maximum age), but a burst of players opening the mint screen at once should
  * cost one upstream call, not one each.
  */
-import { coinById } from './chain.js';
+import { readFileSync } from 'node:fs';
+import { encodeAbiParameters, keccak256, toHex } from 'viem';
+import { CHAIN_ID, coinById } from './chain.js';
 
 const HERMES = (process.env.PYTH_HERMES_URL || 'https://pyth.dourolabs.app/hermes').replace(/\/+$/, '');
 const KEY = process.env.PYTH_API_KEY || '';
+
+/*
+ * Two modes, said out loud in every response.
+ *
+ *  - `hermes`: real signed updates from Pyth's Hermes, with the server-held key.
+ *  - `mock`: LOCAL CHAIN ONLY. Updates in MockPyth's format — abi-encoded
+ *    (feedId, price, expo, emaPrice) — built from the last live CoinGecko quote
+ *    for the fighter if there is one, else from `prices.fixture.json`. The EMA
+ *    leg carries a momentum derived from the live 24h change when known, else
+ *    a deterministic per-window value, so the market meta moves on a local
+ *    chain the way it would on a real one. A mock update is meaningless to the
+ *    real Pyth contract, so mock mode refuses to run on any other chain.
+ *
+ * Default: `hermes` when a key is set, `mock` on chain 31337 without one,
+ * otherwise off (503). `PYTH_MODE` overrides.
+ */
+const MODE = (() => {
+  const want = String(process.env.PYTH_MODE ?? '').toLowerCase();
+  if (want === 'mock' || (!want && !KEY && CHAIN_ID === 31337)) {
+    if (CHAIN_ID !== 31337) {
+      console.warn('pyth: mock mode refused — it only makes sense against MockPyth on chain 31337');
+      return 'off';
+    }
+    return 'mock';
+  }
+  if (want === 'hermes' || KEY) return KEY ? 'hermes' : 'off';
+  return 'off';
+})();
+export const pythMode = () => MODE;
+
+const FIXTURE = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('./shared/prices.fixture.json', import.meta.url), 'utf8')).usd ?? {};
+  } catch {
+    return {};
+  }
+})();
+/** Live quotes the market feed saw, so mock prices track reality when they can. */
+const live = new Map(); // coinId → { priceUsd, change24h }
+export function noteLivePrices(rows) {
+  for (const r of rows ?? []) if (r?.priceUsd > 0 && !r.mock) live.set(r.coinId, r);
+}
 const TTL_MS = 2_000;
 /** A mint posts one feed; a deck screen might price eight. Beyond that is a scrape. */
 const MAX_FEEDS = 16;
 
-export const pythConfigured = () => Boolean(KEY);
+export const pythConfigured = () => MODE !== 'off';
+
+const EXPO = -8;
+const WINDOW_SECONDS = 600;
+
+/** A deterministic momentum in [-6%, +6%] for a fighter in a ten-minute window. */
+function windowMomentum(coinId, now) {
+  const h = keccak256(toHex(`mempire-mock-momentum:${coinId}:${Math.floor(now / WINDOW_SECONDS)}`));
+  return (Number(BigInt(h) % 1201n) - 600) / 10_000;
+}
+
+function mockUpdate(coins) {
+  const now = Math.floor(Date.now() / 1000);
+  const updateData = [];
+  const prices = [];
+  for (const c of coins) {
+    const q = live.get(c.coinId);
+    const usd = q?.priceUsd ?? Number(FIXTURE[c.ticker]);
+    if (!(usd > 0)) continue;
+    const change = typeof q?.change24h === 'number' ? q.change24h : null;
+    const m = change !== null ? Math.max(-0.06, Math.min(0.06, change / 400)) : windowMomentum(c.coinId, now);
+    const price = BigInt(Math.max(1, Math.round(usd * 1e8)));
+    const ema = BigInt(Math.max(1, Math.round((usd / (1 + m)) * 1e8)));
+    updateData.push(encodeAbiParameters(
+      [{ type: 'bytes32' }, { type: 'int64' }, { type: 'int32' }, { type: 'int64' }],
+      [c.feedId, price, EXPO, ema],
+    ));
+    prices.push({ coinId: c.coinId, price: String(price), expo: EXPO, publishTime: now, ema: String(ema), source: q ? 'coingecko' : 'fixture' });
+  }
+  return { mode: 'mock', updateData, prices };
+}
 
 const cache = new Map(); // sorted coin ids → { at, body } | { at, inflight }
 
@@ -36,8 +110,9 @@ const bare = (feedId) => feedId.toLowerCase().replace(/^0x/, '');
  * 10^expo is the USD value, and a JS number cannot carry every int64 exactly.
  */
 export async function fetchPythUpdate(coinIds) {
-  if (!KEY) throw Object.assign(new Error('pyth api key not configured'), { status: 503 });
+  if (MODE === 'off') throw Object.assign(new Error('pyth api key not configured'), { status: 503 });
   const ids = [...new Set(coinIds)].sort((a, b) => a - b);
+  if (MODE === 'mock') return mockUpdate(ids.map((id) => coinById.get(id)).filter(Boolean));
   const cacheKey = ids.join(',');
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.body ?? hit.inflight;
@@ -63,7 +138,7 @@ export async function fetchPythUpdate(coinIds) {
         publishTime: Number(p.price?.publish_time),
       }));
     const updateData = (body?.binary?.data ?? []).map((d) => (d.startsWith('0x') ? d : `0x${d}`));
-    return { updateData, prices };
+    return { mode: 'hermes', updateData, prices };
   })();
 
   cache.set(cacheKey, { at: Date.now(), inflight });
@@ -98,7 +173,7 @@ export function parseCoinIds(raw) {
 export function registerPythRoutes(app, gate) {
   const pass = (_req, _res, next) => next();
   app.get('/api/pyth/update', gate ?? pass, async (req, res) => {
-    if (!KEY) return res.status(503).json({ error: 'pyth api key not configured' });
+    if (MODE === 'off') return res.status(503).json({ error: 'pyth api key not configured' });
     const ids = parseCoinIds(req.query.coinIds);
     if (typeof ids === 'string') return res.status(400).json({ error: ids });
     try {

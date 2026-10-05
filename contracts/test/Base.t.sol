@@ -7,8 +7,8 @@ import {MempireCards} from "../src/MempireCards.sol";
 import {MempireArena} from "../src/MempireArena.sol";
 import {MarketMeta} from "../src/MarketMeta.sol";
 import {IPyth} from "../src/interfaces/IPyth.sol";
-import {MockPyth} from "./mocks/MockPyth.sol";
-import {MockAUSD} from "./mocks/MockAUSD.sol";
+import {MockPyth} from "../src/mocks/MockPyth.sol";
+import {MockAUSD} from "../src/mocks/MockAUSD.sol";
 
 abstract contract Base is Test {
     MempireToken internal token;
@@ -46,6 +46,7 @@ abstract contract Base is Test {
         vm.startPrank(admin);
         cards.setArena(address(arena));
         cards.setRelayer(relayer);
+        meta.setPyth(IPyth(address(pyth)), cards);
         for (uint16 i; i < ROSTER; ++i) {
             cards.registerCoin(feed(i), string.concat("C", vm.toString(i)), 120);
         }

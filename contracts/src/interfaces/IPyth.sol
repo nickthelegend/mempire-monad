@@ -18,4 +18,8 @@ interface IPyth {
     function updatePriceFeeds(bytes[] calldata updateData) external payable;
 
     function getPriceNoOlderThan(bytes32 id, uint256 age) external view returns (Price memory price);
+
+    /// Pyth's exponentially-weighted moving average of the same feed, with the
+    /// same expo as the spot price. The gap between the two is momentum.
+    function getEmaPriceNoOlderThan(bytes32 id, uint256 age) external view returns (Price memory price);
 }

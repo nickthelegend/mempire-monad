@@ -16,7 +16,7 @@
  */
 import { formatUnits } from 'viem';
 import { roster } from './chain.js';
-import { fetchPythUpdate, pythConfigured } from './pyth.js';
+import { fetchPythUpdate, noteLivePrices, pythConfigured, pythMode } from './pyth.js';
 
 const TTL_MS = 60_000;
 /**
@@ -71,7 +71,9 @@ async function fromPyth() {
   if (!stocks.length) return [];
   const { prices } = await fetchPythUpdate(stocks.map((c) => c.coinId));
   const byId = new Map(stocks.map((c) => [c.coinId, c]));
+  const mock = pythMode() === 'mock';
   return prices.map((p) => ({
+    ...(mock ? { mock: true } : {}),
     coinId: p.coinId,
     ticker: byId.get(p.coinId).ticker,
     priceUsd: pythUsd(p.price, p.expo),
@@ -94,6 +96,7 @@ async function refresh() {
   const keep = (kindTest) => [...prior.values()].filter((c) => kindTest(roster.find((r) => r.coinId === c.coinId)));
   const pythOk = py.status === 'fulfilled' && py.value !== null;
   const crypto = cg.status === 'fulfilled' ? cg.value : keep((r) => r?.kind !== 'stock');
+  if (cg.status === 'fulfilled') noteLivePrices(cg.value);
   const stocks = pythOk ? py.value : (py.status === 'fulfilled' ? [] : keep((r) => r?.kind === 'stock'));
   const coins = [...crypto, ...stocks].sort((a, b) => a.coinId - b.coinId);
   // Only a source that actually answered makes the list "fresh".

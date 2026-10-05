@@ -34,6 +34,7 @@ contract Deploy is Script {
         address pyth;
         address ausd;
         address forwarder;
+        address ausdFaucet;
         string baseUri;
         uint32 timeScale;
     }
@@ -45,8 +46,11 @@ contract Deploy is Script {
         MempireArena arena;
     }
 
-    function run() external {
-        Env memory e = _env();
+    function run() external virtual {
+        _run(_env());
+    }
+
+    function _run(Env memory e) internal {
         (bytes32[] memory feeds, string[] memory tickers, uint32[] memory ages) = _roster();
 
         vm.startBroadcast(e.pk);
@@ -69,6 +73,8 @@ contract Deploy is Script {
         e.pyth = vm.envAddress("PYTH");
         e.ausd = vm.envAddress("AUSD");
         e.forwarder = vm.envAddress("CRE_FORWARDER");
+        // Agora's testnet faucet; the local stack deploys a mock with the same entry point.
+        e.ausdFaucet = vm.envOr("AUSD_FAUCET", address(0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C));
         e.baseUri = vm.envString("METADATA_BASE_URI");
         e.timeScale = uint32(vm.envOr("TIME_SCALE", uint256(60)));
     }
@@ -95,6 +101,7 @@ contract Deploy is Script {
         d.arena = new MempireArena(e.deployer, d.cards, e.ausd, d.meta, e.deployer);
         d.cards.setArena(address(d.arena));
         d.cards.setRelayer(e.relayer);
+        d.meta.setPyth(IPyth(e.pyth), d.cards);
     }
 
     function _write(Env memory e, Deployed memory d) internal {
@@ -105,6 +112,7 @@ contract Deploy is Script {
         o.serialize("pyth", e.pyth);
         o.serialize("ausd", e.ausd);
         o.serialize("creForwarder", e.forwarder);
+        o.serialize("ausdFaucet", e.ausdFaucet);
         o.serialize("startBlock", block.number);
         o.serialize("token", address(d.token));
         o.serialize("cards", address(d.cards));

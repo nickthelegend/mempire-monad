@@ -17,6 +17,19 @@
   },
   {
     "type": "function",
+    "name": "EPOCH_SECONDS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_BPS",
     "inputs": [],
     "outputs": [
@@ -30,10 +43,62 @@
   },
   {
     "type": "function",
+    "name": "MOMENTUM_GAIN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "SOURCE_CRE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "SOURCE_PYTH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cards",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract MempireCards"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -44,6 +109,25 @@
         "name": "",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "epochSource",
+    "inputs": [
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
     "stateMutability": "view"
@@ -143,6 +227,30 @@
   },
   {
     "type": "function",
+    "name": "momentumBps",
+    "inputs": [
+      {
+        "name": "spot",
+        "type": "int64",
+        "internalType": "int64"
+      },
+      {
+        "name": "ema",
+        "type": "int64",
+        "internalType": "int64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "int16",
+        "internalType": "int16"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "onReport",
     "inputs": [
       {
@@ -187,6 +295,48 @@
   },
   {
     "type": "function",
+    "name": "postFromPyth",
+    "inputs": [
+      {
+        "name": "coinIds",
+        "type": "uint16[]",
+        "internalType": "uint16[]"
+      },
+      {
+        "name": "priceUpdate",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "bps",
+        "type": "int16[]",
+        "internalType": "int16[]"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "pyth",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IPyth"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
     "outputs": [],
@@ -213,6 +363,24 @@
         "name": "forwarder_",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPyth",
+    "inputs": [
+      {
+        "name": "pyth_",
+        "type": "address",
+        "internalType": "contract IPyth"
+      },
+      {
+        "name": "cards_",
+        "type": "address",
+        "internalType": "contract MempireCards"
       }
     ],
     "outputs": [],
@@ -290,6 +458,31 @@
   },
   {
     "type": "event",
+    "name": "MetaSource",
+    "inputs": [
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "source",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "poster",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferStarted",
     "inputs": [
       {
@@ -328,6 +521,25 @@
   },
   {
     "type": "event",
+    "name": "PythChanged",
+    "inputs": [
+      {
+        "name": "pyth",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "cards",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "WorkflowOwnerChanged",
     "inputs": [
       {
@@ -338,6 +550,11 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "BadMomentum",
+    "inputs": []
   },
   {
     "type": "error",
@@ -378,7 +595,22 @@
   },
   {
     "type": "error",
+    "name": "PythNotSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RefundFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "StaleEpoch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrongPayment",
     "inputs": []
   },
   {
