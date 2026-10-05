@@ -17,6 +17,7 @@ import { verifySettledMatch } from './chain-verify.js';
 import { registerClanRoutes } from './clans.js';
 import { keeperStatus, startKeeper } from './keeper.js';
 import { pythMode } from './pyth.js';
+import { registerPrivyRoutes } from './privy.js';
 import { registerLockerRoutes } from './locker.js';
 import { createMemoryDb } from './memstore.js';
 import { registerMarketRoutes } from './market.js';
@@ -666,6 +667,7 @@ const server = await (async () => {
   // this chain has no deployment or no relayer key, rather than 404ing.
   registerOnboardRoutes(app, db, { ipGate: onboardGate, readGate });
   registerPlayerRoutes(app, db);
+  registerPrivyRoutes(app);
   registerLockerRoutes(app, db, { gate: (req, res, next) => (readLimit ? readLimit(req, res, next) : next()) });
   registerTelemetryRoutes(app, db, requireWallet);
   registerInsightRoutes(app, db);
