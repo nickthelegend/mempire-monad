@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { LeagueBadge, TrophyDelta } from '../components/LeagueBadge';
 import { EscrowBadge } from '../components/EscrowBadge';
 import { MonadLogBadge } from '../components/MonadLogBadge';
+import { Commentary, OpponentBrainBadge } from '../components/Commentary';
 import { CardArtWell } from '../components/CardFrame';
 import { ArchetypeIcon, MoneyRow, Pill } from '../components/ui';
 import { buzz, isMuted, setMuted } from '../lib/audio';
@@ -548,6 +549,8 @@ export function Battle() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
           <MonadLogBadge />
           {!match.practice && <EscrowBadge compact />}
+          {/* Who holds the other seat: the classic bot, Kimi, or Kimi's mock. */}
+          {match.mode === 'bot' && <OpponentBrainBadge />}
         </div>
         {/* A third row, not an absolute overlay — it was landing on top of the
             crown score for the entire double-elixir phase and all of overtime. */}
@@ -560,6 +563,7 @@ export function Battle() {
             2× ELIXIR
           </div>
         )}
+        <Commentary />
       </div>
 
       <div ref={shakeEl} style={{ position: 'absolute', inset: 0 }}>
