@@ -24,7 +24,7 @@ import { CHAIN, CHAIN_ID, RPC_URL, publicClient } from './provider';
  * an estimate plus a small margin.
  */
 
-export type SignerKind = 'passkey' | 'guest' | 'injected';
+export type SignerKind = 'passkey' | 'guest' | 'injected' | 'privy';
 
 export interface Signer {
   kind: SignerKind;
@@ -144,8 +144,12 @@ export async function send(call: Call, s: Signer | null = current): Promise<TxRe
   const data = encodeFunctionData({
     abi: call.abi, functionName: call.functionName, args: call.args as unknown[] | undefined,
   });
-  const estimate = await client.estimateGas({ account: from, to: call.address, data, value: call.value });
-  const gas = (estimate * GAS_MARGIN_NUM) / GAS_MARGIN_DEN;
+  // A Privy wallet's transactions are sponsored: the paymaster prices gas,
+  // and an estimate from a wallet holding no MON would fail anyway.
+  const gas = s.kind === 'privy'
+    ? undefined
+    : ((await client.estimateGas({ account: from, to: call.address, data, value: call.value })) * GAS_MARGIN_NUM)
+      / GAS_MARGIN_DEN;
   const hash = await s.wallet.sendTransaction({
     account: s.account,
     chain: CHAIN,

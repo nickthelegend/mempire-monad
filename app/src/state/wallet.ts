@@ -7,6 +7,9 @@ import { guestAccount, guestWasActive, markGuestActive } from '../lib/identity';
 import {
   createPasskeyAccount, passkeyErrorText, passkeyHint, signInWithPasskey, type PasskeySession,
 } from '../lib/passkey';
+import {
+  grantSessionSigner, privyConsent, privyLogin, privyLogout, privyWallet, revokeSessionSigner, type Consent,
+} from '../lib/privy';
 
 /*
  * The signed-in account, whichever kind it is.
@@ -33,7 +36,7 @@ import {
 const IDLE_MS = 30 * 60_000;
 const MAX_MS = 2 * 60 * 60_000;
 
-export type WalletKind = 'passkey' | 'guest' | 'injected';
+export type WalletKind = 'passkey' | 'guest' | 'injected' | 'privy';
 
 export interface WalletChoice {
   id: string;
@@ -78,6 +81,8 @@ interface WalletState {
   sessionExpiresAt: number;
   pickerOpen: boolean;
   wallets: WalletChoice[];
+  /** Privy: the session signer consent, if the player has granted one. */
+  privyConsent: Consent | null;
 
   openPicker: () => void;
   closePicker: () => void;
@@ -85,6 +90,10 @@ interface WalletState {
   signInPasskey: () => Promise<void>;
   connectGuest: () => void;
   connect: (id: string) => Promise<void>;
+  /** Privy embedded wallet. Mock mode takes an email; real mode opens Privy's modal. */
+  connectPrivy: (email?: string) => Promise<void>;
+  grantPrivySigner: () => Promise<void>;
+  revokePrivySigner: () => Promise<void>;
   autoConnect: () => Promise<void>;
   /** Called after each signature: an active session stays open while it is used. */
   touch: () => void;
@@ -134,6 +143,7 @@ export const useWallet = create<WalletState>((set, get) => {
     sessionExpiresAt: 0,
     pickerOpen: false,
     wallets: [],
+    privyConsent: null,
 
     openPicker: () => {
       startDiscovery(refreshWallets);
@@ -209,6 +219,37 @@ export const useWallet = create<WalletState>((set, get) => {
       }
     },
 
+    connectPrivy: async (email) => {
+      if (get().connecting) return;
+      set({ connecting: 'privy', error: null });
+      try {
+        const s = await privyLogin(email);
+        passkey?.session.end();
+        passkey = null;
+        setSigner({
+          kind: 'privy', address: s.address, account: s.address, wallet: privyWallet(), label: s.label, icon: null,
+        });
+        markGuestActive(false);
+        set({
+          connected: true, connecting: null, pickerOpen: false, error: null,
+          address: s.address, walletName: s.label, walletIcon: null,
+          kind: 'privy', isGuest: false, locked: false, privyConsent: privyConsent(),
+        });
+      } catch (e) {
+        set({ connecting: null, error: e instanceof Error ? e.message : 'Privy sign-in failed' });
+      }
+    },
+
+    grantPrivySigner: async () => {
+      const c = await grantSessionSigner();
+      set({ privyConsent: c });
+    },
+
+    revokePrivySigner: async () => {
+      await revokeSessionSigner();
+      set({ privyConsent: null });
+    },
+
     /*
      * A reload never opens a passkey session on its own — that would be a
      * prompt the player did not ask for. It shows the remembered account as
@@ -243,13 +284,14 @@ export const useWallet = create<WalletState>((set, get) => {
 
     disconnect: () => {
       if (lockTimer) clearTimeout(lockTimer);
+      if (get().kind === 'privy') void privyLogout();
       passkey?.session.end();
       passkey = null;
       setSigner(null);
       markGuestActive(false);
       set({
         connected: false, address: '', walletName: '', walletIcon: null, kind: null,
-        mon: 0, isGuest: false, locked: false, pickerOpen: false, sessionExpiresAt: 0,
+        mon: 0, isGuest: false, locked: false, pickerOpen: false, sessionExpiresAt: 0, privyConsent: null,
       });
     },
 

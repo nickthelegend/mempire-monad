@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { click } from '../lib/audio';
 import { useWallet } from '../state/wallet';
 import { passkeyHint, passkeysSupported } from '../lib/passkey';
+import { PRIVY_APP_ID, privyAvailable } from '../lib/privy';
 import { Spinner } from './ui';
 
 /** Guest mark — the only entry without an official adapter icon. */
@@ -97,9 +98,14 @@ function KeyMark({ size = 34 }: { size?: number }) {
 export function WalletPicker() {
   const {
     pickerOpen, closePicker, connect, connectGuest, createPasskey, signInPasskey,
-    connecting, error, wallets, locked,
+    connecting, error, wallets, locked, connectPrivy,
   } = useWallet();
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [privyOn, setPrivyOn] = useState<boolean>(Boolean(PRIVY_APP_ID));
+  useEffect(() => {
+    if (pickerOpen && !PRIVY_APP_ID) void privyAvailable().then(setPrivyOn);
+  }, [pickerOpen]);
   const hint = passkeyHint();
   const passkeys = passkeysSupported();
 
@@ -191,6 +197,37 @@ export function WalletPicker() {
                 I already have a Mempire passkey
               </button>
             )}
+          </div>
+        )}
+
+        {privyOn && (
+          <div className="well" style={{ padding: 10, borderRadius: 'var(--r-card)', display: 'grid', gap: 8 }}>
+            <label className="label" htmlFor="privy-email" style={{ fontSize: 12 }}>
+              Or sign in with email — gas is on us{PRIVY_APP_ID ? '' : ' (Privy mock, local chain)'}
+            </label>
+            {!PRIVY_APP_ID && (
+              <input
+                id="privy-email"
+                type="email"
+                value={email}
+                maxLength={120}
+                placeholder="you@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  minHeight: 44, padding: '0 12px', borderRadius: 8, border: '2px solid var(--ink)',
+                  background: 'var(--recess)', color: 'var(--text)', font: 'inherit', fontSize: 16,
+                }}
+              />
+            )}
+            <Row
+              disabled={busy || (!PRIVY_APP_ID && !email.includes('@'))}
+              busy={connecting === 'privy'}
+              onClick={() => void connectPrivy(PRIVY_APP_ID ? undefined : email.trim())}
+              mark={<span aria-hidden style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '2px solid var(--ink)', fontSize: 18 }}>✉️</span>}
+              title="Continue with email"
+              sub="Privy embedded wallet · sponsored gas · no popups mid-match"
+              right={connecting === 'privy' ? <Spinner size={16} /> : undefined}
+            />
           </div>
         )}
 

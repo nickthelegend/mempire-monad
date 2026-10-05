@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CardFrame } from '../components/CardFrame';
 import { StarterKit } from '../components/StarterKit';
+import { PrivySigner } from '../components/PrivySigner';
 import { Tutorial, resetTutorial, tutorialDone } from '../components/Tutorial';
 import { LeagueBadge } from '../components/LeagueBadge';
 import { Crowns, Pill } from '../components/ui';
@@ -20,6 +21,7 @@ import { fetchRecentSettlements, type ChainMatch } from '../chain/read';
 import { mintCardTx, readableChainError } from '../chain/actions';
 import { coinByMint } from '../lib/coins';
 import { confirmWithPasskey } from '../lib/passkey';
+import { brainLabel, loadAiStatus, useAiOpponent, type AiBrain } from '../lib/ai';
 
 /**
  * Recent settlements, read from the chain.
@@ -186,7 +188,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
             className="display display--sm"
             style={{ display: 'block', fontSize: 14 }}
           >
-            {wallet.kind === 'passkey' || wallet.kind === 'injected' ? wallet.walletName : 'anon_king'}
+            {wallet.kind === 'passkey' || wallet.kind === 'injected' ? wallet.walletName : wallet.kind === 'privy' ? wallet.walletName.split(' ')[0] : 'anon_king'}
           </span>
           {/* The wallet, not the address.
               "Guest · ANoN…8UEG" needed 139px in a 110px box, so it rendered
@@ -202,7 +204,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}
           >
-            {wallet.kind === 'passkey' ? <SessionLeft /> : wallet.kind === 'guest' ? 'Guest' : wallet.walletName}
+            {wallet.kind === 'passkey' ? <SessionLeft /> : wallet.kind === 'guest' ? 'Guest' : wallet.kind === 'privy' ? '✉️ Privy · gas sponsored' : wallet.walletName}
           </span>
         </span>
       </button>
@@ -268,6 +270,15 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
             >
               Replay tutorial
             </button>
+            {wallet.kind === 'privy' && wallet.privyConsent && (
+              <button
+                onClick={() => { void wallet.revokePrivySigner(); setOpen(false); }}
+                className="menu-item"
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 10px', borderRadius: 8, fontSize: 13, minHeight: 44, fontWeight: 700, color: 'var(--dim-on-wood)' }}
+              >
+                Revoke session signer
+              </button>
+            )}
             {wallet.kind === 'passkey' && (
               <button
                 onClick={() => { wallet.lock(); setOpen(false); }}
@@ -389,7 +400,7 @@ export function Arena() {
       ? `${8 - mintedDeck} of your cards are not minted onchain yet`
       : holds < stake
         ? `You hold ${fmtStake(holds, currency)} — fund ${shortAddr(wallet.address)} to stake this tier`
-        : wallet.mon < 0.13
+        : wallet.kind !== 'privy' && wallet.mon < 0.13
           ? `Not enough MON for gas — ${shortAddr(wallet.address)} needs ~0.13`
           : '';
   const canStake = stakeBlocker === '';
@@ -406,6 +417,7 @@ export function Arena() {
       <TopHud onReplayTutorial={() => setShowTutorial(true)} />
       <Logo width={168} />
       <StarterKit />
+      <PrivySigner />
 
       {/* tier picker — carved wood rail of stake plates */}
       <section className="panel" data-tut="tier" style={{ padding: 9 }}>
@@ -565,6 +577,7 @@ export function Arena() {
                 Practice · free
               </Pill>
             </div>
+            <AiOpponentPicker />
           </>
         )}
         {error && (
@@ -734,6 +747,47 @@ function MintDeckButton({ mints }: { mints: string[] }) {
       {error && (
         <span className="fine" style={{ color: 'var(--red-on-wood)' }}>{error}</span>
       )}
+    </div>
+  );
+}
+
+/**
+ * Who plays the AI seat in Practice and in any match that falls back to the
+ * AI: the classic rule bot, or Kimi. Ranked against a human is untouched.
+ *
+ * Kimi's label carries "(mock)" whenever the relay has no Moonshot key, so
+ * the choice never promises a model the relay will not run.
+ */
+function AiOpponentPicker() {
+  const brain = useAiOpponent((s) => s.brain);
+  const setBrain = useAiOpponent((s) => s.setBrain);
+  const status = useAiOpponent((s) => s.status);
+  useEffect(() => { loadAiStatus(); }, []);
+  const opt = (b: AiBrain) => {
+    const on = brain === b;
+    return (
+      <button
+        key={b}
+        type="button"
+        aria-pressed={on}
+        onClick={() => setBrain(b)}
+        style={{
+          flex: 1, minHeight: 36, padding: '6px 10px', borderRadius: 999,
+          border: '2px solid var(--ink)', fontWeight: 800, fontSize: 13,
+          background: on ? 'var(--teal)' : 'var(--recess)',
+          color: on ? 'var(--ink)' : 'var(--dim-on-wood)',
+          boxShadow: on ? 'inset 0 2px 0 rgba(255,255,255,.35)' : 'var(--bevel-in)',
+        }}
+      >
+        {b === 'kimi' ? `vs ${brainLabel('kimi', status?.mode)}` : 'vs Classic bot'}
+      </button>
+    );
+  };
+  return (
+    <div role="group" aria-label="AI opponent" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span className="label" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>AI seat</span>
+      {opt('classic')}
+      {opt('kimi')}
     </div>
   );
 }

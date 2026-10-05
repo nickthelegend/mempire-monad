@@ -11,6 +11,7 @@ import {
 import { traitForMint } from '../sim/traits';
 import { archetypeForMint } from '../sim/archetypes';
 import { decideBot, type BotDifficulty } from '../sim/bot';
+import { KimiPilot, startAiMatch, useAiOpponent } from '../lib/ai';
 import { ARENA_H, ARENA_W, createMatch, hashState, stepSim } from '../sim/engine';
 import {
   FORMATS, HASH_EVERY_TICKS, INPUT_DELAY_TICKS,
@@ -169,10 +170,12 @@ function currentMeta(): Map<number, number> {
  */
 const GAS_HEADROOM_MON = 0.13;
 function canAffordStake(stake: number, currency: StakeCurrency): boolean {
-  const { mon } = useWallet.getState();
-  if (currency === 'MON') return mon >= stake + GAS_HEADROOM_MON;
+  const { mon, kind } = useWallet.getState();
+  // A Privy wallet's gas is sponsored, so it needs only the stake itself.
+  const headroom = kind === 'privy' ? 0 : GAS_HEADROOM_MON;
+  if (currency === 'MON') return mon >= stake + headroom;
   const ausd = useChain.getState().ausdBalance;
-  return mon >= GAS_HEADROOM_MON && ausd >= stake;
+  return mon >= headroom && ausd >= stake;
 }
 
 /**
@@ -837,12 +840,21 @@ export const useMatch = create<MatchStore>((set, get) => ({
   },
 }));
 
+/**
+ * Kimi, when the player picked it for this bot match. Null means the classic
+ * bot plays alone; otherwise the pilot plays the seat and the classic bot only
+ * covers for it while a plan is late or the relay is unreachable.
+ */
+let pilot: KimiPilot | null = null;
+
 /** One bot-match tick: the bot decides, then the sim advances. */
 function tickOnce(difficulty: BotDifficulty): void {
   const sim = useMatch.getState().sim;
   if (!sim) return;
 
-  const botEv = decideBot(sim, 1, difficulty);
+  const botEv = pilot
+    ? pilot.decide(sim, () => decideBot(sim, 1, difficulty))
+    : decideBot(sim, 1, difficulty);
   if (botEv) {
     const list = pending.get(botEv.tick) ?? [];
     list.push(botEv);
@@ -1039,6 +1051,10 @@ function tickHuman(): void {
 function beginBotFlow(
   practice: boolean, tierIdx: number, player: MatchCard[], bot: MatchCard[],
 ): void {
+  // Which brain plays the bot's seat is fixed here, at the start of the bot
+  // flow, so the name on the "opponent found" card is the one that plays.
+  const brain = useAiOpponent.getState().brain;
+  if (brain === 'kimi') useMatch.setState({ opponentName: 'Kimi (AI)' });
   // practice skips the search theatre — the point is to get to the arena
   const queueMs = practice ? 400 : 1200 + Math.random() * 1300;
   queueTimers.push(setTimeout(() => {
@@ -1060,7 +1076,12 @@ function beginBotFlow(
       hashes = [];
       useMatch.setState({ status: 'battle', sim, version: 0, crowns: [0, 0], shock: null });
       startMusic();
+      // The tier's difficulty still matters with Kimi: it is the classic bot's
+      // when it covers for a late plan.
       const difficulty: BotDifficulty = tierIdx <= 0 ? 'easy' : tierIdx === 1 ? 'normal' : 'hard';
+      pilot?.dispose();
+      pilot = brain === 'kimi' ? new KimiPilot(1) : null;
+      startAiMatch(brain);
       botStartAt = Date.now();
       loop = setInterval(() => tickBot(difficulty), TICK_MS / 2);
     }, 900));

@@ -1,6 +1,7 @@
 import { generatePrivateKey, nonceManager, privateKeyToAccount } from 'viem/accounts';
-import type { Address, Hex } from 'viem';
-import { localSigner, type Signer } from './account';
+import { zeroAddress, type Address, type Hex } from 'viem';
+import { activeSigner, localSigner, type Signer } from './account';
+import { privyActorWallet, privyConsent } from '../lib/privy';
 
 /*
  * Per-match session keys.
@@ -29,6 +30,23 @@ export const SESSION_GAS_WEI = 100_000_000_000_000_000n; // 0.1 MON
 /** Kept back from logging so the seat can always afford to record its result. */
 export const CLAIM_RESERVE_WEI = 15_000_000_000_000_000n; // 0.015 MON
 
+/*
+ * Privy players need none of this. Their wallet has the relay as a session
+ * signer under the match policy, so the relay sends their plays and claim as
+ * them — sponsored, and limited to exactly those arena calls. No throwaway key,
+ * no gas float, nothing to sweep.
+ */
+export const usesPrivySigner = (): boolean =>
+  activeSigner()?.kind === 'privy' && privyConsent() !== null;
+
+function privyActor(): Signer {
+  const me = activeSigner()!;
+  return { kind: 'privy', address: me.address, account: me.address, wallet: privyActorWallet(), label: 'Privy session signer', icon: null };
+}
+
+/** The MON a create/join forwards to the seat's session key. None for Privy. */
+export const sessionGasWei = (): bigint => (usesPrivySigner() ? 0n : SESSION_GAS_WEI);
+
 const KEY = (matchId: number) => `mempire_session_${matchId}`;
 const PENDING = 'mempire_session_pending';
 
@@ -41,6 +59,7 @@ let live: Live | null = null;
 
 /** A fresh key for the match about to be created or joined. Its id is not known yet. */
 export function prepareSession(): Address {
+  if (usesPrivySigner()) return zeroAddress; // the seat's own wallet speaks for it
   const k = generatePrivateKey();
   try { sessionStorage.setItem(PENDING, k); } catch { /* memory only */ }
   pending = k;
@@ -51,6 +70,10 @@ let pending: Hex | null = null;
 
 /** Bind the prepared key to the match id the chain assigned. */
 export function bindSession(matchId: number): Signer | null {
+  if (usesPrivySigner()) {
+    live = { matchId, signer: privyActor() };
+    return live.signer;
+  }
   const k = pending ?? (() => {
     try { return sessionStorage.getItem(PENDING) as Hex | null; } catch { return null; }
   })();
@@ -67,6 +90,10 @@ export function bindSession(matchId: number): Signer | null {
 /** The session signer for a match, recovered from this tab's storage if needed. */
 export function sessionFor(matchId: number): Signer | null {
   if (live?.matchId === matchId) return live.signer;
+  if (usesPrivySigner()) {
+    live = { matchId, signer: privyActor() };
+    return live.signer;
+  }
   try {
     const k = sessionStorage.getItem(KEY(matchId)) as Hex | null;
     if (!k) return null;
@@ -85,7 +112,7 @@ export const hasSession = (matchId: number): boolean => sessionFor(matchId) !== 
  */
 export async function sweepSession(matchId: number, to: Address): Promise<void> {
   const s = sessionFor(matchId);
-  if (!s) return;
+  if (!s || s.kind === 'privy') { forgetSession(matchId); return; }
   try {
     const { publicClient } = await import('./provider');
     const client = publicClient();

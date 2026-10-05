@@ -87,7 +87,10 @@ export const usePlayLog = create<PlayLogState>((set, get) => {
     begin: async (matchId) => {
       const session = sessionFor(matchId);
       if (!session) { set({ phase: 'off' }); return; }
-      const balance = await publicClient().getBalance({ address: session.address }).catch(() => 0n);
+      // A Privy session signer's calls are sponsored: there is no float to ration.
+      const balance = session.kind === 'privy'
+        ? 10n ** 24n
+        : await publicClient().getBalance({ address: session.address }).catch(() => 0n);
       set({
         phase: 'live', matchId, sent: 0, confirmed: 0, playsLost: 0, marksLost: 0,
         lastHash: null, lastLatencyMs: null, avgLatencyMs: null,

@@ -13,10 +13,13 @@ import '@fontsource/martian-mono/400.css';
 import '@fontsource/martian-mono/700.css';
 import './styles/tokens.css';
 import App from './App.tsx';
+import { PrivyGate } from './components/PrivyGate';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <PrivyGate>
+      <App />
+    </PrivyGate>
   </StrictMode>,
 );
 
