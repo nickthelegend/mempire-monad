@@ -44,7 +44,7 @@ export interface OpenedChest extends ChestDef {
   droppedTickers: string[];
   /** The seed these drops came from, so the reward screen can show it. */
   seed: string;
-  source: 'vrf' | 'local';
+  source: 'vrf' | 'local' | 'chain';
 }
 
 export const CHESTS: Record<ChestTier, ChestDef> = {
@@ -110,7 +110,7 @@ export interface ChestSlot {
    * a UI that shows the same badge either way is lying about the one mechanic
    * where the house picks the outcome.
    */
-  source: 'vrf' | 'local';
+  source: 'vrf' | 'local' | 'chain';
   /**
    * The 32 bytes this chest's contents are derived from, hex-encoded.
    *

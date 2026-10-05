@@ -127,9 +127,6 @@ export function usePlayerSync(): void {
           slot: Math.min(Math.max(saved.slot ?? 0, 0), DECK_SLOTS - 1),
         });
       }
-      if (typeof saved.sol === 'number' && Number.isFinite(saved.sol)) {
-        useWallet.setState({ sol: saved.sol });
-      }
       if (saved.history?.length) useMatch.setState({ history: saved.history });
       // Chest slots mid-unlock are real progress and must survive a reload —
       // absolute timestamps, so a timer that was running keeps running — along
@@ -182,7 +179,6 @@ export function usePlayerSync(): void {
         tier: deck.tier,
         slots: deck.slots,
         slot: deck.slot,
-        sol: useWallet.getState().sol,
         nextId: useCollection.getState().nextId,
         history: useMatch.getState().history,
         chests: eco.chests,
@@ -195,7 +191,6 @@ export function usePlayerSync(): void {
       useDeck.subscribe(push),
       useEconomy.subscribe(push),
       useShop.subscribe(push),
-      useWallet.subscribe((s, p) => { if (s.sol !== p.sol) push(); }),
       useMatch.subscribe((s, p) => { if (s.history !== p.history || s.status !== p.status) push(); }),
     ];
     return () => unsubs.forEach((u) => u());

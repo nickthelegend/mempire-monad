@@ -6,6 +6,41 @@ import {
 } from '../state/economy';
 import { ConfirmSpend } from './ConfirmSpend';
 import { PRICES } from '../chain/spend';
+import { buyChestTx, openChestTx, readableChainError, skipChestTx, startUnlockTx } from '../chain/actions';
+import { fetchCardsFor } from '../chain/read';
+import { COINS } from '../lib/coins';
+import { TIER_ORDER } from '../state/economy';
+import { useChain } from '../state/chain';
+import { useWallet } from '../state/wallet';
+
+/*
+ * Two sources of chests, one rail.
+ *
+ * Signed in, chests live on chain: a staked win's chest is granted by the arena
+ * in the settling transaction, its timer is a timestamp in `MempireCards`, and
+ * opening it commits to the hash of the next Monad block and then reveals —
+ * the cards it holds are minted as real ERC-721s. Playing as a guest without a
+ * deployment, the rail keeps the local chests it always had, labelled local.
+ */
+const chainId = (slotId: string): number | null =>
+  (slotId.startsWith('c') ? Number(slotId.slice(1)) : null);
+
+async function openOnChain(slotId: string): Promise<OpenedChest> {
+  const id = chainId(slotId)!;
+  const chain = useChain.getState();
+  const chest = chain.chests.find((c) => c.id === id);
+  // Most drops land on a fighter the player already owns, because a duplicate
+  // is what levels a card. The contract only honours coins actually held.
+  const owned = [...new Set(chain.cards.map((c) => c.coinId))];
+  const res = await openChestTx(id, owned);
+  const me = useWallet.getState().address;
+  const after = await fetchCardsFor(me);
+  const byId = new Map(after.map((c) => [c.id, c]));
+  const tickers = res.cardIds.map((cid) => COINS[byId.get(cid)?.coinId ?? -1]?.ticker ?? '?');
+  void chain.refreshSettled();
+  const tier = TIER_ORDER[chest?.tier ?? 0] ?? 'silver';
+  return { ...CHESTS[tier], droppedTickers: tickers, seed: res.seed, source: 'chain' };
+}
 
 /** One-second ticker, only while something is actually counting down. */
 function useTicker(active: boolean): void {
@@ -217,7 +252,7 @@ function OpenCeremony({
               fontSize: 10, opacity: 0.75, marginTop: 2, userSelect: 'all',
             }}
           >
-            {def.source === 'vrf' ? '🎲 VRF seed ' : 'local seed '}
+            {def.source === 'vrf' ? '🎲 VRF seed ' : def.source === 'chain' ? '⛓ block-hash seed ' : 'local seed '}
             {def.seed.slice(0, 16)}…
           </p>
         </>
@@ -243,6 +278,14 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
   onBuyRequest: () => void;
 }) {
   const { startUnlock, collect } = useEconomy();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const onChain = chest ? chainId(chest.id) !== null : false;
+  const run = (fn: () => Promise<void>) => {
+    setBusy(true);
+    setErr(null);
+    void fn().catch((e) => setErr(readableChainError(e))).finally(() => setBusy(false));
+  };
 
   if (!chest) {
     return (
@@ -299,10 +342,23 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
         {/* Only a chest the oracle actually rolled gets the mark. Guest play
             rolls in the browser, and showing the same badge for both would be
             a claim about fairness this build has not earned there. */}
+        {chest.source === 'chain' && (
+          <span
+            title="On chain — the timer is in the contract, and opening commits to the next Monad block's hash"
+            aria-label="On-chain chest"
+            style={{
+              position: 'absolute', right: -4, bottom: -2,
+              fontSize: 11, lineHeight: 1,
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.7))',
+            }}
+          >
+            ⛓
+          </span>
+        )}
         {chest.source === 'vrf' && (
           <span
-            title={`Rolled by MagicBlock VRF — tier and contents both derive from ${chest.seed.slice(0, 12)}…`}
-            aria-label="Rolled by MagicBlock VRF — provably fair"
+            title={`Oracle-rolled — tier and contents both derive from ${chest.seed.slice(0, 12)}…`}
+            aria-label="Oracle-rolled chest"
             style={{
               position: 'absolute', right: -4, bottom: -2,
               fontSize: 11, lineHeight: 1,
@@ -315,8 +371,14 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
       </div>
       {ready ? (
         <button
+          disabled={busy}
+          title={err ?? undefined}
           onClick={() => {
             click();
+            if (onChain) {
+              run(async () => { onOpened(await openOnChain(chest.id)); });
+              return;
+            }
             const got = collect(chest.id);
             if (got) onOpened(got);
           }}
@@ -330,7 +392,7 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
             boxShadow: 'inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 var(--btn-green-dark)',
           }}
         >
-          OPEN
+          {busy ? '…' : err ? 'RETRY' : 'OPEN'}
         </button>
       ) : chest.unlocking ? (
         // Two deliberate lines. "12h 0m · 216 $MEMPIRE" on one line wraps at every
@@ -376,7 +438,19 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
         </div>
       ) : (
         <button
-          onClick={() => { click(); startUnlock(chest.id); }}
+          disabled={busy}
+          title={err ?? undefined}
+          onClick={() => {
+            click();
+            if (onChain) {
+              run(async () => {
+                await startUnlockTx(chainId(chest.id)!);
+                await useChain.getState().refresh();
+              });
+              return;
+            }
+            startUnlock(chest.id);
+          }}
           className="btn-3d"
           style={{
             ...ACTION,
@@ -387,7 +461,7 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
             boxShadow: 'inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 var(--btn-blue-dark)',
           }}
         >
-          START
+          {busy ? '…' : 'START'}
         </button>
       )}
     </div>
@@ -396,7 +470,19 @@ function Slot({ chest, onOpened, onSkipRequest, onBuyRequest }: {
 
 /** The chest rail — four slots, exactly like the games this borrows from. */
 export function ChestRail() {
-  const chests = useEconomy((s) => s.chests);
+  const local = useEconomy((s) => s.chests);
+  const mode = useChain((s) => s.mode);
+  const chainChests = useChain((s) => s.chests);
+  const chests: ChestSlot[] = mode === 'onchain'
+    ? chainChests.map((c) => ({
+      id: `c${c.id}`,
+      tier: TIER_ORDER[c.tier] ?? 'silver',
+      readyAt: c.state >= 2 ? c.readyAt * 1000 : 0,
+      unlocking: c.state >= 2,
+      source: 'chain',
+      seed: '',
+    }))
+    : local;
   const [opened, setOpened] = useState<OpenedChest | null>(null);
   /** The chest whose timer the player has asked to skip, pending confirmation. */
   const [skipping, setSkipping] = useState<string | null>(null);
@@ -419,9 +505,16 @@ export function ChestRail() {
           title="Skip the wait"
           detail="Opens this chest now instead of when its timer runs out."
           onCancel={() => setSkipping(null)}
+          pay={chainId(skipping) !== null
+            ? async () => {
+              const r = await skipChestTx(chainId(skipping)!);
+              await useChain.getState().refresh();
+              return r.hash;
+            }
+            : undefined}
           onDone={() => {
             // The chain took the tokens; only now does the timer go.
-            useEconomy.getState().skipUnlock(skipping);
+            if (chainId(skipping) === null) useEconomy.getState().skipUnlock(skipping);
             setSkipping(null);
           }}
         />
@@ -449,8 +542,15 @@ export function ChestRail() {
           title="Buy a golden chest"
           detail={`A ${CHESTS.golden.name} straight into a free slot — ${CHESTS.golden.cards} cards, no battle needed.`}
           onCancel={() => setBuying(false)}
+          pay={mode === 'onchain'
+            ? async () => {
+              const r = await buyChestTx();
+              await useChain.getState().refresh();
+              return r.hash;
+            }
+            : undefined}
           onDone={() => {
-            useEconomy.getState().buyChest('golden');
+            if (mode !== 'onchain') useEconomy.getState().buyChest('golden');
             setBuying(false);
           }}
         />

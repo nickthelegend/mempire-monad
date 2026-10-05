@@ -29,12 +29,12 @@ const STEPS: TutorialStep[] = [
   {
     anchor: 'deck',
     title: 'Any coin, your army',
-    body: 'Every card is a meme coin minted into a fighter — you do not have to hold it. Win matches to earn duplicates, and merge them to level it up.',
+    body: 'Every card is a real asset — a coin, a memecoin or a stock — as a fighter. You never have to hold it. Today\'s market buffs or nerfs it a little; win matches to earn duplicates and merge them to level it up.',
   },
   {
     anchor: 'tier',
     title: 'Pick your stakes',
-    body: `Each tier stakes real ${IS_MAINNET ? '' : 'devnet '}SOL once your deck is minted onchain. Both players pay in, winner takes 90% of the pot — the house keeps 10%, and says so. Until then a match counts for rating only.`,
+    body: `Each tier stakes ${IS_MAINNET ? '' : 'testnet '}AUSD dollars or MON. Both players pay in, the contract pays the winner 90% of the pot — the house keeps 10%, and says so. Without a stake a match counts for rating only.`,
   },
   {
     anchor: 'practice',

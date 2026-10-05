@@ -2,7 +2,7 @@ import { FP, fp, fpDist, clampInt } from './fixed';
 import { XorShift32 } from './rng';
 import { Fnv1a } from './hash';
 import {
-  ARCHETYPES, AURA_SPEED_DEN, AURA_SPEED_NUM, scaleByLevel,
+  ARCHETYPES, AURA_SPEED_DEN, AURA_SPEED_NUM, scaleByLevel, scaleStat,
 } from './archetypes';
 import { effectiveDef, traitForMint } from './traits';
 import {
@@ -141,13 +141,13 @@ function applyInput(state: SimState, ev: InputEvent): void {
     state.spells.push({
       owner: ev.player, x, y,
       explodeTick: state.tick + def.spellDelayTicks,
-      level: card.level, cardIndex: deckIdx,
+      level: card.level, cardIndex: deckIdx, metaBps: card.metaBps ?? 0,
     });
     return;
   }
   for (let i = 0; i < def.count; i++) {
     const [ox, oy] = SPAWN_OFFSETS[i % SPAWN_OFFSETS.length];
-    const hp = scaleByLevel(def.hp, card.level);
+    const hp = scaleStat(def.hp, card.level, card.metaBps ?? 0);
     state.units.push({
       id: state.nextUnitId++,
       owner: ev.player,
@@ -162,6 +162,7 @@ function applyInput(state: SimState, ev: InputEvent): void {
       state: 'advance',
       trait: card.trait,
       cardIndex: deckIdx,
+      metaBps: card.metaBps ?? 0,
     });
   }
 }
@@ -286,7 +287,7 @@ function stepUnits(state: SimState): void {
       if (d <= def.rangeFP + 2 * UNIT_RADIUS) {
         u.state = 'attack';
         if (u.cooldown === 0) {
-          const dmg = scaleByLevel(def.damage, u.level);
+          const dmg = scaleStat(def.damage, u.level, u.metaBps);
           if (def.splashFP > 0) dealSplash(state, u.owner, target.x, target.y, def.splashFP, dmg);
           else target.hp -= dmg;
           const buffed = hasSupportAura(state, u);
@@ -309,7 +310,7 @@ function stepUnits(state: SimState): void {
     if (d <= def.rangeFP + TOWER_RADIUS[t.kind] + UNIT_RADIUS) {
       u.state = 'attack';
       if (u.cooldown === 0) {
-        damageTower(state, ti, scaleByLevel(def.damage, u.level));
+        damageTower(state, ti, scaleStat(def.damage, u.level, u.metaBps));
         const buffed = hasSupportAura(state, u);
         u.cooldown = buffed
           ? Math.floor((def.hitTicks * AURA_SPEED_NUM) / AURA_SPEED_DEN)
@@ -358,7 +359,7 @@ function stepSpells(state: SimState): void {
       continue;
     }
     const def = ARCHETYPES[Archetype.Spell];
-    const dmg = scaleByLevel(def.damage, s.level);
+    const dmg = scaleStat(def.damage, s.level, s.metaBps);
     dealSplash(state, s.owner, s.x, s.y, def.splashFP, dmg);
     const towerDmg = Math.floor((dmg * SPELL_TOWER_DAMAGE_PCT) / 100);
     for (let i = 0; i < state.towers.length; i++) {
@@ -487,14 +488,14 @@ export function hashState(state: SimState): number {
     // and that is worth catching on the first checkpoint rather than the
     // first death.
     h.int(u.id).int(u.owner).int(u.archetype).int(u.x).int(u.y).int(u.hp)
-      .int(u.cooldown).int(u.maxHp).int(u.level).int(u.trait)
+      .int(u.cooldown).int(u.maxHp).int(u.level).int(u.trait).int(u.metaBps)
       .int(u.targetUnit).int(u.targetTower).int(u.state === 'advance' ? 0 : 1);
   }
   for (const t of state.towers) {
     h.int(t.hp).int(t.cooldown).int(t.awake ? 1 : 0);
   }
   for (const s of state.spells) {
-    h.int(s.owner).int(s.x).int(s.y).int(s.explodeTick).int(s.level);
+    h.int(s.owner).int(s.x).int(s.y).int(s.explodeTick).int(s.level).int(s.metaBps);
   }
   return h.digest();
 }

@@ -3,12 +3,8 @@ import { useChain } from './chain';
 import { seedCards, useCollection, type MintedCard } from './collection';
 import { useDeck } from './deck';
 import { useLadder } from './ladder';
-import { signer, useWallet } from './wallet';
+import { useWallet } from './wallet';
 import { COINS } from '../lib/coins';
-import { MATCH_STATE_SETTLED, fetchMatchByAddress } from '../chain/read';
-import { releaseCardsTx } from '../chain/actions';
-import { canSign } from '../chain/provider';
-import { ensureChestRail } from '../chain/erActions';
 
 /**
  * Keeps onchain state in step with the wallet.
@@ -44,78 +40,11 @@ export function useChainSync(): void {
     // A guest signs through its own browser-held keypair, so it is passed the
     // same null adapter a wallet-less session has — `canSign` resolves the
     // difference downstream.
-    void loadWallet(address, isGuest ? null : signer());
+    void loadWallet(address);
   }, [connected, address, isGuest, loadWallet, clearWallet]);
 
-  useChestRail();
 
   useChainCollection();
-}
-
-/**
- * Have the chest rail ready before any match can end.
- *
- * `end_log` credits the winner's chest entitlement only when the winner's rail
- * is passed as an optional account, and `endLogEr` only passes it when that
- * rail is already delegated to the same rollup as the log. The rail was being
- * created in two places, both too late to be reliable:
- *
- *  - `openOnchainMatch`, which only the player who *creates* the match runs.
- *    The opponent who joins never sets one up, so whenever the joiner won, the
- *    entitlement had nowhere to go.
- *  - `rollChestOnchain`, which runs *after* the match has already settled —
- *    by then `end_log` has been and gone.
- *
- * The failure was silent all the way down: no rail meant no entitlement, no
- * entitlement meant `request_chest` was refused with `NoChestEarned`, and that
- * error was swallowed by a bare catch. Every chest quietly fell back to a local
- * roll and no surface anywhere said why — the 🎲 "rolled by MagicBlock VRF"
- * badge simply never appeared for anyone.
- *
- * Readiness of the rail is a property of the *player*, not of a match, so it
- * belongs here: once per connected wallet, idempotent, and long before any
- * match needs it. `ensureChestRail` no-ops when the rail already exists and is
- * delegated, so this costs one account read on a warm wallet.
- */
-function useChestRail(): void {
-  const connected = useWallet((s) => s.connected);
-  const address = useWallet((s) => s.address);
-  const mode = useChain((s) => s.mode);
-
-  useEffect(() => {
-    /*
-     * Guests get chests too.
-     *
-     * This skipped `isGuest` on the grounds that a guest "signs locally and
-     * never reaches the rollup" — but a guest holds a real ed25519 keypair and
-     * `getProvider(null)` builds a signing wallet from it, which is how a guest
-     * signs `create_match` and escrows a real stake. Nothing in
-     * `ensureChestRail` wants a wallet extension; it is the same
-     * `requireSigner`/`baseProgram` path.
-     *
-     * The cost of the gate was that guests — the default way into this game,
-     * and so most players who will ever open it — could never be credited a
-     * VRF chest. `end_log` only pays an entitlement into a delegated rail, so
-     * the 🎲 badge was unreachable for them no matter how many matches they won.
-     *
-     * Offline still returns early: there is no chain there to prepare on.
-     */
-    if (!connected || !address || mode !== 'onchain') return;
-    let live = true;
-    void (async () => {
-      try {
-        const adapter = signer();
-        if (!canSign(adapter)) return;
-        await ensureChestRail(adapter);
-        if (live) console.info('chest rail ready — wins can be rolled by VRF');
-      } catch (e) {
-        // Non-fatal, and now audible. A wallet that cannot prepare its rail
-        // still plays; it just keeps the honest local roll, and says so.
-        console.warn('chest rail not ready — chests will use a local roll:', e);
-      }
-    })();
-    return () => { live = false; };
-  }, [connected, address, mode]);
 }
 
 /**
@@ -288,23 +217,7 @@ function useChainCollection(): void {
      * Best-effort and never awaited: it is housekeeping, and a failure leaves
      * exactly the state that was already there.
      */
-    const stuck = cards.filter((c) => c.inMatch && c.lockedBy);
-    if (stuck.length) {
-      void (async () => {
-        const byMatch = new Map<string, number[]>();
-        for (const c of stuck) {
-          if (!c.lockedBy) continue;
-          byMatch.set(c.lockedBy, [...(byMatch.get(c.lockedBy) ?? []), c.id]);
-        }
-        for (const [address, ids] of byMatch) {
-          try {
-            const m = await fetchMatchByAddress(address);
-            if (!m || m.state !== MATCH_STATE_SETTLED) continue;
-            await releaseCardsTx(signer(), m.id, ids);
-            await useChain.getState().refresh();
-          } catch { /* housekeeping — the lock simply stays until next time */ }
-        }
-      })();
-    }
+    // No release step: a card is locked only while the match holding it is
+    // live, so settling a match frees its cards in the same transaction.
   }, [cards, mode]);
 }

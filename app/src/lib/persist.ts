@@ -15,7 +15,8 @@ export interface SavedState {
   cards: MintedCard[];
   deck: string[];
   tier: number;
-  sol: number;
+  /** Retired: balances are read from chain. Old saves may still carry it. */
+  sol?: number;
   nextId: number;
   history: MatchResult[];
   /** Saved loadouts + which one is selected. Older saves lack these. */

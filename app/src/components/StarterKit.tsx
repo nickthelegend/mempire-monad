@@ -1,149 +1,112 @@
+import { useEffect, useRef, useState } from 'react';
 import { IS_MAINNET } from '../chain/provider';
-import { useEffect, useState } from 'react';
-import { Pill } from './ui';
-import { apiFetch, apiPost } from '../lib/api';
+import { fetchStarterClaimed } from '../chain/read';
+import { Pill, Spinner } from './ui';
+import { apiPost } from '../lib/api';
 import { useChain } from '../state/chain';
 import { useWallet } from '../state/wallet';
 
-/**
- * The devnet starter kit: a little SOL and eight coins, once per address.
+/*
+ * The first thirty seconds of an account.
  *
- * # Why the game needs this
+ * A brand-new passkey account holds nothing — no MON for gas, no cards, no
+ * currency — and a game that answers that with "go find a faucet" has lost the
+ * player before the first match. So the first time an account signs in, the
+ * relay does it for them, without being asked: it mints the eight-fighter
+ * starter deck straight to the account (the contract allows it once per
+ * address, and only from the relayer), requests 10,000 test AUSD from Agora's
+ * testnet faucet, and drips a little MON for gas. The player watches it land.
  *
- * "Your bags are your army" is the premise, and a wallet that has just arrived
- * has no bags. Minting a fighter requires holding its coin, so without this a
- * new player cannot mint a single card, cannot field a legal deck, and can
- * therefore never reach a staked match. Every screen worked and the loop was
- * unreachable — the worst kind of bug, because nothing looks broken.
- *
- * # Why it disappears
- *
- * It renders only when the wallet is genuinely empty and the faucet is
- * genuinely stocked. A permanent "free stuff" button trains people to look for
- * handouts on a screen that is meant to be about their own holdings, and a
- * button that fails because the faucet is dry is worse than no button.
+ * Testnet only. Nothing here exists on mainnet, where the starter deck would
+ * be something a player buys.
  */
-interface FaucetStatus {
-  available: boolean;
-  dripSol: number;
-  /** Whole $MEMPIRE granted with the kit. The game's only currency. */
-  dripMempire?: number;
-  coins: string[];
-  balanceSol?: number;
-}
+
+type Phase = 'idle' | 'busy' | 'done' | 'failed' | 'gone';
+
+const triedThisSession = new Set<string>();
 
 export function StarterKit() {
-  /*
-   * Devnet only, by definition. The kit is a faucet grant — free SOL and
-   * coins — and no faucet exists (or should) where the tokens are money.
-   * Returning null beats hiding it in CSS: the claim endpoint stays entirely
-   * unreachable from a mainnet build.
-   */
-  if (IS_MAINNET) return null;
-
   const address = useWallet((s) => s.address);
-  const sol = useWallet((s) => s.sol);
-  const chainCards = useChain((s) => s.cards);
-  const balances = useChain((s) => s.balances);
-  const refresh = useChain((s) => s.refresh);
+  const connected = useWallet((s) => s.connected);
   const mode = useChain((s) => s.mode);
-
-  const [status, setStatus] = useState<FaucetStatus | null>(null);
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'gone'>('idle');
+  const cards = useChain((s) => s.cards);
+  const refreshSettled = useChain((s) => s.refreshSettled);
+  const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [took, setTook] = useState<number | null>(null);
+  const started = useRef(false);
+
+  const claim = async () => {
+    setPhase('busy');
+    setError(null);
+    const t0 = performance.now();
+    try {
+      const r = await apiPost('/api/onboard', 'onboard', {});
+      if (!r) throw new Error('could not reach the relay, or this account could not sign');
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error ?? `the relay answered ${r.status}`);
+      await refreshSettled();
+      setTook(performance.now() - t0);
+      setPhase('done');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPhase('failed');
+    }
+  };
 
   useEffect(() => {
-    let live = true;
-    void apiFetch('/api/faucet')
-      .then((r) => (r?.ok ? r.json() : null))
-      .then((j) => { if (live && j) setStatus(j as FaucetStatus); })
-      .catch(() => { /* no faucet configured — the button simply never shows */ });
-    return () => { live = false; };
-  }, []);
+    if (IS_MAINNET || !connected || !address || mode === 'offline') return;
+    if (cards.length > 0 || started.current || triedThisSession.has(address)) return;
+    started.current = true;
+    triedThisSession.add(address);
+    void fetchStarterClaimed(address).then((claimed) => {
+      if (!claimed) void claim();
+    }).catch(() => { /* the button below is the fallback */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, address, mode, cards.length]);
 
-  /**
-   * Can this wallet field a deck at all?
-   *
-   * Keyed on coins and cards, not on SOL. Holding coins is what `mint_card`
-   * requires, so a wallet with plenty of SOL and no coins is exactly as stuck
-   * as an empty one — and the first version of this gate checked `sol < 0.1`,
-   * which meant a funded newcomer was told nothing and offered nothing.
-   *
-   * The SOL check survives only as an *or*: someone holding coins but unable
-   * to pay eight mint fees is stuck too, just differently.
-   */
-  const holdsCoins = [...balances.values()].some((v) => v > 0);
-  const canMintDeck = holdsCoins || chainCards.length >= 8;
-  const empty = chainCards.length === 0 && (!canMintDeck || sol < 0.2);
-
-  if (state === 'gone') return null;
-  if (!address || mode === 'offline') return null;
-  if (!status?.available) return null;
-  if (!empty && state !== 'done') return null;
-
-  if (state === 'done') {
-    return (
-      <section className="well" style={{ padding: '10px 12px', display: 'grid', gap: 4 }}>
-        <span className="label" style={{ color: 'var(--teal)' }}>Bags delivered</span>
-        <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
-          {status.dripSol} SOL{status.dripMempire
-            ? `, ${status.dripMempire.toLocaleString()} $MEMPIRE`
-            : ''} and {status.coins.length} coins are in your wallet. Mint any coin
-          into a fighter below — you do not have to hold it — then your deck can
-          enter a staked match.
-        </p>
-        <button
-          type="button"
-          className="fine"
-          onClick={() => setState('gone')}
-          style={{ background: 'none', border: 0, color: 'var(--dim)', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-        >
-          dismiss
-        </button>
-      </section>
-    );
-  }
+  if (IS_MAINNET || phase === 'gone' || phase === 'idle') return null;
 
   return (
-    <section className="well" style={{ padding: '10px 12px', display: 'grid', gap: 6 }}>
-      <span className="label">Start with bags</span>
-      <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
-        {/* Was "Your fighters are coins you hold, and this wallet holds none
-            yet" — written when `mint_card` required a balance of the coin. It
-            does not any more, so the sentence described a rule the program
-            stopped enforcing, and it told a new player their empty wallet was
-            the thing standing between them and a deck. It is not; the kit is
-            just a head start. */}
-        A wallet needs a little of everything to get going. Claim{' '}
-        {status.dripSol} devnet SOL
-        {status.dripMempire ? <>, {status.dripMempire.toLocaleString()} $MEMPIRE</> : null}
-        {' '}and {status.coins.length} coins — {status.coins.slice(0, 4).join(', ')} and
-        more — enough to mint a full deck, upgrade it, and enter a staked match.
-        Devnet only, and worth nothing anywhere else.
-      </p>
-      <Pill
-        tone="gold"
-        disabled={state === 'busy'}
-        onClick={() => {
-          setState('busy');
-          setError(null);
-          void apiPost('/api/faucet', 'faucet', {})
-            .then(async (r) => {
-              if (!r) throw new Error('this session could not sign the request');
-              const j = await r.json();
-              if (!r.ok) throw new Error(j?.error ?? `faucet returned ${r.status}`);
-              await refresh();
-              setState('done');
-            })
-            .catch((e) => {
-              setError(e instanceof Error ? e.message : String(e));
-              setState('idle');
-            });
-        }}
-      >
-        {state === 'busy' ? 'Sending…' : 'Claim my starter bags'}
-      </Pill>
-      {error && <span className="fine" style={{ color: 'var(--red)' }}>{error}</span>}
+    <section className="well" style={{ padding: '10px 12px', display: 'grid', gap: 6 }} aria-live="polite">
+      {phase === 'busy' && (
+        <>
+          <span className="label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Spinner size={14} /> Minting your starter deck on Monad…
+          </span>
+          <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
+            Eight fighters to your account, test AUSD for stakes, and a little MON for gas.
+          </p>
+        </>
+      )}
+      {phase === 'done' && (
+        <>
+          <span className="label" style={{ color: 'var(--teal)' }}>
+            Your deck is on chain{took !== null ? ` · ${(took / 1000).toFixed(1)}s` : ''}
+          </span>
+          <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
+            Eight ERC-721 fighters are yours, plus test AUSD and gas. Pick a tier in the
+            Arena and put a dollar on your first match.
+          </p>
+          <button
+            type="button"
+            className="fine"
+            onClick={() => setPhase('gone')}
+            style={{ background: 'none', border: 0, color: 'var(--dim)', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+          >
+            dismiss
+          </button>
+        </>
+      )}
+      {phase === 'failed' && (
+        <>
+          <span className="label">Starter deck didn&apos;t land</span>
+          <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
+            {error} — practice matches still work while this is sorted.
+          </p>
+          <Pill tone="gold" onClick={() => void claim()}>Try again</Pill>
+        </>
+      )}
     </section>
   );
 }

@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { LeagueBadge, TrophyDelta } from '../components/LeagueBadge';
 import { EscrowBadge } from '../components/EscrowBadge';
-import { RollupBadge } from '../components/RollupBadge';
+import { MonadLogBadge } from '../components/MonadLogBadge';
 import { CardArtWell } from '../components/CardFrame';
 import { ArchetypeIcon, MoneyRow, Pill } from '../components/ui';
 import { buzz, isMuted, setMuted } from '../lib/audio';
-import { fmtClock, fmtSol } from '../lib/format';
+import { fmtClock, fmtStake } from '../lib/format';
 import { EASE_SNAP, prefersReducedMotion } from '../lib/motion';
 import { ARCHETYPES } from '../sim/archetypes';
 import { FP, fp } from '../sim/fixed';
@@ -41,7 +41,8 @@ function GoldBurst() {
 }
 
 function ResultOverlay() {
-  const { result, stakeSol, dismiss, practice, soloVsBot } = useMatch();
+  const { result, stakeSol, currency, dismiss, practice, soloVsBot } = useMatch();
+  const fmtMon = (n: number) => fmtStake(n, currency);
   const escrowPhase = useEscrow((s) => s.phase);
   const nav = useNavigate();
   if (!result) return null;
@@ -114,10 +115,10 @@ function ResultOverlay() {
         {/* Staggered so the arithmetic reads in the order it happens: the pot
             fills, the rake is taken out of it, then what you actually take
             lands last and largest. */}
-        <MoneyRow label="Pot" value={fmtSol(result.potSol)} count={{ to: result.potSol, delayMs: 340 }} />
+        <MoneyRow label="Pot" value={fmtMon(result.potSol)} count={{ to: result.potSol, delayMs: 340 }} />
         <MoneyRow
           label={`House rake (${result.draw ? 5 : 10}%)`}
-          value={`−${fmtSol(result.rakeSol)}`}
+          value={`−${fmtMon(result.rakeSol)}`}
           count={{ to: result.rakeSol, prefix: '−', delayMs: 520 }}
         />
         <MoneyRow
@@ -125,7 +126,7 @@ function ResultOverlay() {
           label={awaitingPayout
             ? (result.won ? 'You win (unpaid)' : result.draw ? 'Returned (unpaid)' : 'You lost')
             : result.won ? 'You take' : result.draw ? 'Returned' : 'You lost'}
-          value={result.payoutSol > 0 ? `+${fmtSol(result.payoutSol)}` : `−${fmtSol(stakeSol)}`}
+          value={result.payoutSol > 0 ? `+${fmtMon(result.payoutSol)}` : `−${fmtMon(stakeSol)}`}
           count={result.payoutSol > 0
             ? { to: result.payoutSol, prefix: '+', delayMs: 700 }
             : { to: stakeSol, prefix: '−', delayMs: 700 }}
@@ -135,7 +136,7 @@ function ResultOverlay() {
             className="fine"
             style={{ fontSize: 12, color: 'var(--dim)', margin: '8px 0 0', lineHeight: 1.35 }}
           >
-            Nothing was escrowed for this match, so no SOL changed hands — the
+            Nothing was escrowed for this match, so no money changed hands — the
             figures above are what the pot would have been. This one counted for
             rating only.
           </p>
@@ -537,7 +538,7 @@ export function Battle() {
             className={match.practice ? 'label' : 'money'}
             style={{ fontSize: 12, whiteSpace: 'nowrap' }}
           >
-            {match.practice ? 'practice · no stake' : fmtSol(match.stakeSol * 2)}
+            {match.practice ? 'practice · no stake' : fmtStake(match.stakeSol * 2, match.currency)}
           </span>
         </div>
         {/* Which layer this match is running on, and where its money is. Both
@@ -545,7 +546,7 @@ export function Battle() {
             and "0.1 SOL" printed above a match that escrowed nothing is exactly
             the claim this pair exists to keep honest. */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <RollupBadge />
+          <MonadLogBadge />
           {!match.practice && <EscrowBadge compact />}
         </div>
         {/* A third row, not an absolute overlay — it was landing on top of the
@@ -727,13 +728,13 @@ export function Battle() {
             {match.practice
               ? 'Leave practice? Nothing is staked.'
               : quitEscrowed
-                ? `Forfeit the match? Your opponent takes the ${fmtSol(match.stakeSol * 2)} pot.`
-                : 'Leave the match? Nothing was escrowed, so no SOL changes hands — it counts as a loss for rating only.'}
+                ? `Forfeit the match? Your opponent takes the ${fmtStake(match.stakeSol * 2, match.currency)} pot.`
+                : 'Leave the match? Nothing was escrowed, so no money changes hands — it counts as a loss for rating only.'}
           </p>
           <Pill danger onClick={() => { setConfirmQuit(false); match.forfeit(); }}>
             {match.practice
               ? 'Leave practice'
-              : quitEscrowed ? `Forfeit — lose ${fmtSol(match.stakeSol)}` : 'Leave the match'}
+              : quitEscrowed ? `Forfeit — lose ${fmtStake(match.stakeSol, match.currency)}` : 'Leave the match'}
           </Pill>
           <Pill ghost onClick={() => setConfirmQuit(false)}>Keep fighting</Pill>
         </div>

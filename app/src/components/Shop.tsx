@@ -2,7 +2,7 @@ import { mintCardTx } from '../chain/actions';
 import { useEffect, useState } from 'react';
 import { buzz, click, play } from '../lib/audio';
 import { coinByMint, tickerOf } from '../lib/coins';
-import { fmtSol, fmtUsd } from '../lib/format';
+import { fmtMon, fmtUsd } from '../lib/format';
 import { useChain } from '../state/chain';
 import { useCollection } from '../state/collection';
 import { useMempire } from '../state/mempire';
@@ -40,7 +40,7 @@ export function Shop() {
   const refreshMempire = useMempire((s) => s.refresh);
   const [pending, setPending] = useState<string | null>(null);
   const chainMode = useChain((s) => s.mode);
-  const mintFeeSol = useChain((s) => s.config?.mintFeeSol ?? 0.02);
+  const mintFeeSol = useChain((s) => s.config?.mintFeeMon ?? 0.01);
   const wallet = useWallet();
   const { mintCard, cards } = useCollection();
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +93,7 @@ export function Shop() {
        * vanished. Real spend, durable card, or neither.
        */
       if (useChain.getState().mode === 'onchain') {
-        await mintCardTx(signer(), mint, 'mempire');
+        await mintCardTx(coinByMint(mint)!.coinId, 'mempire');
         void useChain.getState().refresh();
       } else {
         await spendMempire(signer(), price, wallet.address);
@@ -147,7 +147,7 @@ export function Shop() {
       setPending(mint);
       setError(null);
       try {
-        await mintCardTx(signer(), mint);
+        await mintCardTx(coinByMint(mint)!.coinId);
         void useChain.getState().refresh();
         grant(mint);
       } catch (e) {
@@ -160,7 +160,7 @@ export function Shop() {
     }
     if (!wallet.spend(solPrice)) {
       play('error');
-      setError(`need ${fmtSol(solPrice)}`);
+      setError(`need ${fmtMon(solPrice)}`);
       return;
     }
     grant(mint);
@@ -221,7 +221,7 @@ export function Shop() {
                   )}
                 </span>
                 <span className="fine" style={{ display: 'block', fontSize: 12 }}>
-                  {fmtUsd(coin.liquidityUsd)} liquidity
+                  {coin.priceUsd > 0 ? fmtUsd(coin.priceUsd) : coin.pythSymbol}
                   {owned && <span style={{ color: 'var(--teal)' }}> · owned</span>}
                 </span>
               </span>
@@ -252,8 +252,8 @@ export function Shop() {
                   <button
                     onClick={() => void buyWithSol(o.mint, solPrice)}
                     aria-label={`Buy ${tickerOf(coin)} for ${chainMode === 'onchain'
-                      ? `${mintFeeSol} SOL mint fee`
-                      : `${solPrice} SOL`}`}
+                      ? `${mintFeeSol} MON mint fee`
+                      : `${solPrice} MON`}`}
                     className="btn-3d"
                     style={{
                       minHeight: 44, padding: '0 10px', borderRadius: 9,
@@ -268,7 +268,7 @@ export function Shop() {
                     {/* Onchain the SOL path is the program's mint at the
                         config fee — the demo discount price would be a number
                         the chain will not honour. */}
-                    {chainMode === 'onchain' ? <>{mintFeeSol}◎</> : <>{solPrice}◎</>}
+                    {chainMode === 'onchain' ? <>{mintFeeSol} MON</> : <>{solPrice} MON</>}
                   </button>
                 </span>
               )}

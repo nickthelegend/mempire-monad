@@ -1,152 +1,112 @@
-import { getProvider } from './provider';
-import { AnchorProvider, BN, Program, type Idl } from '@coral-xyz/anchor';
-import type { Adapter } from '@solana/wallet-adapter-base';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { generatePrivateKey, nonceManager, privateKeyToAccount } from 'viem/accounts';
+import type { Address, Hex } from 'viem';
+import { localSigner, type Signer } from './account';
 
-/**
- * The match session key.
+/*
+ * Per-match session keys.
  *
- * A three-minute match writes a card play per drop and a checkpoint every forty
- * ticks. Signed by the connected wallet, that is dozens of Phantom popups —
- * which does not make the game annoying so much as unplayable. The seat
- * authorises a temporary keypair once, at match start, and the rollup accepts
- * it for the rest of the match.
+ * A match writes every card drop to the chain as it happens. Asking the
+ * player's wallet to approve each one would end the game at the first card, so
+ * a match gets its own throwaway key: generated in the browser, named as the
+ * seat's session in the create/join transaction, and funded in that same
+ * transaction with a few cents of MON for gas. The arena accepts it for that
+ * seat of that match and nothing else — it can log plays, post checkpoints and
+ * record the result, and it can never move a stake or a card.
  *
- * # Why handing this key out is safe
- *
- * The rollup program has **no transfer path**. It owns no lamports beyond its
- * own rent and cannot move a token. A stolen session key can write nonsense
- * plays into one match log — and the lockstep hash check already voids a match
- * whose log disagrees with the simulation, refunding both stakes. Escrow and
- * payout live in the base-layer program and stay wallet-only, deliberately.
- *
- * The scope is one seat, one match, thirty minutes at most, revocable.
- *
- * # Where the key lives
- *
- * In memory, for the lifetime of the tab. Never in localStorage, never sent
- * anywhere, never logged. It is worthless after the match and there is no
- * reason for it to outlive one.
+ * It is kept in sessionStorage for the life of the tab, so a reload mid-match
+ * can still record the result rather than stranding the seat's claim.
  */
 
-/** Session lifetime. The program caps this at 1800s and enforces it on-chain. */
-export const SESSION_TTL_SECS = 900;
+/*
+ * MON forwarded to the session key for its gas.
+ *
+ * A logged card play is ~38k gas at Monad testnet's 100 gwei floor — about
+ * 0.004 MON — and a player drops ~20 cards a match, plus checkpoints and the
+ * claim. 0.1 MON covers that with room; whatever is left is swept back to the
+ * player when the match ends, so the allowance is a float, not a fee.
+ */
+export const SESSION_GAS_WEI = 100_000_000_000_000_000n; // 0.1 MON
+/** Kept back from logging so the seat can always afford to record its result. */
+export const CLAIM_RESERVE_WEI = 15_000_000_000_000_000n; // 0.015 MON
+
+const KEY = (matchId: number) => `mempire_session_${matchId}`;
+const PENDING = 'mempire_session_pending';
 
 interface Live {
   matchId: number;
-  keypair: Keypair;
-  expiresAt: number;
+  signer: Signer;
 }
 
 let live: Live | null = null;
 
-/** The active session key, if this match has one that has not expired. */
-export function sessionFor(matchId: number): Keypair | null {
-  if (!live || live.matchId !== matchId) return null;
-  // Stop using it slightly before the chain would refuse it: a transaction
-  // built at T-1s can easily land at T+1s, and a rejected play mid-match is
-  // worse than one extra wallet prompt.
-  if (Date.now() / 1000 > live.expiresAt - 20) return null;
-  return live.keypair;
+/** A fresh key for the match about to be created or joined. Its id is not known yet. */
+export function prepareSession(): Address {
+  const k = generatePrivateKey();
+  try { sessionStorage.setItem(PENDING, k); } catch { /* memory only */ }
+  pending = k;
+  return privateKeyToAccount(k).address;
 }
 
-export function hasSession(matchId: number): boolean {
-  return sessionFor(matchId) !== null;
-}
+let pending: Hex | null = null;
 
-/**
- * An Anchor provider that signs with the session key rather than the wallet.
- *
- * The session keypair pays its own fees on the rollup, where fees are zero — so
- * it never needs funding, which is the other reason a session key on an ER is
- * cheap to hand out.
- */
-export function sessionProvider(conn: Connection, kp: Keypair): AnchorProvider {
-  const wallet = {
-    publicKey: kp.publicKey,
-    signTransaction: async (tx: never) => {
-      (tx as { sign: (...k: Keypair[]) => void }).sign(kp);
-      return tx;
-    },
-    signAllTransactions: async (txs: never[]) => {
-      for (const tx of txs) (tx as { sign: (...k: Keypair[]) => void }).sign(kp);
-      return txs;
-    },
-    payer: kp,
-  };
-  return new AnchorProvider(conn, wallet as never, {
-    commitment: 'confirmed',
-    preflightCommitment: 'confirmed',
-  });
-}
-
-/**
- * Asks the wallet to authorise a fresh session for this match. One popup.
- *
- * Returns false rather than throwing when it cannot: a match whose session
- * failed to open still plays perfectly well, it just prompts per write. Losing
- * the match over a UX optimisation would be the wrong trade.
- */
-export async function openSession(
-  adapter: Adapter | null,
-  matchId: number,
-  program: Program<Idl>,
-  log: PublicKey,
-): Promise<boolean> {
-  // A guest has no adapter and still signs, through the provider. Taking the
-  // key from whichever of the two is present keeps this working for both —
-  // `adapter?.publicKey` alone silently returned false for every guest, so
-  // guests played every match with a wallet prompt per card.
-  const player = adapter?.publicKey
-    ?? (program.provider as { wallet?: { publicKey?: PublicKey } }).wallet?.publicKey;
-  if (!player) return false;
-  const kp = Keypair.generate();
+/** Bind the prepared key to the match id the chain assigned. */
+export function bindSession(matchId: number): Signer | null {
+  const k = pending ?? (() => {
+    try { return sessionStorage.getItem(PENDING) as Hex | null; } catch { return null; }
+  })();
+  if (!k) return null;
+  pending = null;
   try {
-    await program.methods
-      .openSession(kp.publicKey, new BN(SESSION_TTL_SECS))
-      .accounts({ log, player } as never)
-      .rpc();
-    live = {
-      matchId,
-      keypair: kp,
-      expiresAt: Date.now() / 1000 + SESSION_TTL_SECS,
-    };
-    return true;
+    sessionStorage.setItem(KEY(matchId), k);
+    sessionStorage.removeItem(PENDING);
+  } catch { /* memory only */ }
+  live = { matchId, signer: localSigner('guest', privateKeyToAccount(k, { nonceManager }), 'Session') };
+  return live.signer;
+}
+
+/** The session signer for a match, recovered from this tab's storage if needed. */
+export function sessionFor(matchId: number): Signer | null {
+  if (live?.matchId === matchId) return live.signer;
+  try {
+    const k = sessionStorage.getItem(KEY(matchId)) as Hex | null;
+    if (!k) return null;
+    live = { matchId, signer: localSigner('guest', privateKeyToAccount(k, { nonceManager }), 'Session') };
+    return live.signer;
   } catch {
-    live = null;
-    return false;
+    return null;
   }
 }
 
+export const hasSession = (matchId: number): boolean => sessionFor(matchId) !== null;
+
 /**
- * Revokes the session on-chain and forgets the key.
- *
- * Expiry is the backstop, not the mechanism. A player who finishes a match
- * should not leave a usable key behind for fifteen minutes, and the local
- * `live = null` happens even if the on-chain revoke fails — a key we have
- * forgotten cannot be used by this client whatever the chain thinks.
+ * Return a finished match's unspent gas float to the player, then forget the key.
+ * Best effort: a sweep that fails leaves dust on a key nobody will use again.
  */
-export async function closeSession(
-  adapter: Adapter | null,
-  program: Program<Idl>,
-  log: PublicKey,
-): Promise<void> {
-  const had = live;
-  live = null;
-  if (!had) return;
-  // A guest signs without an adapter, so `adapter?.publicKey` alone skipped
-  // this for them and left the session key alive on chain until it expired.
-  const player = adapter?.publicKey ?? getProvider(adapter).wallet.publicKey;
-  if (!player) return;
+export async function sweepSession(matchId: number, to: Address): Promise<void> {
+  const s = sessionFor(matchId);
+  if (!s) return;
   try {
-    await program.methods
-      .closeSession()
-      .accounts({ log, player } as never)
-      .rpc();
-  } catch { /* it expires on its own; the local key is already gone */ }
+    const { publicClient } = await import('./provider');
+    const client = publicClient();
+    const [balance, gasPrice] = await Promise.all([
+      client.getBalance({ address: s.address }),
+      client.getGasPrice(),
+    ]);
+    const fee = gasPrice * 21_000n;
+    if (balance > fee * 2n) {
+      await s.wallet.sendTransaction({
+        account: s.account, chain: s.wallet.chain, to, value: balance - fee, gas: 21_000n, gasPrice,
+      });
+    }
+  } catch { /* dust */ }
+  forgetSession(matchId);
 }
 
-/** Drops the key without touching the chain. For teardown paths. */
-export function forgetSession(): void {
+/** Forget a finished match's key. What MON it has left is dust by design. */
+export function forgetSession(matchId?: number): void {
+  if (matchId !== undefined) {
+    try { sessionStorage.removeItem(KEY(matchId)); } catch { /* nothing */ }
+  }
   live = null;
 }

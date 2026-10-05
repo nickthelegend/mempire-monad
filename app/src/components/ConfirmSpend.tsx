@@ -31,8 +31,15 @@ export function ConfirmSpend({
   detail,
   onDone,
   onCancel,
+  pay,
 }: {
   kind: SpendKind;
+  /**
+   * Pay through a contract call instead of a plain transfer — a chest skip or
+   * purchase charges inside `MempireCards`, and transferring as well would
+   * charge the player twice. Returns the transaction hash.
+   */
+  pay?: () => Promise<string>;
   /** What is being bought, in the player's words. */
   title: string;
   /** One sentence on what they get for it. */
@@ -63,7 +70,7 @@ export function ConfirmSpend({
   const buy = () => {
     setState('busy');
     setError(null);
-    void spendMempire(signer(), kind, address)
+    void (pay ? pay() : spendMempire(signer(), kind, address))
       .then((sig) => {
         track('spend', { kind, price });
         // Tell the balance pill its number is stale. The transfer has confirmed
@@ -126,8 +133,8 @@ export function ConfirmSpend({
           >
             <strong style={{ color: 'var(--red)' }}>Not enough $MEMPIRE.</strong>
             <p className="fine" style={{ margin: '4px 0 0', color: 'var(--dim)' }}>
-              You need {shortfall.toLocaleString()} more. Swap USDC for $MEMPIRE
-              from the + on your Crowns balance, then come back.
+              You need {shortfall.toLocaleString()} more. Staked wins pay 50
+              $MEMPIRE each for your first sixteen.
             </p>
           </div>
         )}

@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoneyRow, Pill } from '../components/ui';
 import { RankChip } from '../components/ClanBits';
-import { fmtSol, shortAddr } from '../lib/format';
+import { fmtMon, fmtStake, shortAddr } from '../lib/format';
 import { loadLeaderboard, type LeaderRow } from '../lib/persist';
 import { useCollection } from '../state/collection';
 import { useMatch } from '../state/match';
-import { signer, useWallet } from '../state/wallet';
+import { useWallet } from '../state/wallet';
+import { useChain } from '../state/chain';
 import { fetchStrandedMatches, type ChainMatch } from '../chain/read';
 import { useEscrow } from '../state/escrow';
 
@@ -43,7 +44,7 @@ function Leaderboard({ me }: { me: string }) {
     <section aria-label="Leaderboard">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span className="label">Leaderboard</span>
-        <span className="label" style={{ fontSize: 12 }}>by net SOL</span>
+        <span className="label" style={{ fontSize: 12 }}>by net winnings</span>
       </div>
       <div className="well" style={{ padding: '2px 10px' }}>
         {rows.slice(0, 10).map((r, i) => {
@@ -76,7 +77,7 @@ function Leaderboard({ me }: { me: string }) {
                 className="money"
                 style={{ fontSize: 13, flexShrink: 0, color: r.netSol >= 0 ? 'var(--gold)' : 'var(--red)' }}
               >
-                {r.netSol >= 0 ? '+' : '−'}{fmtSol(Math.abs(r.netSol))}
+                {r.netSol >= 0 ? '+' : '−'}{fmtMon(Math.abs(r.netSol))}
               </span>
             </div>
           );
@@ -89,6 +90,8 @@ function Leaderboard({ me }: { me: string }) {
 export function Empire() {
   const nav = useNavigate();
   const wallet = useWallet();
+  const ausd = useChain((s) => s.ausdBalance);
+  const mempire = useChain((s) => s.mempireBalance);
   const openPicker = useWallet((s) => s.openPicker);
   const history = useMatch((s) => s.history);
   const cards = useCollection((s) => s.cards);
@@ -132,15 +135,17 @@ export function Empire() {
       {wallet.connected && (
         <>
           <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <MoneyRow stack label="Balance" value={fmtSol(wallet.sol)} />
-            <MoneyRow stack label="Won" value={fmtSol(earned)} />
+            <MoneyRow stack label="MON" value={fmtMon(wallet.mon)} />
+            <MoneyRow stack label="AUSD" value={fmtStake(ausd, 'AUSD')} />
+            <MoneyRow stack label="$MEMPIRE" value={Math.floor(mempire).toLocaleString()} />
+            <MoneyRow stack label="Won" value={fmtMon(earned)} />
           </section>
 
           <section className="panel" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
             {[
               ['Record', `${wins}W · ${losses}L`],
               ['Cards', String(cards.length)],
-              ['House raked', fmtSol(raked)],
+              ['House raked', fmtMon(raked)],
             ].map(([label, value]) => (
               <div key={label}>
                 <div className="display display--sm" style={{ fontSize: 18 }}>{value}</div>
@@ -186,13 +191,13 @@ export function Empire() {
                       {h.draw ? 'DRAW' : h.won ? 'WON' : 'REKT'}
                     </span>
                     <span className="fine" style={{ fontSize: 12 }}>
-                      pot {fmtSol(h.potSol)} · {h.hashes} commits
+                      pot {fmtMon(h.potSol)} · {h.hashes} commits
                     </span>
                     <span className="money" style={{ marginLeft: 'auto', color: !h.escrowed ? 'var(--dim)' : h.payoutSol > 0 ? 'var(--gold)' : 'var(--red)' }}>
                       {/* An unescrowed match moved nothing; showing ±SOL for it
                           would restate the number the result card already
                           disclaims. */}
-                      {!h.escrowed ? 'rating only' : h.payoutSol > 0 ? `+${fmtSol(h.payoutSol)}` : `−${fmtSol(h.potSol / 2)}`}
+                      {!h.escrowed ? 'rating only' : h.payoutSol > 0 ? `+${fmtMon(h.payoutSol)}` : `−${fmtMon(h.potSol / 2)}`}
                     </span>
                   </div>
                 ))}
@@ -216,9 +221,11 @@ export function Empire() {
             {wallet.isGuest
               ? (IS_MAINNET
                 ? 'Guest mode on mainnet is play-only — connect a wallet to mint, stake, or hold anything real. '
-                : 'Guest mode — this browser holds a real devnet keypair, so mints and stakes spend real devnet SOL and escrow for real. Back it up before you fund it. ')
-              : `${IS_MAINNET ? 'Mainnet' : 'Devnet'} — your SOL balance is read from the chain and staked matches escrow for real. `}
-            Mint fee 0.02 SOL · rake 10% of the pot, 5% on a draw.
+                : 'Guest mode — this browser holds a real testnet key, so mints and stakes are real Monad transactions. Sign in with a passkey to keep the account on every device. ')
+              : wallet.kind === 'passkey'
+                ? 'Passkey account — derived from your passkey, never stored. Same account on any device your passkey syncs to. '
+                : `${IS_MAINNET ? 'Mainnet' : 'Testnet'} — balances are read from Monad and staked matches escrow for real. `}
+            Mint fee 0.01 MON · rake 10% of the pot, 5% on a draw.
           </p>
         </>
       )}
@@ -274,15 +281,15 @@ function StakeRecovery() {
     <section className="well" style={{ padding: '10px 12px', display: 'grid', gap: 6 }}>
       <span className="label">Unsettled stake</span>
       <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
-        Match #{matchId} escrowed {stranded.stakeSol} SOL and never settled.
-        After its deadline the program pays it back to you on request.
+        Match #{matchId} escrowed {fmtStake(stranded.stake, stranded.currency)} and never settled.
+        After its deadline anyone can finish it — the claim that was recorded stands, and with none both stakes come home.
       </p>
       <Pill
         tone="gold"
         disabled={state === 'busy'}
         onClick={() => {
           setState('busy');
-          void recover(signer(), matchId).then((r) => setState(
+          void recover(matchId).then((r) => setState(
             r === 'paid' ? 'paid'
               : r === 'too-early' ? 'too-early'
                 : r === 'failed' ? 'failed' : 'none',

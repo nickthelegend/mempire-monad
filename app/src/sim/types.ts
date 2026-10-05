@@ -79,7 +79,13 @@ export interface MatchCard {
    * card rather than recomputed per tick so the hot loop never hashes.
    */
   trait: Trait;
-  level: number; // 1–10 from staked USD snapshot
+  level: number; // 1–10, earned by merging duplicates
+  /**
+   * The fighter's market modifier for this match, in basis points (±1500),
+   * from MarketMeta at the match's epoch. Absent means 0. Both seats compute
+   * it for both decks from the same epoch — it is never taken from the relay.
+   */
+  metaBps?: number;
 }
 
 export type UnitState = 'advance' | 'attack';
@@ -100,6 +106,8 @@ export interface Unit {
   /** Copied from the card that spawned it; drives its effective stats. */
   trait: Trait;
   cardIndex: number; // which deck slot spawned it (render: coin skin)
+  /** Market modifier copied from its card (bps). Damage scales by it. */
+  metaBps: number;
 }
 
 export type TowerKind = 'princess' | 'king';
@@ -123,6 +131,7 @@ export interface PendingSpell {
   explodeTick: number;
   level: number;
   cardIndex: number;
+  metaBps: number;
 }
 
 export interface PlayerSim {

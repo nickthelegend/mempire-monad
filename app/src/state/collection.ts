@@ -3,8 +3,9 @@ import { COINS, coinByMint } from '../lib/coins';
 import { archetypeForMint } from '../sim/archetypes';
 import type { Archetype } from '../sim/types';
 
+/** Mirrors the contracts: `MempireCards.mintFee` and `MempireArena.rakeBps`/`tieRakeBps`. */
 export const FEES = {
-  mintSol: 0.02,
+  mintMon: 0.01,
   rakePct: 10,
   tieRakePct: 5,
 };

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { PublicKey } from '@solana/web3.js';
-import { MEMPIRE_MINT, UNIT, tokenBalance } from '../chain/amm';
+import { mempireBalance } from '../chain/spend';
 
 /**
  * The wallet's $MEMPIRE, as one number the whole app reads.
@@ -51,10 +50,9 @@ export const useMempire = create<MempireState>((set, get) => ({
       return;
     }
     try {
-      const raw = await tokenBalance(new PublicKey(address), MEMPIRE_MINT);
       // Whole tokens. The economy is priced in units of one, so the fraction
       // is noise on every screen that shows it.
-      set({ balance: Number(raw / UNIT), address });
+      set({ balance: Math.floor(await mempireBalance(address)), address });
     } catch {
       // Leave the last known number rather than blanking the header on a
       // single failed read — the retrying fetch under this will usually win.

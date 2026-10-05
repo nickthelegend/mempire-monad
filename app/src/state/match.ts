@@ -16,22 +16,19 @@ import {
   FORMATS, HASH_EVERY_TICKS, INPUT_DELAY_TICKS,
   type InputEvent, type MatchCard, type SimState,
 } from '../sim/types';
-import bs58 from 'bs58';
 import { useClan } from './clan';
 import { useLadder } from './ladder';
 import { useCollection, FEES } from './collection';
 import { useEconomy, type ChestTier } from './economy';
 import { warmBattleChunk, warmMatchArt } from '../lib/warm';
-import { useDeck, TIERS } from './deck';
-import { canSign } from '../chain/provider';
+import { useDeck, stakeOf, type StakeCurrency } from './deck';
+import { canSign } from '../chain/account';
+import { fetchDeckCards, fetchModifiers } from '../chain/read';
 import { useChain } from './chain';
 import { useEscrow } from './escrow';
-import { useErMatch } from './erMatch';
-import {
-  claimChestEr, ensureChestRail, readChestRail, requestChestEr,
-} from '../chain/erActions';
+import { usePlayLog } from './playLog';
 import { readMatch } from '../chain/actions';
-import { signer, useWallet } from './wallet';
+import { useWallet } from './wallet';
 
 export type MatchStatus = 'idle' | 'queuing' | 'found' | 'battle' | 'settled';
 
@@ -99,7 +96,12 @@ interface MatchStore {
   sim: SimState | null;
   playerDeck: MatchCard[];
   botDeck: MatchCard[];
+  /**
+   * The stake per seat, in `currency` units. Named for the field it replaced
+   * on the old chain; it is MON or AUSD here, never SOL.
+   */
   stakeSol: number;
+  currency: StakeCurrency;
   result: MatchResult | null;
   history: MatchResult[];
   opponentName: string;
@@ -148,141 +150,85 @@ let loop: ReturnType<typeof setInterval> | null = null;
 let queueTimers: ReturnType<typeof setTimeout>[] = [];
 let pending = new Map<number, InputEvent[]>();
 let hashes: number[] = [];
-/**
- * Puts the newest chest through the VRF oracle and reconciles its tier.
- *
- * Fire-and-forget by design. The request is accepted in one transaction and
- * fulfilled by the oracle in another, so this polls; the result screen is
- * already on screen and must never block on it. A session that cannot sign
- * keeps its local roll, honestly labelled.
- */
-async function rollChestOnchain(chestId: string): Promise<void> {
-  const adapter = signer();
-  if (!canSign(adapter) || useChain.getState().mode !== 'onchain') return;
-  try {
-    await ensureChestRail(adapter);
-
-    /*
-     * Wait for the entitlement this win earned before asking to spend it.
-     *
-     * `end_log` grants it on the rollup, and it is fired unawaited a few lines
-     * above this — a rollup transaction plus a commit, which is seconds. This
-     * ran immediately, so `earned` was still 0, `request_chest` was refused
-     * with `NoChestEarned`, the bare catch below swallowed it and the local
-     * roll stood. Every chest in the game took that path; the rail read
-     * `earned = 0` after a dozen wins even once the grant was wired up.
-     *
-     * Bounded, because a session that genuinely cannot be granted one must
-     * still end up with its honestly-labelled local chest rather than hanging.
-     */
-    /*
-     * Wait for an entitlement, not for a comparison that stops being true.
-     *
-     * The gate was `earned <= opened`, which reads like "have I been granted
-     * more than I have opened" but is comparing two different kinds of
-     * number. The program's own field docs say so: `opened` is "lifetime
-     * chests filled — purely for display and reconciliation" and only ever
-     * grows, while `earned` is "unspent chest entitlements", a balance that
-     * `end_log` adds one to and `request_chest` takes one from, capped at
-     * MAX_UNSPENT_CHESTS.
-     *
-     * So once lifetime opens pass that small cap, `earned > opened` can never
-     * be true again, and every subsequent win returned here silently. The
-     * oracle was never asked, the entitlement was never spent, and the chest
-     * the player got was the one their own client rolled — which is precisely
-     * the thing the entitlement was added to stop being a suggestion.
-     *
-     * The question this actually wants to ask is whether there is an unspent
-     * entitlement at all.
-     */
-    let rail = await readChestRail(adapter);
-    for (let i = 0; i < 20 && rail && rail.earned === 0; i += 1) {
-      await new Promise((r) => setTimeout(r, 1500));
-      rail = await readChestRail(adapter);
-    }
-    if (!rail || rail.earned === 0) return;
-
-    const slot = rail.slots.findIndex((s) => s.state === 0);
-    if (slot < 0 || rail.pendingSlot !== 255) return; // rail full or busy
-
-    await requestChestEr(adapter, slot, Math.floor(Math.random() * 256));
-
-    // Acceptance is not an outcome — wait for the separate callback.
-    for (let i = 0; i < 30; i += 1) {
-      await new Promise((r) => setTimeout(r, 1200));
-      const now = await readChestRail(adapter);
-      const filled = now?.slots[slot];
-      if (filled?.state === 2) {
-        const hex = Array.from(filled.randomness)
-          .map((b) => b.toString(16).padStart(2, '0')).join('');
-        useEconomy.getState().reconcileChest(chestId, filled.tier, hex);
-        void claimChestEr(adapter, slot).catch(() => { /* slot frees next run */ });
-        return;
-      }
-    }
-    // The oracle never answered. Release the chest on the roll it already has,
-    // labelled `local`, rather than leaving it forever un-startable.
-    useEconomy.getState().settleLocalChest(chestId);
-  } catch {
-    // The local roll stands, labelled as local — but it has to become
-    // actionable again, or a failed roll silently freezes the chest.
-    useEconomy.getState().settleLocalChest(chestId);
-  }
+/** The modifiers of the current epoch, as last read by the chain store. */
+function currentMeta(): Map<number, number> {
+  const bps = new Map<number, number>();
+  for (const c of COINS) if (c.metaBps) bps.set(c.coinId, c.metaBps);
+  return bps;
 }
 
 /**
- * Prepare the rollup match log, once the escrow's own log is delegated.
+ * Can this account put up the stake and pay for the match's gas?
  *
- * This is what grants a VRF chest, and nothing was calling it. `useErMatch`
- * has its own escrow-and-delegate action that ends in `begin`, but `match.ts`
- * settles through `useEscrow` instead, so `begin` never ran, `phase` stayed
- * 'off', and `play`/`mark`/`finish` all returned at their first line. The
- * visible symptom was three steps away: `end_log` never credited an
- * entitlement, `request_chest` was refused with `NoChestEarned`, and every
- * chest quietly fell back to a local roll. Read straight off the rail:
- * `earned = 0` after a dozen wins.
- *
- * Deliberately non-fatal and not awaited. The pot settles through the base
- * log whatever happens here, and a rollup that will not take the log must
- * cost a chest, never a stake.
+ * The stake plus the session key's gas float plus the two transactions this
+ * seat sends itself. Read from the balances the chain store last saw — a
+ * stale read can only fail the escrow, which plays the match unstaked and
+ * says so; it can never take money that is not there.
  */
+const GAS_HEADROOM_MON = 0.13;
+function canAffordStake(stake: number, currency: StakeCurrency): boolean {
+  const { mon } = useWallet.getState();
+  if (currency === 'MON') return mon >= stake + GAS_HEADROOM_MON;
+  const ausd = useChain.getState().ausdBalance;
+  return mon >= GAS_HEADROOM_MON && ausd >= stake;
+}
 
 /**
- * Hold the relayed deck against the on-chain commitment.
+ * Hold the relayed deck against the deck the chain locked.
  *
- * `join_match` locks eight cards and commits a hash of the deck's mints in
- * play order; the relay, meanwhile, tells each client what the opponent is
- * playing — and nothing ever compared the two. A modified client could relay
- * one deck and commit another: the sim then runs on cards the chain never
- * locked, in a match with a real pot. The hash is already on chain and the
- * deck is already in hand, so the check is one read. A mismatch voids the
- * match the same way a desync does — both stakes go home, nobody adjudicates.
+ * The relay tells each client what the opponent is playing; the arena locked
+ * eight specific cards for that seat and emitted their ids. A modified client
+ * could relay one deck and lock another, and the sim would then run on cards
+ * the chain never held, in a match with a real pot. So once the match is
+ * Active, each seat reads the opponent's locked card ids back from the chain,
+ * resolves them to fighter and level, and compares them in order with what the
+ * relay said. A mismatch voids the match the same way a desync does — both
+ * stakes go home, nobody adjudicates.
  */
 async function verifyOpponentCommitment(matchId: number): Promise<void> {
   const claimed = relayedOpponent;
   if (!claimed) return;
   try {
     const m = await readMatch(matchId);
-    if (!m || m.state !== 1) return; // not both-committed yet; nothing to hold it against
-    const seat = m.players.indexOf(claimed.address);
-    if (seat === -1) return; // escrow opened against someone else entirely — other checks own this
-    const committed = m.deckHashes[seat];
-    const relayed = await deckCommitment(claimed.deck);
-    // A deck we cannot hash the program's way proves nothing either direction.
-    // Voiding on it would punish the honest player for our own blind spot.
-    if (!relayed) return;
-    const same = committed.length === relayed.length
-      && committed.every((b: number, i: number) => b === relayed[i]);
-    if (!same) {
-      settleVoid('the opponent\u2019s deck does not match what they committed on chain');
-    }
+    if (!m || m.state !== 2) return; // not both-committed yet; nothing to hold it against
+    const seat = m.players.findIndex((p) => p.toLowerCase() === claimed.address.toLowerCase());
+    if (seat === -1) return;
+    const locked = await fetchDeckCards(matchId, seat as 0 | 1);
+    // A deck we cannot read back proves nothing either way; voiding on an RPC
+    // gap would punish the honest player for our own blind spot.
+    if (!locked || locked.length !== 8) return;
+    const same = locked.every((c, i) => c.mint.toLowerCase() === claimed.deck[i]?.coinId.toLowerCase()
+      && c.level === claimed.deck[i]?.level);
+    if (!same) settleVoid('the opponent\u2019s deck does not match what they locked on chain');
   } catch { /* an RPC miss must not void a healthy match */ }
 }
 
-function beginRollupLog(matchId: number): void {
-  const players = useEscrow.getState().players;
-  if (!players) return;
-  void useErMatch.getState().begin(signer(), matchId, players);
+function beginPlayLog(matchId: number): void {
+  void usePlayLog.getState().begin(matchId);
+}
+
+/**
+ * Today's market modifiers for a deck, at a given MarketMeta epoch.
+ *
+ * Both seats compute these for both decks from the same epoch — the one the
+ * matchmaker read and sent to both — so the numbers the sim uses are a function
+ * of the chain, never of what an opponent claims. Epoch 0 means no meta yet.
+ */
+const metaCache = new Map<number, Map<number, number>>();
+async function modifiersAt(epoch: number): Promise<Map<number, number>> {
+  if (epoch <= 0) return new Map();
+  const hit = metaCache.get(epoch);
+  if (hit) return hit;
+  const bps = await fetchModifiers(epoch, COINS.map((c) => c.coinId));
+  metaCache.set(epoch, bps);
+  return bps;
+}
+
+function withMeta(deck: MatchCard[], bps: Map<number, number>): MatchCard[] {
+  return deck.map((c) => {
+    const coin = COINS.find((k) => k.mint === c.coinId.toLowerCase());
+    return { ...c, metaBps: coin ? (bps.get(coin.coinId) ?? 0) : 0 };
+  });
 }
 
 /** Human matches step against the wall clock so two clients stay in lockstep. */
@@ -341,7 +287,7 @@ let lastOpponentAdvanceAt = 0;
 let lastAnnouncedTick = 0;
 
 let pendingJoin: {
-  stakeSol: number; opponent: string; deck: number[]; hash: Uint8Array;
+  stake: number; currency: StakeCurrency; opponent: string; deck: number[];
 } | null = null;
 
 /**
@@ -530,44 +476,6 @@ function onchainDeckIds(): number[] | null {
   return ids.length === 8 ? ids : null;
 }
 
-/**
- * The deck commitment the program actually stores, recomputed locally.
- *
- * This has to be byte-identical to `validate_and_lock_deck`, which hashes
- * `(coin_mint, level)` for each card in the order the cards were passed:
- * thirty-two mint bytes then one level byte, eight times, SHA-256 over the
- * whole preimage.
- *
- * It was FNV-1a-32 over a comma-joined list of `coinId` strings, widened to
- * thirty-two bytes with zeroes. That is a different function of different
- * input, so it could never equal what the chain holds — and the one caller
- * that compares the two voids the match when they differ. Every staked human
- * match therefore voided, and the deck-swap attack the commitment exists to
- * catch went unchecked the whole time, because the check never got as far as
- * comparing decks.
- *
- * Returns null when the deck cannot be hashed the way the program hashes it —
- * a `coinId` that is not a real mint, which is the devnet seeded-id case. The
- * caller must treat that as "cannot tell", never as "does not match".
- */
-async function deckCommitment(deck: MatchCard[]): Promise<Uint8Array | null> {
-  if (deck.length !== 8) return null;
-  const preimage = new Uint8Array(8 * 33);
-  for (let i = 0; i < 8; i += 1) {
-    let mint: Uint8Array;
-    try {
-      mint = bs58.decode(deck[i].coinId);
-    } catch {
-      return null;
-    }
-    if (mint.length !== 32) return null;
-    preimage.set(mint, i * 33);
-    preimage[i * 33 + 32] = deck[i].level & 0xff;
-  }
-  const digest = await crypto.subtle.digest('SHA-256', preimage);
-  return new Uint8Array(digest);
-}
-
 export const useMatch = create<MatchStore>((set, get) => ({
   status: 'idle',
   version: 0,
@@ -575,6 +483,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
   playerDeck: [],
   botDeck: [],
   stakeSol: 0,
+  currency: 'AUSD',
   result: null,
   history: [],
   opponentName: '',
@@ -602,15 +511,17 @@ export const useMatch = create<MatchStore>((set, get) => ({
     const wallet = useWallet.getState();
     if (!wallet.connected) return 'connect your wallet first';
     if (!deck.isComplete()) return 'deck needs 8 cards';
-    const tier = TIERS[deck.tier];
-    if (!practice && wallet.sol < tier.stakeSol) return `need ${tier.stakeSol} SOL to enter`;
+    // No balance gate here. A player who cannot afford the stake still gets a
+    // match — it simply plays for the ladder, and the escrow badge says why.
+    // The first five minutes must never end at "you need tokens".
+    const stake = stakeOf(deck.tier, deck.currency);
 
     const decks = buildDecks();
     if (!decks) return 'your deck has retired cards — rebuild it on the Deck tab';
     const { player, bot } = decks;
     clearTimers();
     pvpClose();
-    useErMatch.getState().reset();
+    usePlayLog.getState().reset();
 
     /**
      * Put the match on Solana and its log on a MagicBlock rollup.
@@ -645,7 +556,8 @@ export const useMatch = create<MatchStore>((set, get) => ({
       status: 'queuing',
       playerDeck: player,
       botDeck: bot,
-      stakeSol: practice ? 0 : tier.stakeSol,
+      stakeSol: practice ? 0 : stake,
+      currency: deck.currency,
       practice,
       ranked,
       rush,
@@ -724,7 +636,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
         pairKey = typeof m.pairKey === 'string' ? m.pairKey : null;
         relayedOpponent = { address: String(m.opponent.address), deck: m.opponent.deck as MatchCard[] };
         set({ waitingForHuman: false });
-        beginHumanBattle(m, player, tier.stakeSol, deck.tier, rush);
+        beginHumanBattle(m, player, stake, deck.currency, deck.tier, rush);
       },
       onUnavailable: fallBack,
       onTick: (t) => {
@@ -746,7 +658,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
           const p = pendingJoin;
           pendingJoin = null;
           void useEscrow.getState().join(
-            signer(), msg.onchainMatchId, p.stakeSol, p.opponent, p.deck, p.hash,
+            msg.onchainMatchId, p.stake, p.currency, p.opponent, p.deck,
           ).then((ok) => {
             // Seat 1 needs the rollup too.
             //
@@ -756,14 +668,14 @@ export const useMatch = create<MatchStore>((set, get) => ({
             // was ever written to the on-chain log — half of every human
             // match, missing from the record that is supposed to be the
             // whole point of keeping one.
-            if (ok) beginRollupLog(msg.onchainMatchId!);
+            if (ok) beginPlayLog(msg.onchainMatchId!);
           }).then(() => verifyOpponentCommitment(msg.onchainMatchId!));
         }
         if (msg.stage === 'joined' && msg.onchainMatchId !== null) {
           // Seat 0 learns its stake was matched, and only now spends a
           // transaction on the log.
-          void useEscrow.getState().prepareLog(signer(), msg.onchainMatchId)
-            .then((ok) => { if (ok) beginRollupLog(msg.onchainMatchId!); })
+          void useEscrow.getState().awaitActive(msg.onchainMatchId)
+            .then((ok) => { if (ok) beginPlayLog(msg.onchainMatchId!); })
             .then(() => verifyOpponentCommitment(msg.onchainMatchId!));
         }
       },
@@ -836,7 +748,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
      * unproven identity can still play, it just cannot rank.
      */
     void (async () => {
-      const signed = await signAction(wallet.address, 'queue', useWallet.getState().signMessage);
+      const signed = await signAction(wallet.address, 'queue');
       pvpQueue({
         address: signed?.address ?? wallet.address,
         ...(signed ? { ts: signed.ts, signature: signed.signature } : {}),
@@ -890,7 +802,7 @@ export const useMatch = create<MatchStore>((set, get) => ({
     // local sim is authoritative for what the player sees, and a battle must
     // never stall on a network round trip. The store counts failures instead of
     // hiding them.
-    void useErMatch.getState().play(signer(), ev.tick, deckIndex, xFp, yFp);
+    usePlayLog.getState().play(ev.tick, deckIndex, xFp, yFp);
   },
 
   forfeit: () => {
@@ -977,7 +889,7 @@ function stepOne(sim: SimState): void {
     // Every fourth checkpoint: the sponsored commit quota is finite, and one
     // hash per 8 seconds of play is enough to bound a divergence.
     if (sim.tick % (HASH_EVERY_TICKS * 4) === 0) {
-      void useErMatch.getState().mark(signer(), sim.tick, BigInt(h >>> 0));
+      usePlayLog.getState().mark(sim.tick, BigInt(h >>> 0));
     }
   }
 
@@ -1120,7 +1032,6 @@ function tickHuman(): void {
 function beginBotFlow(
   practice: boolean, tierIdx: number, player: MatchCard[], bot: MatchCard[],
 ): void {
-  const tier = TIERS[tierIdx];
   // practice skips the search theatre — the point is to get to the arena
   const queueMs = practice ? 400 : 1200 + Math.random() * 1300;
   queueTimers.push(setTimeout(() => {
@@ -1130,16 +1041,14 @@ function beginBotFlow(
       if (useMatch.getState().status !== 'found') return;
       // Escrow happens here, not at queue time: a cancelled or abandoned
       // search must never cost the player anything. Practice never escrows.
-      if (!practice) {
-        if (!useWallet.getState().spend(tier.stakeSol)) {
-          clearTimers();
-          useMatch.setState({ status: 'idle' });
-          return;
-        }
-        play('coin');
-      }
+      if (!practice) play('coin');
       const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
-      const sim = createMatch(seed, [player, bot], FORMATS[useMatch.getState().rush ? 'rush' : 'standard']);
+      // Today's market moves the bot match too: both decks at the current epoch.
+      const bps = currentMeta();
+      const sim = createMatch(
+        seed, [withMeta(player, bps), withMeta(bot, bps)],
+        FORMATS[useMatch.getState().rush ? 'rush' : 'standard'],
+      );
       pending = new Map();
       hashes = [];
       useMatch.setState({ status: 'battle', sim, version: 0, crowns: [0, 0], shock: null });
@@ -1187,7 +1096,7 @@ function refundEscrow(): void {
   pendingJoin = null;
   const escrow = useEscrow.getState();
   if (escrow.phase === 'waiting' || escrow.phase === 'opening') {
-    void escrow.withdraw(signer());
+    void escrow.withdraw();
   }
 }
 
@@ -1236,18 +1145,13 @@ function sanitiseDeck(deck: unknown): MatchCard[] | null {
 }
 
 function beginHumanBattle(
-  m: MatchedPayload, myDeck: MatchCard[], stakeSol: number, tierIdx: number,
+  m: MatchedPayload, myDeck: MatchCard[], stakeSol: number, currency: StakeCurrency, tierIdx: number,
   rush = false,
 ): void {
   clearTimers(); // the bot fallback timer must not fire mid-handshake
   const store = useMatch.getState();
   if (store.status !== 'queuing' && store.status !== 'found') return;
 
-  if (!useWallet.getState().spend(stakeSol)) {
-    pvpClose();
-    useMatch.setState({ status: 'idle' });
-    return;
-  }
   humanEscrowSol = stakeSol;
   play('coin');
 
@@ -1270,30 +1174,30 @@ function beginHumanBattle(
   // `canSign`, not `signer() !== null`. A guest has no adapter and still
   // signs, through a browser-held keypair — testing for an adapter meant every
   // guest silently played unstaked while the Arena said "Escrowed onchain".
+  const affordable = canAffordStake(stakeSol, currency);
   const canStake = stakeSol > 0
     && useChain.getState().mode === 'onchain'
-    && canSign(signer());
+    && canSign()
+    && affordable;
   const chainDeck = canStake ? onchainDeckIds() : null;
   // Money path: say out loud what was decided and why. A stake that silently
   // does not happen is the worst failure this app has, and it left no trace.
   console.info('[escrow] role', m.role, 'stakeSol', stakeSol,
-    'mode', useChain.getState().mode, 'canSign', canSign(signer()),
+    'mode', useChain.getState().mode, 'canSign', canSign(),
     'canStake', canStake, 'chainDeck', chainDeck ? chainDeck.length : null);
   if (canStake && chainDeck) {
-    // The program derives the commitment itself inside `validate_and_lock_deck`
-    // and ignores this argument — it is `_deck_hash` there. Passing a locally
-    // computed hash invited exactly the bug above, where two different
-    // functions both claimed to be "the commitment". Send nothing meaningful.
-    const hash = new Uint8Array(32);
     if (m.role === 0) {
-      void escrow.open(signer(), tierIdx, stakeSol, chainDeck, hash)
+      void escrow.open(tierIdx, currency, chainDeck)
         .then(async (id) => {
           if (id === null) return;
-          if (await escrow.prepareLog(signer(), id)) beginRollupLog(id);
+          if (await escrow.awaitActive(id)) {
+            beginPlayLog(id);
+            void verifyOpponentCommitment(id);
+          }
         });
     } else {
       pendingJoin = {
-        stakeSol, opponent: m.opponent.address, deck: chainDeck, hash,
+        stake: stakeSol, currency, opponent: m.opponent.address, deck: chainDeck,
       };
     }
   } else if (stakeSol > 0) {
@@ -1301,7 +1205,9 @@ function beginHumanBattle(
     // unstaked match that the UI labelled with a stake.
     useEscrow.setState({
       phase: 'failed',
-      lastError: !canStake
+      lastError: !affordable
+        ? `not enough ${currency} for the stake plus gas — playing for the ladder only`
+        : !canStake
         ? 'this session cannot sign — playing for the ladder only'
         : 'your deck is not fully minted onchain — playing for the ladder only',
     });
@@ -1325,9 +1231,28 @@ function beginHumanBattle(
     return;
   }
 
+  const epoch = typeof m.metaEpoch === 'number' && m.metaEpoch > 0 ? m.metaEpoch : 0;
+  const cached = epoch === 0 ? new Map<number, number>() : metaCache.get(epoch);
+  if (!cached) {
+    // The epoch the matchmaker read is not one we hold yet. Fetch it, then
+    // build — there are seconds before the shared start instant.
+    void modifiersAt(epoch)
+      .catch(() => new Map<number, number>())
+      .then((bps) => startHumanSim(m, myDeck, oppDeck, bps, tierIdx, rush));
+    return;
+  }
+  startHumanSim(m, myDeck, oppDeck, cached, tierIdx, rush);
+}
+
+function startHumanSim(
+  m: MatchedPayload, myDeck: MatchCard[], oppDeck: MatchCard[], bps: Map<number, number>,
+  tierIdx: number, rush: boolean,
+): void {
+  const store = useMatch.getState();
+  if (store.status !== 'queuing' && store.status !== 'found') return;
   const decks: [MatchCard[], MatchCard[]] = m.role === 0
-    ? [myDeck, oppDeck]
-    : [oppDeck, myDeck];
+    ? [withMeta(myDeck, bps), withMeta(oppDeck, bps)]
+    : [withMeta(oppDeck, bps), withMeta(myDeck, bps)];
 
   let sim: SimState;
   try {
@@ -1459,7 +1384,7 @@ function settleVoid(reason: string): void {
    */
   if (useEscrow.getState().matchId !== null) {
     const h = hashes.length ? hashes[hashes.length - 1] : 0;
-    void useEscrow.getState().finish(signer(), 2, BigInt(h >>> 0));
+    void useEscrow.getState().finish(2, BigInt(h >>> 0));
   }
   const result: MatchResult = {
     won: false,
@@ -1526,14 +1451,14 @@ function settle(): void {
      * only ever destroying that information.
      */
     const winner = sim.winner === -2 ? 2 : sim.winner;
-    void useErMatch.getState().finish(signer(), winner, BigInt(finalHash >>> 0));
+    usePlayLog.getState().end();
 
     // The money. Each seat records its own result; whichever of them finds the
     // log home with both claims in it triggers the payout. Not awaited — the
     // result screen shows immediately and the escrow badge reports where the
     // pot got to.
     if (useEscrow.getState().matchId !== null) {
-      void useEscrow.getState().finish(signer(), winner, BigInt(finalHash >>> 0));
+      void useEscrow.getState().finish(winner, BigInt(finalHash >>> 0));
     }
   }
   stopMusic();
@@ -1577,9 +1502,10 @@ function settle(): void {
   // answers: the result screen must not wait on an async callback, and a chest
   // that silently changes tier a second later is worse than one that arrives
   // already labelled as unverified.
-  const awarded = won && !practice ? useEconomy.getState().awardChest() : null;
+  // A staked win's chest is granted by the arena itself, on chain, when the
+  // two claims agree — awarding a local one too would pay the win twice.
+  const awarded = won && !practice && !onchainStake ? useEconomy.getState().awardChest() : null;
   const chest = awarded?.tier ?? null;
-  if (awarded) void rollChestOnchain(awarded.id);
   /**
    * Trophies move only on ranked matches, and only against a real opponent's
    * rating. Practice and casual are excluded by construction — a ladder that

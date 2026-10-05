@@ -1,308 +1,265 @@
-import {
-  WalletAdapterNetwork, WalletReadyState, type Adapter,
-} from '@solana/wallet-adapter-base';
-import {
-  CoinbaseWalletAdapter,
-  NightlyWalletAdapter,
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-  TrustWalletAdapter,
-} from '@solana/wallet-adapter-wallets';
+import type { EIP1193Provider } from 'viem';
 import { create } from 'zustand';
-import { guestAddress, guestWasActive, markGuestActive } from '../lib/identity';
+import {
+  injectedSigner, localSigner, onSigned, setSigner,
+} from '../chain/account';
+import { guestAccount, guestWasActive, markGuestActive } from '../lib/identity';
+import {
+  createPasskeyAccount, passkeyErrorText, passkeyHint, signInWithPasskey, type PasskeySession,
+} from '../lib/passkey';
 
-/**
- * Wallet connection on the official Solana wallet adapters.
- *
- * Using the adapters directly rather than the React context provider keeps the
- * store as the single source of truth, and gives us each wallet's own official
- * icon (a base64 SVG the adapter ships) plus real readyState detection —
- * including Wallet Standard wallets the browser announces at runtime.
- *
- * Balances: real for a real wallet, simulated for a Guest.
- *
- * A connected wallet now shows what the chain says it holds, refreshed after
- * every transaction. It used to show a hardcoded 12.4 SOL for everybody, which
- * made the Arena's stake tiers a fiction — the game would happily let you
- * "stake 5 SOL" from an empty wallet, and the number never moved when a match
- * paid out because nothing had been paid.
- *
- * A Guest keeps a simulated balance on purpose: guest mode exists so the whole
- * game is playable with no wallet and no funds, and a guest cannot stake
- * anything anyway. `isGuest` is what the Arena reads to decide whether a tier
- * is real money or a scoreboard.
- */
-
-import { IS_MAINNET } from '../chain/provider';
-
-const NETWORK = IS_MAINNET ? WalletAdapterNetwork.Mainnet : WalletAdapterNetwork.Devnet;
-
-
-
-/**
- * Guest identity is per **tab** (sessionStorage), not per browser.
- *
- * The matchmaker refuses to pair a wallet against itself — the program's
- * SelfMatch rule, mirrored — so two guest tabs sharing one hardcoded address
- * could never fight each other, which is exactly how PvP gets demoed on one
- * machine. The address is random but stable within the tab, so a mid-session
- * refresh keeps the same identity. Real wallets are untouched.
- */
 /*
- * The guest's address is now a real ed25519 public key, generated in the
- * browser and kept alongside its secret key — see lib/identity.ts.
+ * The signed-in account, whichever kind it is.
  *
- * It used to be forty random base58 characters: a string shaped like a pubkey
- * that nothing could sign for. That was fine while the API trusted whatever
- * address it was handed, and became a lockout the moment it started demanding
- * signatures — a guest would have had no ladder, no clan and no saved
- * progress. A guest identity is now exactly as provable as a wallet one.
+ * # The passkey session, and when it ends
+ *
+ * A passkey sign-in opens a signing session: the derived key lives in memory
+ * and every transaction signs without a prompt — mints, merges, card plays,
+ * claims. That is what makes a 400 ms chain feel like a game rather than a
+ * stream of confirmations. It is also a live key, so it is scoped in time:
+ *
+ *  - it ends after IDLE_MS without a signature, and at MAX_MS no matter what;
+ *  - ending it calls Mera's `end()`, which zeroes the key; the account shows as
+ *    locked, one tap and one passkey prompt opens a new session, and the
+ *    address is the same because it is derived, not stored;
+ *  - stakes at or above the Duke tier ask for the passkey again even inside
+ *    an open session (see `confirmWithPasskey`), so the session can play and
+ *    spend small amounts on its own but cannot put real size on a match.
+ *
+ * A match in progress keeps its own per-match session key (chain/session.ts),
+ * so a passkey session expiring mid-match never interrupts the match.
  */
 
-/**
- * Ordered by how likely a Solana player is to have it.
- *
- * Backpack is absent on purpose: it ships as a Wallet Standard wallet, so it
- * registers itself at runtime rather than needing a hardcoded adapter.
- *
- * Ledger is excluded deliberately — its adapter reaches for Node's Buffer at
- * construction and hard-crashes the picker in a browser, and a hardware wallet
- * is the wrong fit for a mobile meme-coin game anyway.
- */
-function buildAdapters(): Adapter[] {
-  return [
-    new PhantomWalletAdapter(),
-    new SolflareWalletAdapter({ network: NETWORK }),
-    new CoinbaseWalletAdapter(),
-    new TrustWalletAdapter(),
-    new NightlyWalletAdapter(),
-  ];
-}
+const IDLE_MS = 30 * 60_000;
+const MAX_MS = 2 * 60 * 60_000;
 
-let adapters: Adapter[] = [];
-export function getAdapters(): Adapter[] {
-  if (!adapters.length) adapters = buildAdapters();
-  return adapters;
-}
+export type WalletKind = 'passkey' | 'guest' | 'injected';
 
 export interface WalletChoice {
+  id: string;
   name: string;
-  icon: string; // official base64 SVG from the adapter
-  installed: boolean;
-  url: string;
+  icon: string;
+  provider: EIP1193Provider;
 }
 
-/** Installed wallets first; everything else stays visible with an install link. */
-export function listWallets(): WalletChoice[] {
-  return getAdapters()
-    .map((a) => ({
-      name: a.name as string,
-      icon: a.icon,
-      installed: a.readyState === WalletReadyState.Installed,
-      url: a.url,
-    }))
-    .sort((x, y) => Number(y.installed) - Number(x.installed));
+/** EIP-6963: every installed wallet announces itself; nobody fights over window.ethereum. */
+const discovered = new Map<string, WalletChoice>();
+let discoveryStarted = false;
+
+function startDiscovery(onChange: () => void): void {
+  if (discoveryStarted || typeof window === 'undefined') return;
+  discoveryStarted = true;
+  window.addEventListener('eip6963:announceProvider', ((ev: CustomEvent) => {
+    const d = ev.detail as { info: { uuid: string; name: string; icon: string; rdns: string }; provider: EIP1193Provider };
+    if (!d?.info?.rdns || !d.provider) return;
+    discovered.set(d.info.rdns, { id: d.info.rdns, name: d.info.name, icon: d.info.icon, provider: d.provider });
+    onChange();
+  }) as EventListener);
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
 }
 
-/**
- * The adapter currently connected, or null for Guest / disconnected.
- *
- * Held outside the store deliberately: an Adapter is a live object with event
- * emitters, so putting it in zustand state would make every consumer re-render
- * on identity churn and would serialise badly. `signer()` is the accessor
- * everything onchain goes through.
- */
-let activeAdapter: Adapter | null = null;
-
-/** The adapter that can sign, or null when this session is simulated. */
-export function signer(): Adapter | null {
-  return activeAdapter;
-}
+let passkey: PasskeySession | null = null;
+let lockTimer: ReturnType<typeof setTimeout> | null = null;
 
 interface WalletState {
   connected: boolean;
-  connecting: string | null; // adapter name in flight
+  connecting: string | null;
   error: string | null;
   address: string;
   walletName: string;
   walletIcon: string | null;
-  sol: number;
-  /**
-   * True when this session is the browser-local keypair rather than a wallet
-   * extension.
-   *
-   * It signs messages (lib/identity.ts) *and*, on devnet only, transactions
-   * (chain/provider.ts `guestSigningWallet`) — so a guest genuinely mints and
-   * stakes with real SOL. The stale claim here was "holds no funds and can
-   * never submit a transaction", which is what put the false "play money" line
-   * on the Empire tab.
-   */
+  kind: WalletKind | null;
+  /** MON balance, read from chain. */
+  mon: number;
   isGuest: boolean;
-  /**
-   * The connected adapter's message signer, when it has one.
-   *
-   * Undefined for a guest, whose signing happens locally against the browser
-   * keypair, and for the handful of adapters that support transactions but
-   * not `signMessage`.
-   */
-  signMessage?: (msg: Uint8Array) => Promise<Uint8Array>;
+  /** A passkey account whose session has ended: same address, needs one prompt. */
+  locked: boolean;
+  sessionStartedAt: number;
+  sessionExpiresAt: number;
   pickerOpen: boolean;
+  wallets: WalletChoice[];
+
   openPicker: () => void;
   closePicker: () => void;
-  connect: (name: string) => Promise<void>;
+  createPasskey: (name: string) => Promise<void>;
+  signInPasskey: () => Promise<void>;
   connectGuest: () => void;
+  connect: (id: string) => Promise<void>;
   autoConnect: () => Promise<void>;
+  /** Called after each signature: an active session stays open while it is used. */
+  touch: () => void;
+  lock: () => void;
   disconnect: () => void;
+  setChainBalance: (mon: number) => void;
   spend: (amount: number) => boolean;
   receive: (amount: number) => void;
-  /** Replace the balance with what the chain reports. No-op for a Guest. */
-  setChainBalance: (sol: number) => void;
 }
 
-export const useWallet = create<WalletState>((set, get) => ({
-  connected: false,
-  connecting: null,
-  error: null,
-  address: '',
-  walletName: '',
-  walletIcon: null,
-  sol: 0,
-  isGuest: false,
-  pickerOpen: false,
+export const useWallet = create<WalletState>((set, get) => {
+  const refreshWallets = () => set({ wallets: [...discovered.values()] });
 
-  openPicker: () => set({ pickerOpen: true, error: null }),
-  closePicker: () => set({ pickerOpen: false, connecting: null }),
+  const armExpiry = () => {
+    if (lockTimer) clearTimeout(lockTimer);
+    const { sessionStartedAt } = get();
+    const expiresAt = Math.min(Date.now() + IDLE_MS, sessionStartedAt + MAX_MS);
+    set({ sessionExpiresAt: expiresAt });
+    lockTimer = setTimeout(() => get().lock(), Math.max(0, expiresAt - Date.now()));
+  };
 
-  connect: async (name) => {
-    if (get().connecting) return;
-    const adapter = getAdapters().find((a) => a.name === name);
-    if (!adapter) {
-      set({ error: `${name} is not available` });
-      return;
-    }
-    if (adapter.readyState !== WalletReadyState.Installed
-      && adapter.readyState !== WalletReadyState.Loadable) {
-      window.open(adapter.url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
-    set({ connecting: name, error: null });
-    try {
-      await adapter.connect();
-      const pk = adapter.publicKey;
-      if (!pk) throw new Error('wallet returned no public key');
-      activeAdapter = adapter;
-      set({
-        connected: true, connecting: null, pickerOpen: false,
-        address: pk.toBase58(),
-        walletName: adapter.name as string,
-        walletIcon: adapter.icon,
-        // Zero until the chain says otherwise — `useChainSync` fills this in
-        // from `getBalance` a moment later. Showing a made-up number in the
-        // meantime is how the old build ended up letting an empty wallet
-        // enter a 5 SOL match.
-        sol: 0,
-        isGuest: false,
-        // Bound here rather than reached for at call time: `activeAdapter` is
-        // module state and a disconnect race would sign with the wrong wallet.
-        signMessage: typeof (adapter as { signMessage?: unknown }).signMessage === 'function'
-          ? (msg: Uint8Array) => (adapter as unknown as {
-            signMessage: (m: Uint8Array) => Promise<Uint8Array>;
-          }).signMessage(msg)
-          : undefined,
-      });
-      adapter.on('disconnect', () => get().disconnect());
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Connection failed';
-      set({
-        connecting: null,
-        error: /reject|denied|cancel|user/i.test(msg) ? 'Connection rejected' : msg,
-      });
-    }
-  },
-
-  /** Browser-held keypair so the whole game is playable with nothing installed. */
-  connectGuest: () => {
-    activeAdapter = null;
-    markGuestActive(true);
-    set({
-      connected: true, connecting: null, pickerOpen: false,
-      address: guestAddress(), walletName: 'Guest', walletIcon: null,
-      // Zero until the chain reports otherwise — the address is real.
-      sol: 0, isGuest: true, signMessage: undefined,
-    });
-  },
-
-  /** Silent reconnect for a wallet already trusted in this browser. */
-  autoConnect: async () => {
-    if (get().connected) return;
-    for (const a of getAdapters()) {
-      if (a.readyState !== WalletReadyState.Installed) continue;
-      try {
-        await a.autoConnect();
-        if (!a.publicKey) continue;
-        activeAdapter = a;
-        set({
-          connected: true,
-          address: a.publicKey.toBase58(),
-          walletName: a.name as string,
-          walletIcon: a.icon,
-          sol: 0,
-          isGuest: false,
-        });
-        a.on('disconnect', () => get().disconnect());
-        return;
-      } catch {
-        // not trusted yet — the picker handles it
-      }
-    }
-    // No extension took the session. If this browser was already playing as a
-    // guest, put it back: the keypair never left localStorage, so landing on
-    // Connect Wallet after a refresh threw away a live identity — and, mid
-    // match, the match with it.
-    if (!get().connected && guestWasActive()) get().connectGuest();
-  },
-
-  disconnect: () => {
+  const adoptPasskey = (s: PasskeySession, name: string) => {
+    passkey?.session.end();
+    passkey = s;
+    setSigner(localSigner('passkey', s.account, name));
     markGuestActive(false);
-    const name = get().walletName;
-    const adapter = getAdapters().find((a) => a.name === name);
-    void adapter?.disconnect().catch(() => { /* already gone */ });
-    activeAdapter = null;
     set({
-      connected: false, address: '', walletName: '', walletIcon: null,
-      sol: 0, isGuest: false, pickerOpen: false,
+      connected: true, connecting: null, pickerOpen: false, error: null,
+      address: s.account.address, walletName: name, walletIcon: null,
+      kind: 'passkey', isGuest: false, locked: false, sessionStartedAt: Date.now(),
     });
-  },
+    armExpiry();
+  };
 
-  /**
-   * Overwrite the balance with what the chain reports — for everyone.
-   *
-   * Guests are no longer excluded. A guest address is a real, fundable pubkey
-   * that signs for itself on devnet, so it has a genuine balance and showing
-   * it play money instead would be the same lie the hardcoded 12.4 was. An
-   * unfunded guest sees 0 SOL, which is true, and Practice is free.
-   */
-  setChainBalance: (sol) => set({ sol: +sol.toFixed(4) }),
+  return {
+    connected: false,
+    connecting: null,
+    error: null,
+    address: '',
+    walletName: '',
+    walletIcon: null,
+    kind: null,
+    mon: 0,
+    isGuest: false,
+    locked: false,
+    sessionStartedAt: 0,
+    sessionExpiresAt: 0,
+    pickerOpen: false,
+    wallets: [],
 
-  /**
-   * Can this wallet afford `amount`, and take it if so.
-   *
-   * A real wallet is only *checked*. Its balance belongs to the chain: the
-   * escrow instruction moves the lamports and the next `getBalance` reports
-   * it, so deducting here as well would show the stake leaving twice and the
-   * invented half would disappear at the next refresh. A Guest's balance is
-   * play money with no chain behind it, so it is genuinely debited here.
-   */
-  /**
-   * Can this wallet afford `amount`.
-   *
-   * Purely a check now. Every balance in the app is the chain's, including a
-   * guest's, so the escrow instruction moves the lamports and the next
-   * `getBalance` reports it — deducting here as well would show the stake
-   * leaving twice, and the invented half would vanish on the next refresh.
-   */
-  spend: (amount) => get().sol >= amount,
-  /** Kept for unstaked matches, which move no real lamports to credit. */
-  receive: () => { /* the chain is the only source of a balance */ },
-}));
+    openPicker: () => {
+      startDiscovery(refreshWallets);
+      refreshWallets();
+      set({ pickerOpen: true, error: null });
+    },
+    closePicker: () => set({ pickerOpen: false, connecting: null }),
+
+    createPasskey: async (name) => {
+      if (get().connecting) return;
+      set({ connecting: 'passkey', error: null });
+      try {
+        adoptPasskey(await createPasskeyAccount(name.trim() || 'Mempire player'), name.trim() || 'Passkey');
+      } catch (e) {
+        set({ connecting: null, error: passkeyErrorText(e) });
+      }
+    },
+
+    signInPasskey: async () => {
+      if (get().connecting) return;
+      set({ connecting: 'passkey', error: null });
+      try {
+        const s = await signInWithPasskey();
+        adoptPasskey(s, passkeyHint()?.name ?? 'Passkey');
+      } catch (e) {
+        set({ connecting: null, error: passkeyErrorText(e) });
+      }
+    },
+
+    connectGuest: () => {
+      const account = guestAccount();
+      if (!account) {
+        set({ error: 'Guest play is testnet-only' });
+        return;
+      }
+      passkey?.session.end();
+      passkey = null;
+      setSigner(localSigner('guest', account, 'Guest'));
+      markGuestActive(true);
+      set({
+        connected: true, connecting: null, pickerOpen: false, error: null,
+        address: account.address, walletName: 'Guest', walletIcon: null,
+        kind: 'guest', isGuest: true, locked: false,
+      });
+    },
+
+    connect: async (id) => {
+      if (get().connecting) return;
+      const choice = discovered.get(id);
+      if (!choice) {
+        set({ error: 'That wallet is not available in this browser' });
+        return;
+      }
+      set({ connecting: choice.name, error: null });
+      try {
+        const s = await injectedSigner(choice.provider, choice.name, choice.icon);
+        passkey?.session.end();
+        passkey = null;
+        setSigner(s);
+        markGuestActive(false);
+        set({
+          connected: true, connecting: null, pickerOpen: false,
+          address: s.address, walletName: choice.name, walletIcon: choice.icon,
+          kind: 'injected', isGuest: false, locked: false,
+        });
+        const p = choice.provider as EIP1193Provider & {
+          on?: (ev: string, fn: (...a: unknown[]) => void) => void;
+        };
+        p.on?.('accountsChanged', () => get().disconnect());
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Connection failed';
+        set({ connecting: null, error: /reject|denied|cancel|user/i.test(msg) ? 'Connection rejected' : msg });
+      }
+    },
+
+    /*
+     * A reload never opens a passkey session on its own — that would be a
+     * prompt the player did not ask for. It shows the remembered account as
+     * locked instead, one tap from open. A guest resumes silently.
+     */
+    autoConnect: async () => {
+      startDiscovery(refreshWallets);
+      if (get().connected) return;
+      const hint = passkeyHint();
+      if (hint) {
+        set({
+          connected: false, locked: true, address: hint.address, walletName: hint.name,
+          kind: 'passkey', isGuest: false,
+        });
+        return;
+      }
+      if (guestWasActive()) get().connectGuest();
+    },
+
+    touch: () => {
+      if (get().kind === 'passkey' && !get().locked && passkey) armExpiry();
+    },
+
+    lock: () => {
+      if (get().kind !== 'passkey') return;
+      if (lockTimer) clearTimeout(lockTimer);
+      passkey?.session.end();
+      passkey = null;
+      setSigner(null);
+      set({ connected: false, locked: true, sessionExpiresAt: 0 });
+    },
+
+    disconnect: () => {
+      if (lockTimer) clearTimeout(lockTimer);
+      passkey?.session.end();
+      passkey = null;
+      setSigner(null);
+      markGuestActive(false);
+      set({
+        connected: false, address: '', walletName: '', walletIcon: null, kind: null,
+        mon: 0, isGuest: false, locked: false, pickerOpen: false, sessionExpiresAt: 0,
+      });
+    },
+
+    setChainBalance: (mon) => set({ mon: +mon.toFixed(4) }),
+    spend: (amount) => get().mon >= amount,
+    receive: () => { /* the chain is the only source of a balance */ },
+  };
+});
+
+onSigned(() => useWallet.getState().touch());
+
+/** Back-compat for call sites that ask "who signs?" — the active signer, or null. */
+export { activeSigner as signer } from '../chain/account';

@@ -42,6 +42,12 @@ export interface MatchedPayload {
    * constant is the fallback.
    */
   inputDelayTicks?: number;
+  /**
+   * The MarketMeta epoch the matchmaker read when it paired these two. Both
+   * clients apply that epoch's modifiers to both decks, so the sim agrees.
+   * Optional: an older relay sends none and the match plays at 0 bps.
+   */
+  metaEpoch?: number;
   opponent: {
     address: string; name: string | null; power: number; deck: MatchCard[];
     /** Ladder rating, so the winner can be scored without a second round trip. */

@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { ARCHETYPE_NAMES, type Archetype } from '../sim/types';
 import { click } from '../lib/audio';
 import { coinByMint } from '../lib/coins';
-import { fmtSol } from '../lib/format';
+import { fmtMon } from '../lib/format';
 import { useCountUp } from '../lib/motion';
 
 type Tone = 'gold' | 'blue' | 'green' | 'red';
@@ -243,7 +243,7 @@ function CountedSol({
   return (
     <span className="money" style={style}>
       {prefix}
-      {fmtSol(shown)}
+      {fmtMon(shown)}
     </span>
   );
 }

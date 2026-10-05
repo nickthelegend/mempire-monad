@@ -3,39 +3,31 @@
 import { createMatch, hashState, stepSim } from '../src/sim/engine';
 import { archetypeForMint, ARCHETYPES } from '../src/sim/archetypes';
 import { decideBot } from '../src/sim/bot';
+import { traitForMint } from '../src/sim/traits';
 import {
   HASH_EVERY_TICKS, InputEvent, MatchCard, OVERTIME_TICKS, REGULATION_TICKS,
 } from '../src/sim/types';
 
-const COINS = [
-  'DoggoMint111111111111111111111111111111111',
-  'WifhatMint11111111111111111111111111111111',
-  'PopkatMint11111111111111111111111111111111',
-  'PengMint1111111111111111111111111111111111',
-  'FrgMint11111111111111111111111111111111111',
-  'MooncatMint1111111111111111111111111111111',
-  'RktMint11111111111111111111111111111111111',
-  'ChadMint111111111111111111111111111111111x',
-  'BabywhaleMint111111111111111111111111111xx',
-  'RugproofMint11111111111111111111111111111x',
-  'GmiMint111111111111111111111111111111111xx',
-  'SerMint111111111111111111111111111111111xx',
-];
+// The real roster: identity is the Pyth feed id, exactly as on chain.
+import roster from '../../shared/roster.json';
+const COINS: string[] = roster.coins.map((c: { feedId: string }) => c.feedId.toLowerCase());
 
-function deck(offset: number, levels: number[]): MatchCard[] {
+function deck(offset: number, levels: number[], meta: number[] = []): MatchCard[] {
   return Array.from({ length: 8 }, (_, i) => {
     const mint = COINS[(i + offset) % COINS.length];
     return {
       coinId: mint,
-      name: mint.slice(0, 6).toUpperCase(),
+      name: mint.slice(2, 8).toUpperCase(),
       archetype: archetypeForMint(mint),
+      trait: traitForMint(mint),
       level: levels[i % levels.length],
+      metaBps: meta.length ? meta[i % meta.length] : 0,
     };
   });
 }
 
-function runMatch(seed: number): { hashes: number[]; winner: number; ticks: number; peak: number } {
-  const state = createMatch(seed, [deck(0, [3, 5, 2, 8]), deck(4, [4, 4, 6, 3])]);
+function runMatch(seed: number, meta: number[] = []): { hashes: number[]; winner: number; ticks: number; peak: number } {
+  const state = createMatch(seed, [deck(0, [3, 5, 2, 8], meta), deck(4, [4, 4, 6, 3], meta.map((m) => -m))]);
   const pending = new Map<number, InputEvent[]>();
   const hashes: number[] = [];
   let peak = 0;
@@ -80,4 +72,11 @@ if (!identical) {
 }
 if (a.winner === -1) throw new Error('match did not resolve');
 if (a.peak === 0) throw new Error('bots never spawned units');
-console.log('SIM OK: deterministic, resolves, bots play.');
+// The market meta: deterministic, and it actually changes the game.
+const m1 = runMatch(0xdeadbeef, [800, -1200, 1500, 0]);
+const m2 = runMatch(0xdeadbeef, [800, -1200, 1500, 0]);
+const metaSame = m1.hashes.length === m2.hashes.length && m1.hashes.every((h, i) => h === m2.hashes[i]);
+if (!metaSame) throw new Error('DESYNC with market modifiers applied');
+if (m1.hashes.every((h, i) => h === a.hashes[i])) throw new Error('market modifiers had no effect on the sim');
+console.log(`run M (with meta): winner=${m1.winner} ticks=${m1.ticks} — deterministic, diverges from the neutral run as it should`);
+console.log('SIM OK: deterministic, resolves, bots play, market meta applies.');

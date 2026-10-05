@@ -71,7 +71,7 @@ export async function apiPost(
   const { useWallet } = await import('../state/wallet');
   const w = useWallet.getState();
   if (!w.address) return null;
-  const signed = await signAction(w.address, action, w.signMessage);
+  const signed = await signAction(w.address, action);
   if (!signed) return null;
   return apiFetch(path, {
     method,

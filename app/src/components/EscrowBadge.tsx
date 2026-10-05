@@ -1,5 +1,6 @@
 import { useEscrow, type EscrowPhase } from '../state/escrow';
 import { useChain } from '../state/chain';
+import { fmtStake } from '../lib/format';
 
 /**
  * Where this match's money actually is.
@@ -21,7 +22,7 @@ const LOOK: Record<EscrowPhase, { dot: string; text: string; title: string }> = 
   waiting: { dot: 'var(--gold)', text: 'stake in', title: 'Your stake is escrowed; waiting for your opponent' },
   joining: { dot: 'var(--gold)', text: 'matching…', title: 'Matching your opponent’s stake' },
   live: { dot: 'var(--teal)', text: 'pot live', title: 'Both stakes are escrowed onchain' },
-  claiming: { dot: 'var(--gold)', text: 'reporting…', title: 'Recording the result on the rollup' },
+  claiming: { dot: 'var(--gold)', text: 'reporting…', title: 'Recording this seat\u2019s result on Monad' },
   claimed: { dot: 'var(--gold)', text: 'reported', title: 'Your result is recorded; waiting for your opponent’s' },
   settled: { dot: 'var(--teal)', text: 'paid', title: 'The pot has been paid out onchain' },
   refunded: { dot: 'var(--teal)', text: 'refunded', title: 'Your stake came back' },
@@ -30,13 +31,14 @@ const LOOK: Record<EscrowPhase, { dot: string; text: string; title: string }> = 
 
 export function EscrowBadge({ compact = false }: { compact?: boolean }) {
   const phase = useEscrow((s) => s.phase);
-  const stakeLamports = useEscrow((s) => s.stakeLamports);
+  const stake = useEscrow((s) => s.stake);
+  const currency = useEscrow((s) => s.currency);
   const lastError = useEscrow((s) => s.lastError);
   const lastSignature = useEscrow((s) => s.lastSignature);
   const explorer = useChain((s) => s.explorer);
 
   const look = LOOK[phase];
-  const staked = stakeLamports > 0 && ['waiting', 'live', 'claiming', 'claimed', 'settled'].includes(phase);
+  const staked = stake > 0 && ['waiting', 'live', 'claiming', 'claimed', 'settled'].includes(phase);
   const title = lastError ? `${look.title} — ${lastError}` : look.title;
 
   const body = (
@@ -50,7 +52,7 @@ export function EscrowBadge({ compact = false }: { compact?: boolean }) {
       />
       <span className="label" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
         {look.text}
-        {staked && !compact && ` · ${(stakeLamports / 1e9).toFixed(3)} SOL`}
+        {staked && !compact && ` · ${fmtStake(stake, currency)}`}
       </span>
     </>
   );

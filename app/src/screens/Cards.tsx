@@ -14,11 +14,11 @@ import {
   ASSET_KINDS, COINS, ineligibleReason, tickerOf,
   type AssetKind, type Coin,
 } from '../lib/coins';
-import { fmtSol, fmtTokens, fmtUsd } from '../lib/format';
+import { fmtMon, fmtUsd } from '../lib/format';
 import { EASE_SNAP, usePulse } from '../lib/motion';
 import { revealSection } from '../lib/scroll';
 import { FEES, useCollection } from '../state/collection';
-import { signer, useWallet } from '../state/wallet';
+import { useWallet } from '../state/wallet';
 import { Token } from '../components/Token';
 import { useMempire } from '../state/mempire';
 
@@ -66,8 +66,8 @@ function CoinRow({ coin }: { coin: Coin }) {
     setMerging(true);
     setChainError(null);
     try {
-      const { signature } = await upgradeCardTx(signer(), keep.id, dupes[0].id);
-      noteSignature(signature);
+      const { hash } = await upgradeCardTx(keep.id, dupes[0].id, keep.level);
+      noteSignature(hash);
       play('reward');
       void refreshSettled();
     } catch (e) {
@@ -77,11 +77,11 @@ function CoinRow({ coin }: { coin: Coin }) {
       setMerging(false);
     }
   };
-  // Onchain, the balance shown is the wallet's real SPL holding of this mint —
-  // the whole premise made literal. Simulated keeps the demo balance.
-  const balance = onchain ? (chainBalances.get(coin.mint) ?? 0) : coin.balance;
-  const value = balance * coin.priceUsd;
-  const affordable = onchain ? chainSol >= FEES.mintSol : wallet.sol >= FEES.mintSol;
+  // Holdings are never read: a fighter is a character, not collateral. What
+  // the row shows instead is the market the fighter answers to today — its
+  // price, its 24h move, and the modifier MarketMeta gave it this epoch.
+  void chainBalances;
+  const affordable = onchain ? chainSol >= FEES.mintMon : wallet.mon >= FEES.mintMon;
   // Holding the coin is no longer a requirement, on chain or here. The balance
   // still renders on the row — how much of a coin you hold is interesting — it
   // simply no longer decides whether you may mint its card.
@@ -96,8 +96,8 @@ function CoinRow({ coin }: { coin: Coin }) {
     setMinting(true);
     setChainError(null);
     try {
-      const { signature } = await mintCardTx(signer(), coin.mint);
-      noteSignature(signature);
+      const { hash } = await mintCardTx(coin.coinId);
+      noteSignature(hash);
       mintCard(coin.mint);
       play('reward');
       void refreshSettled();
@@ -122,7 +122,13 @@ function CoinRow({ coin }: { coin: Coin }) {
           )}
         </div>
         <div style={{ fontSize: 12, color: 'var(--dim-on-wood)' }}>
-          {fmtTokens(balance)} · {fmtUsd(value)}
+          {coin.priceUsd > 0 ? fmtUsd(coin.priceUsd) : '—'}
+          {typeof coin.change24h === 'number' && ` · ${coin.change24h >= 0 ? '+' : ''}${coin.change24h.toFixed(1)}%`}
+          {coin.metaBps ? (
+            <span style={{ marginLeft: 6, fontWeight: 800, color: coin.metaBps > 0 ? 'var(--teal)' : 'var(--red-on-wood)' }}>
+              {coin.metaBps > 0 ? '▲' : '▼'} {Math.abs(coin.metaBps / 100).toFixed(1)}% today
+            </span>
+          ) : null}
           {chainError && (
             <span role="alert" style={{ display: 'block', color: 'var(--red-on-wood)', fontWeight: 700 }}>
               {chainError}
@@ -192,12 +198,12 @@ function CoinRow({ coin }: { coin: Coin }) {
           <button
             onClick={() => {
               if (onchain) { void mintOnchain(); return; }
-              if (!wallet.spend(FEES.mintSol)) return;
+              if (!wallet.spend(FEES.mintMon)) return;
               setMinting(true);
               timer.current = setTimeout(() => { mintCard(coin.mint); setMinting(false); }, 600);
             }}
             disabled={minting || !affordable}
-            title={affordable ? undefined : `needs ${fmtSol(FEES.mintSol)}`}
+            title={affordable ? undefined : `needs ${fmtMon(FEES.mintMon)}`}
             className="btn-3d"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -217,7 +223,7 @@ function CoinRow({ coin }: { coin: Coin }) {
             }}
           >
             {minting && <Spinner />}
-            {minting ? 'Minting' : affordable ? `Mint · ${fmtSol(FEES.mintSol)}` : 'Need SOL'}
+            {minting ? 'Minting' : affordable ? `Mint · ${fmtMon(FEES.mintMon)}` : 'Need MON'}
           </button>
         )}
       </div>
@@ -270,8 +276,8 @@ function TxReceipt() {
  * transfer had happened every time. There were simply two currencies on one
  * header and the wrong one looked like the token.
  *
- * Tapping it opens the Swap, because "I need more" is the only question this
- * number ever prompts and the AMM is the answer.
+ * Tapping it opens the Empire wallet panel, where the account's balances and
+ * the honest answer to "how do I get more" live: staked wins pay it.
  */
 function MempireBalance({ onGet }: { onGet: () => void }) {
   const address = useWallet((s) => s.address);
@@ -366,7 +372,7 @@ export function Cards() {
               : <>{cards.length} cards · not minted onchain yet</>}
           </p>
         </div>
-        <MempireBalance onGet={() => nav('/swap')} />
+        <MempireBalance onGet={() => nav('/empire')} />
       </header>
 
       <StarterKit />
@@ -406,7 +412,7 @@ export function Cards() {
 
       <section aria-label="Your bags" ref={bagsRef} style={{ scrollMarginTop: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-          <span className="label">Your bags · mint fee {fmtSol(FEES.mintSol)}</span>
+          <span className="label">Your bags · mint fee {fmtMon(FEES.mintMon)}</span>
           <ChainBadge compact />
         </div>
 
@@ -467,8 +473,10 @@ export function Cards() {
               as a stub someone left in, when the fact is that a devnet mint has
               no market to quote. Naming the reason keeps the disclosure and
               drops the implication. */}
-          Eligibility: ≥$25k liquidity and ≥48h old. Prices come from Jupiter on
-          mainnet; devnet mints have no market, so these are fixed reference prices.
+          A fighter can be minted only with a fresh Pyth price for it, posted in the
+          mint transaction itself — no live price, no card. Today&apos;s ▲▼ is the
+          market meta: Chainlink CRE turns each asset&apos;s 24h move into a bounded
+          (±15%) stat modifier on chain.
         </p>
         <TxReceipt />
       </section>

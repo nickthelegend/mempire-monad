@@ -1,7 +1,8 @@
 import { IS_MAINNET } from '../chain/provider';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { click } from '../lib/audio';
-import { listWallets, useWallet } from '../state/wallet';
+import { useWallet } from '../state/wallet';
+import { passkeyHint, passkeysSupported } from '../lib/passkey';
 import { Spinner } from './ui';
 
 /** Guest mark — the only entry without an official adapter icon. */
@@ -66,10 +67,41 @@ function Row({
   );
 }
 
+/** The passkey mark: a key, in the arcade's own frame. */
+function KeyMark({ size = 34 }: { size?: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: size, height: size, borderRadius: 8, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(180deg, var(--gold-hi), var(--gold))',
+        border: '2px solid var(--ink)', fontSize: size * 0.55,
+      }}
+    >
+      🔑
+    </span>
+  );
+}
+
+/*
+ * Sign in.
+ *
+ * The passkey comes first because it is the whole account: one fingerprint or
+ * face check creates it, the same check on any of the player's devices brings
+ * it back, and there is no seed phrase, extension or custodian anywhere in the
+ * path. Guest is the fallback for a browser whose passkey store cannot derive
+ * keys. Browser wallets are listed as they announce themselves (EIP-6963), for
+ * players who already have one.
+ */
 export function WalletPicker() {
-  const { pickerOpen, closePicker, connect, connectGuest, connecting, error } = useWallet();
-  // readyState is read once per open — adapters announce synchronously
-  const wallets = useMemo(() => (pickerOpen ? listWallets() : []), [pickerOpen]);
+  const {
+    pickerOpen, closePicker, connect, connectGuest, createPasskey, signInPasskey,
+    connecting, error, wallets, locked,
+  } = useWallet();
+  const [name, setName] = useState('');
+  const hint = passkeyHint();
+  const passkeys = passkeysSupported();
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -79,6 +111,7 @@ export function WalletPicker() {
   }, [pickerOpen, closePicker]);
 
   if (!pickerOpen) return null;
+  const busy = connecting !== null;
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'center' }}>
@@ -86,14 +119,18 @@ export function WalletPicker() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Connect a wallet"
+        aria-label="Sign in"
         className="panel sheet"
         style={{ maxHeight: '90dvh', overflowY: 'auto', gap: 9 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
           <div>
-            <h2 className="display" style={{ fontSize: 25, lineHeight: 1.1 }}>Connect Wallet</h2>
-            <p className="fine" style={{ color: 'var(--dim-on-wood)' }}>{IS_MAINNET ? 'Mainnet · real funds move' : 'Devnet · no real funds move'}</p>
+            <h2 className="display" style={{ fontSize: 25, lineHeight: 1.1 }}>
+              {locked && hint ? 'Welcome back' : 'Play Mempire'}
+            </h2>
+            <p className="fine" style={{ color: 'var(--dim-on-wood)' }}>
+              {IS_MAINNET ? 'Monad mainnet · real funds move' : 'Monad testnet · no real funds move'}
+            </p>
           </div>
           <button
             onClick={() => { click(); closePicker(); }}
@@ -105,60 +142,98 @@ export function WalletPicker() {
           </button>
         </div>
 
-        {wallets.map((w) => {
-          const busy = connecting === w.name;
-          return (
-            <Row
-              key={w.name}
-              highlight={w.installed}
-              disabled={connecting !== null}
-              busy={busy}
-              onClick={() => void connect(w.name)}
-              mark={(
-                <img
-                  src={w.icon}
-                  alt=""
-                  aria-hidden
-                  width={34}
-                  height={34}
-                  style={{ display: 'block', borderRadius: 8 }}
-                />
-              )}
-              title={w.name}
-              sub={busy ? 'Approve in your wallet…' : w.installed ? 'Detected' : 'Not installed — get it'}
-              right={busy ? <Spinner size={16} /> : (
-                <span
-                  className="label"
-                  style={{ fontSize: 12, color: w.installed ? 'var(--teal)' : 'var(--dim)' }}
-                >
-                  {w.installed ? 'Ready' : 'Install'}
-                </span>
-              )}
-            />
-          );
-        })}
+        {passkeys && hint && (
+          <Row
+            highlight
+            disabled={busy}
+            busy={connecting === 'passkey'}
+            onClick={() => void signInPasskey()}
+            mark={<KeyMark />}
+            title={locked ? `Unlock as ${hint.name}` : `Sign in as ${hint.name}`}
+            sub={connecting === 'passkey' ? 'Confirm with your passkey…' : `${hint.address.slice(0, 6)}…${hint.address.slice(-4)} · one passkey prompt`}
+            right={connecting === 'passkey' ? <Spinner size={16} /> : undefined}
+          />
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '3px 2px' }}>
-          <span style={{ flex: 1, height: 2, background: 'rgba(0,0,0,.3)' }} />
-          <span className="label" style={{ fontSize: 12, color: 'var(--dim-on-wood)' }}>or</span>
-          <span style={{ flex: 1, height: 2, background: 'rgba(0,0,0,.3)' }} />
-        </div>
+        {passkeys && (
+          <div className="well" style={{ padding: 10, borderRadius: 'var(--r-card)', display: 'grid', gap: 8 }}>
+            <label className="label" htmlFor="pk-name" style={{ fontSize: 12 }}>
+              {hint ? 'Or make a new account' : 'Create your account — no seed phrase, no extension'}
+            </label>
+            <input
+              id="pk-name"
+              value={name}
+              maxLength={24}
+              placeholder="Player name"
+              onChange={(e) => setName(e.target.value)}
+              style={{
+                minHeight: 44, padding: '0 12px', borderRadius: 8, border: '2px solid var(--ink)',
+                background: 'var(--recess)', color: 'var(--text)', font: 'inherit', fontSize: 16,
+              }}
+            />
+            <Row
+              highlight={!hint}
+              disabled={busy}
+              busy={connecting === 'passkey'}
+              onClick={() => void createPasskey(name || 'Player')}
+              mark={<KeyMark />}
+              title="Create with passkey"
+              sub="Face ID, fingerprint or device PIN — the passkey is the account"
+            />
+            {!hint && (
+              <button
+                type="button"
+                className="fine"
+                disabled={busy}
+                onClick={() => { click(); void signInPasskey(); }}
+                style={{ background: 'none', border: 'none', color: 'var(--teal)', cursor: 'pointer', fontWeight: 800, minHeight: 32 }}
+              >
+                I already have a Mempire passkey
+              </button>
+            )}
+          </div>
+        )}
 
         <Row
-          disabled={connecting !== null}
+          disabled={busy}
           onClick={connectGuest}
           mark={<GuestMark />}
           title="Play as Guest"
           sub={IS_MAINNET
-            ? 'Play-only on mainnet — connect a wallet to mint or stake'
-            : 'A real keypair in this browser — plays and stakes onchain'}
+            ? 'Play-only on mainnet — sign in to mint or stake'
+            : 'A key kept in this browser — plays and stakes on testnet'}
         />
+
+        {wallets.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '3px 2px' }}>
+            <span style={{ flex: 1, height: 2, background: 'rgba(0,0,0,.3)' }} />
+            <span className="label" style={{ fontSize: 12, color: 'var(--dim-on-wood)' }}>or a browser wallet</span>
+            <span style={{ flex: 1, height: 2, background: 'rgba(0,0,0,.3)' }} />
+          </div>
+        )}
+        {wallets.map((w) => {
+          const isBusy = connecting === w.name;
+          return (
+            <Row
+              key={w.id}
+              disabled={busy}
+              busy={isBusy}
+              onClick={() => void connect(w.id)}
+              mark={(
+                <img src={w.icon} alt="" aria-hidden width={34} height={34} style={{ display: 'block', borderRadius: 8 }} />
+              )}
+              title={w.name}
+              sub={isBusy ? 'Approve in your wallet…' : 'Detected · switches to Monad testnet'}
+              right={isBusy ? <Spinner size={16} /> : undefined}
+            />
+          );
+        })}
 
         {error && (
           <p role="alert" className="fine" style={{ color: 'var(--red-on-wood)', textAlign: 'center' }}>{error}</p>
         )}
         <p className="fine" style={{ color: 'var(--dim-on-wood)', textAlign: 'center' }}>
-          Mempire never asks for your seed phrase.
+          Mempire never asks for a seed phrase, and never touches anything you hold.
         </p>
       </div>
     </div>

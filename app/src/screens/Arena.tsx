@@ -2,21 +2,24 @@ import { IS_MAINNET } from '../chain/provider';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CardFrame } from '../components/CardFrame';
+import { StarterKit } from '../components/StarterKit';
 import { Tutorial, resetTutorial, tutorialDone } from '../components/Tutorial';
 import { LeagueBadge } from '../components/LeagueBadge';
 import { Crowns, Pill } from '../components/ui';
-import { fmtSol, shortAddr } from '../lib/format';
+import { fmtMon, fmtStake, shortAddr } from '../lib/format';
 import { leagueFor } from '../lib/ranking';
 import { EASE_SNAP, usePulse } from '../lib/motion';
 import { FEES, useCollection } from '../state/collection';
-import { TIERS, useDeck } from '../state/deck';
+import { STEP_UP_TIER, TIERS, stakeOf, useDeck } from '../state/deck';
 import { useLadder } from '../state/ladder';
 import { useMatch } from '../state/match';
 import { warmBattleChunk } from '../lib/warm';
-import { signer, useWallet } from '../state/wallet';
+import { useWallet } from '../state/wallet';
 import { useChain } from '../state/chain';
 import { fetchRecentSettlements, type ChainMatch } from '../chain/read';
-import { mintDeckTx, readableChainError } from '../chain/actions';
+import { mintCardTx, readableChainError } from '../chain/actions';
+import { coinByMint } from '../lib/coins';
+import { confirmWithPasskey } from '../lib/passkey';
 
 /**
  * Recent settlements, read from the chain.
@@ -124,11 +127,29 @@ function ConnectHero() {
         Coins, stocks and crypto as fighters. Level them up by winning, and battle for the pot.
       </p>
       <div style={{ padding: '0 12px', marginTop: 6 }}>
-        <Pill onClick={openPicker} tone="gold" style={{ fontSize: 19 }}>Connect Wallet</Pill>
+        <Pill onClick={openPicker} tone="gold" style={{ fontSize: 19 }}>Play now</Pill>
       </div>
-      <span className="label" style={{ fontSize: 12 }}>{IS_MAINNET ? 'mainnet · real funds' : 'devnet · no real funds'}</span>
+      <span className="label" style={{ fontSize: 12 }}>{IS_MAINNET ? 'Monad mainnet · real funds' : 'Monad testnet · passkey sign-in · no wallet needed'}</span>
     </div>
   );
+}
+
+/**
+ * How long the passkey session has left, said where the player looks.
+ *
+ * The session signs without prompting, so its end should never be a surprise:
+ * the countdown is always on the account chip, and when it runs out the account
+ * shows as locked and one passkey prompt opens a new one.
+ */
+function SessionLeft() {
+  const expires = useWallet((s) => s.sessionExpiresAt);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 15_000);
+    return () => clearInterval(t);
+  }, []);
+  const mins = Math.max(0, Math.ceil((expires - Date.now()) / 60_000));
+  return <>🔑 passkey · {mins}m</>;
 }
 
 function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
@@ -165,7 +186,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
             className="display display--sm"
             style={{ display: 'block', fontSize: 14 }}
           >
-            anon_king
+            {wallet.kind === 'passkey' || wallet.kind === 'injected' ? wallet.walletName : 'anon_king'}
           </span>
           {/* The wallet, not the address.
               "Guest · ANoN…8UEG" needed 139px in a 110px box, so it rendered
@@ -181,7 +202,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}
           >
-            {wallet.walletName}
+            {wallet.kind === 'passkey' ? <SessionLeft /> : wallet.kind === 'guest' ? 'Guest' : wallet.walletName}
           </span>
         </span>
       </button>
@@ -210,7 +231,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
           </span>
         </div>
         <Chip icon="👑" value={String(wins)} tone="blue" />
-        <Chip icon="◎" value={fmtSol(wallet.sol).replace(' SOL', '')} tone="gold" />
+        <Chip icon="◎" value={fmtMon(wallet.mon).replace(' MON', '')} tone="gold" />
       </div>
 
       {open && (
@@ -303,11 +324,36 @@ export function Arena() {
   // not-connected early return rather than beside the value they feed.
   const chainMode = useChain((s) => s.mode);
   const chainCards = useChain((s) => s.cards);
+  const ausd = useChain((s) => s.ausdBalance);
 
   if (!wallet.connected) return <ConnectHero />;
 
-  const tier = TIERS[deck.tier];
-  const pot = tier.stakeSol * 2;
+  const currency = deck.currency;
+  const stake = stakeOf(deck.tier, currency);
+  const pot = stake * 2;
+  const holds = currency === 'AUSD' ? ausd : wallet.mon;
+
+  /*
+   * Big stakes ask for the passkey again.
+   *
+   * An open passkey session signs without prompting — that is what makes card
+   * plays and claims invisible. It should not also be able to put a Duke-size
+   * pot on the table on its own, so from that tier up the player confirms with
+   * the passkey itself before the queue opens. The confirmation re-derives the
+   * account from the authenticator, so it cannot be satisfied by the session.
+   */
+  const stakedQueue = async (opts: { ranked: boolean; rush?: boolean }) => {
+    if (wallet.kind === 'passkey' && deck.tier >= STEP_UP_TIER && chainMode === 'onchain') {
+      try {
+        const ok = await confirmWithPasskey(wallet.address);
+        if (!ok) { setError('that passkey belongs to a different account'); return; }
+      } catch {
+        setError('passkey confirmation was cancelled — big stakes need it');
+        return;
+      }
+    }
+    setError(match.startQueue(opts));
+  };
   const queueing = match.status === 'queuing' || match.status === 'found';
 
   /**
@@ -332,9 +378,11 @@ export function Arena() {
     ? 'The program is unreachable, so nothing is escrowed'
     : mintedDeck < 8
       ? `${8 - mintedDeck} of your cards are not minted onchain yet`
-      : wallet.sol < tier.stakeSol
-        ? `You hold ${fmtSol(wallet.sol)} — fund ${shortAddr(wallet.address)} to stake this tier`
-        : '';
+      : holds < stake
+        ? `You hold ${fmtStake(holds, currency)} — fund ${shortAddr(wallet.address)} to stake this tier`
+        : wallet.mon < 0.13
+          ? `Not enough MON for gas — ${shortAddr(wallet.address)} needs ~0.13`
+          : '';
   const canStake = stakeBlocker === '';
 
   // The gap and the wordmark are sized to land this screen inside one 812px
@@ -348,24 +396,48 @@ export function Arena() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '10px 16px 6px' }}>
       <TopHud onReplayTutorial={() => setShowTutorial(true)} />
       <Logo width={168} />
+      <StarterKit />
 
       {/* tier picker — carved wood rail of stake plates */}
       <section className="panel" data-tut="tier" style={{ padding: 9 }}>
-        <div className="label" style={{ marginBottom: 7, textAlign: 'center' }}>
-          Stake tier
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 7, gap: 8 }}>
+          <span className="label">Stake tier</span>
+          {/* Dollars or MON. AUSD is Agora's dollar stablecoin: a pot that
+              means the same thing tomorrow as it does today. */}
+          <div role="radiogroup" aria-label="Stake currency" style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+            {(['AUSD', 'MON'] as const).map((c) => (
+              <button
+                key={c}
+                role="radio"
+                aria-checked={currency === c}
+                onClick={() => deck.setCurrency(c)}
+                disabled={queueing}
+                className="btn-3d"
+                style={{
+                  minHeight: 32, padding: '0 10px', borderRadius: 999, fontSize: 12, fontWeight: 800,
+                  border: '2px solid var(--ink)',
+                  background: currency === c ? 'linear-gradient(180deg, var(--btn-gold-hi), var(--btn-gold))' : 'var(--recess)',
+                  color: currency === c ? 'var(--ink)' : 'var(--dim-on-wood)',
+                }}
+              >
+                {c === 'AUSD' ? '$ AUSD' : 'MON'}
+              </button>
+            ))}
+          </div>
         </div>
         <div role="radiogroup" aria-label="Stake tier" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 7 }}>
           {TIERS.map((t, i) => {
             const active = deck.tier === i;
-            const affordable = wallet.sol >= t.stakeSol;
+            const amount = currency === 'AUSD' ? t.ausd : t.mon;
+            const affordable = holds >= amount;
             return (
               <button
                 key={t.name}
                 role="radio"
                 aria-checked={active}
-                aria-label={`${t.name} tier, ${t.stakeSol} SOL`}
+                aria-label={`${t.name} tier, ${fmtStake(amount, currency)}${i >= STEP_UP_TIER ? ', asks for your passkey' : ''}`}
                 onClick={() => deck.setTier(i)}
-                disabled={!affordable || queueing}
+                disabled={queueing}
                 className="btn-3d"
                 style={{
                   padding: '7px 2px 6px', minHeight: 52, borderRadius: 9, textAlign: 'center',
@@ -388,7 +460,7 @@ export function Arena() {
                     color: !affordable ? 'var(--red-on-wood)' : 'var(--gold-hi)',
                   }}
                 >
-                  {t.stakeSol}
+                  {currency === 'AUSD' ? `$${amount}` : amount}
                 </div>
               </button>
             );
@@ -452,7 +524,7 @@ export function Arena() {
                 the money readouts for attention. */}
             <div data-tut="battle">
               <Pill
-                onClick={() => setError(match.startQueue({ ranked: true }))}
+                onClick={() => void stakedQueue({ ranked: true })}
                 tone="gold"
                 style={{
                   fontSize: 25,
@@ -468,7 +540,7 @@ export function Arena() {
                 real match — the short format is the only difference. */}
             <Pill
               tone="blue"
-              onClick={() => setError(match.startQueue({ ranked: true, rush: true }))}
+              onClick={() => void stakedQueue({ ranked: true, rush: true })}
               style={{ fontSize: 16, minHeight: 48, padding: '11px 18px' }}
             >
               Rush · 30s
@@ -495,9 +567,9 @@ export function Arena() {
         <div className="panel" style={{ padding: '8px 12px', display: 'grid', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span className="label">Pot</span>
-            <span className="money" style={{ fontSize: 22 }}>{fmtSol(pot)}</span>
+            <span className="money" style={{ fontSize: 22 }}>{fmtStake(pot, currency)}</span>
             <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--dim-on-wood)', textAlign: 'right', lineHeight: 1.25 }}>
-              you stake {fmtSol(tier.stakeSol)}<br />
+              you stake {fmtStake(stake, currency)}<br />
               winner takes {100 - FEES.rakePct}%
             </span>
           </div>
@@ -514,7 +586,7 @@ export function Arena() {
             color: canStake ? 'var(--teal)' : 'var(--dim-on-wood)', lineHeight: 1.3,
           }}>
             {canStake
-              ? 'Escrowed onchain — the winner is paid by the program.'
+              ? 'Escrowed on Monad — the winner is paid by the contract, in the block both results land.'
               : `${stakeBlocker} · this match counts for rating only.`}
           </span>
           {/*
@@ -537,7 +609,7 @@ export function Arena() {
           (() => {
             const row = settlements.rows[feedIdx % settlements.rows.length];
             const winnerAddr = row.winner <= 1 ? row.players[row.winner] : null;
-            const payout = row.stakeSol * 2 * (1 - FEES.rakePct / 100);
+            const payout = row.stake * 2 * (1 - FEES.rakePct / 100);
             return (
               <div key={feedIdx} style={{ display: 'flex', alignItems: 'center', gap: 8, animation: 'feedIn 400ms var(--ease-snap)' }}>
                 <span style={{
@@ -552,7 +624,7 @@ export function Arena() {
                   {winnerAddr ? ' won' : ' split the pot'}
                 </span>
                 <span className="money" style={{ marginLeft: 'auto', fontSize: 14, whiteSpace: 'nowrap' }}>
-                  +{fmtSol(winnerAddr ? payout : payout / 2)}
+                  +{fmtStake(winnerAddr ? payout : payout / 2, row.currency)}
                 </span>
               </div>
             );
@@ -597,7 +669,7 @@ export function Arena() {
 /**
  * Mint the deck's missing cards, batched.
  *
- * Deliberately not a silent background job: minting spends real SOL per card
+ * Deliberately not a silent background job: minting spends MON per card
  * and the player should be the one deciding to, with the count in front of
  * them. Progress is reported per transaction because three confirmations on
  * devnet is long enough that a static spinner reads as a hang.
@@ -624,7 +696,18 @@ function MintDeckButton({ mints }: { mints: string[] }) {
         onClick={() => {
           setState('busy');
           setError(null);
-          void mintDeckTx(signer(), mints, (done) => setProgress(done))
+          void (async () => {
+            // One mint per card: each posts its own fresh Pyth price. Monad
+            // confirms each in about a block, so eight is seconds, not minutes.
+            let done = 0;
+            for (const m of mints) {
+              const coin = coinByMint(m);
+              if (!coin) continue;
+              await mintCardTx(coin.coinId);
+              done += 1;
+              setProgress(done);
+            }
+          })()
             .then(async () => {
               await refresh();
               setState('done');
