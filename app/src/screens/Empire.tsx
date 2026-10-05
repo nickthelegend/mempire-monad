@@ -9,6 +9,7 @@ import { useCollection } from '../state/collection';
 import { useMatch } from '../state/match';
 import { useWallet } from '../state/wallet';
 import { useChain } from '../state/chain';
+import { LiveOnMonad } from '../components/LiveOnMonad';
 import { fetchStrandedMatches, type ChainMatch } from '../chain/read';
 import { useEscrow } from '../state/escrow';
 
@@ -204,6 +205,8 @@ export function Empire() {
               </div>
             )}
           </section>
+
+          <LiveOnMonad />
 
           <Leaderboard me={wallet.address} />
 

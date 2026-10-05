@@ -9,6 +9,7 @@ import { revealSection } from '../lib/scroll';
 import { ARCHETYPES } from '../sim/archetypes';
 import { useCollection } from '../state/collection';
 import { DECK_SLOTS, useDeck } from '../state/deck';
+import { PasskeyLocker } from '../components/PasskeyLocker';
 
 export function Deck() {
   const nav = useNavigate();
@@ -192,6 +193,8 @@ export function Deck() {
           </div>
         )}
       </section>
+
+      <PasskeyLocker />
     </div>
   );
 }
