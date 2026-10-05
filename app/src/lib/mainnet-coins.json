@@ -1,0 +1,366 @@
+{
+  "cluster": "mainnet-beta",
+  "builtAt": "2026-08-20T00:38:59.815Z",
+  "coins": [
+    {
+      "mint": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+      "ticker": "BTC",
+      "name": "Coinbase Wrapped BTC",
+      "hue": 38,
+      "priceUsd": 69532.58,
+      "liquidityUsd": 5835788,
+      "firstSeen": 1731014840,
+      "decimals": 8
+    },
+    {
+      "mint": "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+      "ticker": "ETH",
+      "name": "Ether (Portal)",
+      "hue": 320,
+      "priceUsd": 2267.62,
+      "liquidityUsd": 4119395,
+      "firstSeen": 1669602341,
+      "decimals": 8
+    },
+    {
+      "mint": "So11111111111111111111111111111111111111112",
+      "ticker": "SOL",
+      "name": "Wrapped SOL",
+      "hue": 265,
+      "priceUsd": 85.47,
+      "liquidityUsd": 25183321,
+      "firstSeen": 1688106058,
+      "decimals": 9
+    },
+    {
+      "mint": "9gP2kCy3wA1ctvYWQk75guqXuHfrEomqydHLtcTCqiLa",
+      "ticker": "BNB",
+      "name": "Binance Coin (Portal)",
+      "hue": 205,
+      "priceUsd": 627.4,
+      "liquidityUsd": 142125,
+      "firstSeen": 1784322156,
+      "decimals": 8
+    },
+    {
+      "mint": "skDGuSDyKYGbYTWnMCNcPeDd4vHUxAsMNVVxxUfpump",
+      "ticker": "ADA",
+      "name": "ADA",
+      "hue": 52,
+      "priceUsd": 0.0003201,
+      "liquidityUsd": 77261,
+      "firstSeen": 1766121508,
+      "decimals": 6
+    },
+    {
+      "mint": "GbbesPbaYh5uiAZSYNXTc7w9jty1rpg3P9L4JeN4LkKc",
+      "ticker": "TRX",
+      "name": "TRON",
+      "hue": 28,
+      "priceUsd": 0.3342,
+      "liquidityUsd": 12417463,
+      "firstSeen": 1755611699,
+      "decimals": 6
+    },
+    {
+      "mint": "F6qoefQq4iCBLoNZ34RjEqHjHkD8vtmoRSdw9Nd55J1k",
+      "ticker": "SHIB",
+      "name": "shibwifhat",
+      "hue": 300,
+      "priceUsd": 0.0004277,
+      "liquidityUsd": 100982,
+      "firstSeen": 1707189553,
+      "decimals": 9
+    },
+    {
+      "mint": "8FU95xFJhUUkyyCLU13HSzDLs7oC4QZdXQHL6SCeab36",
+      "ticker": "UNI",
+      "name": "Uniswap (Portal)",
+      "hue": 15,
+      "priceUsd": 3.66,
+      "liquidityUsd": 26784,
+      "firstSeen": 1772594123,
+      "decimals": 8
+    },
+    {
+      "mint": "9dwPiStDBwJJqC3QzMnjpJP7xohZbMVmHELFx3uy3KRq",
+      "ticker": "NVDA",
+      "name": "NVIDIA",
+      "hue": 265,
+      "priceUsd": 0.00008384,
+      "liquidityUsd": 35175,
+      "firstSeen": 1708546095,
+      "decimals": 9
+    },
+    {
+      "mint": "METAwkXcqyXKy1AtsSgJ8JiUHwGCafnZL38n3vYmeta",
+      "ticker": "META",
+      "name": "MetaDAO",
+      "hue": 12,
+      "priceUsd": 5.19,
+      "liquidityUsd": 2397011,
+      "firstSeen": 1767658484,
+      "decimals": 6
+    },
+    {
+      "mint": "iNTCy1qTsUEZQe3DSocLz1ZXXai34Gdw8THQh5rxFaF",
+      "ticker": "INTC",
+      "name": "Intel - Backpack Securities",
+      "hue": 228,
+      "priceUsd": 93.82,
+      "liquidityUsd": 113261,
+      "firstSeen": 1784640631,
+      "decimals": 6
+    },
+    {
+      "mint": "HooDYv5RewLRiMLnEVq3VJqdqxhuE6c5eYvqejMC3e9A",
+      "ticker": "HOOD",
+      "name": "Robinhood Markets - Backpack Securities",
+      "hue": 28,
+      "priceUsd": 98.033,
+      "liquidityUsd": 448063,
+      "firstSeen": 1784210415,
+      "decimals": 6
+    },
+    {
+      "mint": "MSTRdWXMeZxdE8osAQy3fA4rvTY5rgummDSMEx6U7Nz",
+      "ticker": "MSTR",
+      "name": "Strategy - Backpack Securities",
+      "hue": 165,
+      "priceUsd": 108.25,
+      "liquidityUsd": 297547,
+      "firstSeen": 1785245415,
+      "decimals": 6
+    },
+    {
+      "mint": "2AEU9yWk3dEGnVwRaKv4div5TarC4dn7axFLyz6zG4Pf",
+      "ticker": "DIS",
+      "name": "Distribute.ai",
+      "hue": 72,
+      "priceUsd": 0.0003296,
+      "liquidityUsd": 315877,
+      "firstSeen": 1747850519,
+      "decimals": 9
+    },
+    {
+      "mint": "VAULTVXqi93aaq9FsyPKgdgp6Ge1H1HoSvNC4ZbqFDs",
+      "ticker": "V",
+      "name": "Vault",
+      "hue": 110,
+      "priceUsd": 0.02339,
+      "liquidityUsd": 75544,
+      "firstSeen": 1753267366,
+      "decimals": 6
+    },
+    {
+      "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+      "ticker": "BONK",
+      "name": "Bonk",
+      "hue": 38,
+      "priceUsd": 0.01194,
+      "liquidityUsd": 29892408,
+      "firstSeen": 1706713333,
+      "decimals": 5
+    },
+    {
+      "mint": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+      "ticker": "POPCAT",
+      "name": "Popcat",
+      "hue": 265,
+      "priceUsd": 0.04387,
+      "liquidityUsd": 3118148,
+      "firstSeen": 1702415044,
+      "decimals": 9
+    },
+    {
+      "mint": "2qEHjDLDLbuBgRYvsxhc5D6uDWAivNFZGan56P1tpump",
+      "ticker": "PNUT",
+      "name": "Peanut the Squirrel",
+      "hue": 205,
+      "priceUsd": 0.04643,
+      "liquidityUsd": 2880601,
+      "firstSeen": 1730387206,
+      "decimals": 6
+    },
+    {
+      "mint": "A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump",
+      "ticker": "FWOG",
+      "name": "FWOG",
+      "hue": 130,
+      "priceUsd": 0.004479,
+      "liquidityUsd": 1273106,
+      "firstSeen": 1722303257,
+      "decimals": 6
+    },
+    {
+      "mint": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "ticker": "GOAT",
+      "name": "Goatseus Maximus",
+      "hue": 52,
+      "priceUsd": 0.01355,
+      "liquidityUsd": 1265756,
+      "firstSeen": 1728595144,
+      "decimals": 6
+    },
+    {
+      "mint": "Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump",
+      "ticker": "CHILLGUY",
+      "name": "Just a chill guy",
+      "hue": 12,
+      "priceUsd": 0.01129,
+      "liquidityUsd": 1203682,
+      "firstSeen": 1731701302,
+      "decimals": 6
+    },
+    {
+      "mint": "ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY",
+      "ticker": "MOODENG",
+      "name": "Moo Deng",
+      "hue": 350,
+      "priceUsd": 0.03871,
+      "liquidityUsd": 2329651,
+      "firstSeen": 1725994387,
+      "decimals": 6
+    },
+    {
+      "mint": "HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC",
+      "ticker": "AI16Z",
+      "name": "ai16z",
+      "hue": 88,
+      "priceUsd": 0.0003465,
+      "liquidityUsd": 41431,
+      "firstSeen": 1748216226,
+      "decimals": 9
+    },
+    {
+      "mint": "MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5",
+      "ticker": "MEW",
+      "name": "cat in a dogs world",
+      "hue": 190,
+      "priceUsd": 0.00035,
+      "liquidityUsd": 7306137,
+      "firstSeen": 1711430534,
+      "decimals": 5
+    },
+    {
+      "mint": "B5WTLaRwaUQpKk7ir1wniNB6m5o8GgMrimhKMYan2R6B",
+      "ticker": "PEPE",
+      "name": "Pepe",
+      "hue": 165,
+      "priceUsd": 0.0004788,
+      "liquidityUsd": 181923,
+      "firstSeen": 1716658709,
+      "decimals": 6
+    },
+    {
+      "mint": "DxtssVdyYe4wWE5f5zEgx2NqtDFbVL3ABGY62WCycHWg",
+      "ticker": "BRETT",
+      "name": "Brett",
+      "hue": 300,
+      "priceUsd": 0.000129,
+      "liquidityUsd": 58460,
+      "firstSeen": 1702782731,
+      "decimals": 9
+    },
+    {
+      "mint": "26VfKb7jjtdEdvfovoBijScoZmJbWWasFZkgfUD5w7cy",
+      "ticker": "MOG",
+      "name": "Mog Coin",
+      "hue": 15,
+      "priceUsd": 1.031e-7,
+      "liquidityUsd": 37688,
+      "firstSeen": 1746670075,
+      "decimals": 4
+    },
+    {
+      "mint": "5z3EqYQo9HiCEs3R84RCDMu2n7anpDMxRhdK8PSWmrRC",
+      "ticker": "PONKE",
+      "name": "PONKE",
+      "hue": 72,
+      "priceUsd": 0.0158,
+      "liquidityUsd": 1120030,
+      "firstSeen": 1703383963,
+      "decimals": 9
+    },
+    {
+      "mint": "AywAYdNJnSLSXwKWYxDciPjqGRnwp4iZdQptuuQTpump",
+      "ticker": "MICHI",
+      "name": "michi",
+      "hue": 255,
+      "priceUsd": 0.00349,
+      "liquidityUsd": 152048,
+      "firstSeen": 1773176682,
+      "decimals": 6
+    },
+    {
+      "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+      "ticker": "GIGA",
+      "name": "GIGACHAD",
+      "hue": 110,
+      "priceUsd": 0.002098,
+      "liquidityUsd": 1443570,
+      "firstSeen": 1704403186,
+      "decimals": 5
+    },
+    {
+      "mint": "6ogzHhzdrQr9Pgv6hZ2MNze7UrzBMAFyBBWUYp1Fhitx",
+      "ticker": "RETARDIO",
+      "name": "RETARDIO",
+      "hue": 340,
+      "priceUsd": 0.001571,
+      "liquidityUsd": 318643,
+      "firstSeen": 1706825286,
+      "decimals": 6
+    },
+    {
+      "mint": "9999FVbjHioTcoJpoBiSjpxHW6xEn3witVuXKqBh2RFQ",
+      "ticker": "SLERF",
+      "name": "SLERF",
+      "hue": 200,
+      "priceUsd": 0.002013,
+      "liquidityUsd": 161815,
+      "firstSeen": 1761006483,
+      "decimals": 9
+    },
+    {
+      "mint": "ukHH6c7mMyiWCf1b9pnWe25TSpkDDt3H5pQZgZ74J82",
+      "ticker": "BOME",
+      "name": "BOOK OF MEME",
+      "hue": 38,
+      "priceUsd": 0.0008761,
+      "liquidityUsd": 13983260,
+      "firstSeen": 1710401208,
+      "decimals": 6
+    },
+    {
+      "mint": "7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs",
+      "ticker": "SILLY",
+      "name": "Silly Dragon",
+      "hue": 320,
+      "priceUsd": 0.00007395,
+      "liquidityUsd": 44541,
+      "firstSeen": 1701735793,
+      "decimals": 9
+    },
+    {
+      "mint": "Fch1oixTPri8zxBnmdCEADoJW2toyFHxqDZacQkwdvSP",
+      "ticker": "HARAMBE",
+      "name": "HARAMBE",
+      "hue": 265,
+      "priceUsd": 0.0004188,
+      "liquidityUsd": 203151,
+      "firstSeen": 1705454007,
+      "decimals": 9
+    },
+    {
+      "mint": "WENWENvqqNya429ubCdR81ZmD69brwQaaBYY6p3LCpk",
+      "ticker": "WEN",
+      "name": "Wen",
+      "hue": 205,
+      "priceUsd": 0.01432,
+      "liquidityUsd": 700331,
+      "firstSeen": 1706597656,
+      "decimals": 5
+    }
+  ]
+}
