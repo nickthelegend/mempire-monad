@@ -21,12 +21,20 @@ import { privyActorWallet, privyConsent } from '../lib/privy';
 /*
  * MON forwarded to the session key for its gas.
  *
- * A logged card play is ~38k gas at Monad testnet's 100 gwei floor — about
- * 0.004 MON — and a player drops ~20 cards a match, plus checkpoints and the
- * claim. 0.1 MON covers that with room; whatever is left is swept back to the
+ * A logged transaction is a ~45k gas limit (Monad bills the limit) at testnet's
+ * 100 gwei floor, about 0.005 MON. A three-minute match is ~20–25 plays, a
+ * checkpoint every 8 s (~22, and they yield to plays when the float runs low)
+ * and the claim: ~45 transactions, ~0.22 MON at worst. 0.2 MON covers every
+ * play with the checkpoints trimmed; whatever is left is swept back to the
  * player when the match ends, so the allowance is a float, not a fee.
  */
-export const SESSION_GAS_WEI = 100_000_000_000_000_000n; // 0.1 MON
+export const SESSION_GAS_WEI = 200_000_000_000_000_000n; // 0.2 MON
+/**
+ * MON a wallet needs to open or join a staked match: the session float plus
+ * the stake transaction's own gas (~300k at 100 gwei). The relay's onboarding
+ * drip (0.25) is sized to cover it.
+ */
+export const STAKE_MON_NEEDED = 0.23;
 /** Kept back from logging so the seat can always afford to record its result. */
 export const CLAIM_RESERVE_WEI = 15_000_000_000_000_000n; // 0.015 MON
 

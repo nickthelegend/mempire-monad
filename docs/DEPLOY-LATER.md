@@ -40,7 +40,7 @@ machine.
 | Key | Address | Send | Why |
 |---|---|---|---|
 | deployer (owner) | `0x81e43BBd1Fb657819E425b5A3bdf2d97d5AA7a96` | **2.5 MON** | 10 deploy transactions, 18.0M gas limit × ~102 gwei ≈ 1.84 MON, plus the CRE `--broadcast` |
-| relayer | `0x91c8B2ccDd9f8f13065658e8E60E71916B0593aD` | **10 MON** | About 0.19 MON per new player (starter mint ≈ 1.23M gas limit, the 0.05 MON drip, the faucet call), so ~25 onboards ≈ 5 MON. Plus the meta keeper at `META_KEEPER_EVERY=36`, ≈ 0.7 MON/day for a week. |
+| relayer | `0x91c8B2ccDd9f8f13065658e8E60E71916B0593aD` | **15 MON** | About 0.39 MON per new player: the starter mint (≈ 1.23M gas limit ≈ 0.13 MON), the **0.25 MON drip** (enough for a first staked match: a 0.2 MON session float, swept back to the player, plus the stake tx), and the faucet call. So ~25 onboards ≈ 10 MON. Plus the meta keeper at `META_KEEPER_EVERY=36`, ≈ 0.7 MON/day for a week. |
 
 Monad bills the **gas limit**, not the gas used; these figures already account for that. Check the balances (read-only):
 

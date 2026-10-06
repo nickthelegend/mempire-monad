@@ -1,4 +1,4 @@
-import { IS_MAINNET } from '../chain/provider';
+import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
 import { useEffect, useState } from 'react';
 import { click } from '../lib/audio';
 import { useWallet } from '../state/wallet';
@@ -135,7 +135,7 @@ export function WalletPicker() {
               {locked && hint ? 'Welcome back' : 'Play Mempire'}
             </h2>
             <p className="fine" style={{ color: 'var(--dim-on-wood)' }}>
-              {IS_MAINNET ? 'Monad mainnet · real funds move' : 'Monad testnet · no real funds move'}
+              {IS_MAINNET ? 'Monad mainnet · real funds move' : `${NETWORK_LABEL} · no real funds move`}
             </p>
           </div>
           <button
@@ -219,7 +219,7 @@ export function WalletPicker() {
           title="Play as Guest"
           sub={IS_MAINNET
             ? 'Play-only on mainnet — sign in to mint or stake'
-            : 'A key kept in this browser — plays and stakes on testnet'}
+            : `A key kept in this browser — plays and stakes · ${NETWORK_LABEL}`}
         />
 
         {wallets.length > 0 && (
@@ -241,7 +241,7 @@ export function WalletPicker() {
                 <img src={w.icon} alt="" aria-hidden width={34} height={34} style={{ display: 'block', borderRadius: 8 }} />
               )}
               title={w.name}
-              sub={isBusy ? 'Approve in your wallet…' : 'Detected · switches to Monad testnet'}
+              sub={isBusy ? 'Approve in your wallet…' : `Detected · switches to ${NETWORK_LABEL}`}
               right={isBusy ? <Spinner size={16} /> : undefined}
             />
           );

@@ -18,14 +18,22 @@ import { CLAIM_RESERVE_WEI, sessionFor } from '../chain/session';
  * past and never move the play cursor, so a slow checkpoint can never make a
  * later card look out of order.
  *
- * Gas comes from the float the stake transaction forwarded to the session key.
- * Logging stops short of the claim reserve, so the seat can always afford to
- * record its result; plays after that are counted as unlogged, never hidden.
+ * Gas comes from the float the stake transaction forwarded to the session key,
+ * priced at the chain's own gas price when the match begins. Logging stops
+ * short of the claim reserve, so the seat can always afford to record its
+ * result, and checkpoints stop well before plays do: a play is the record of
+ * the match, a checkpoint only bounds a divergence the relay also watches.
+ * Plays that still don't fit are counted as unlogged, never hidden.
  */
 
 export type LogPhase = 'off' | 'live' | 'done';
 
-const PLAY_COST_WEI = 45_000n * 110_000_000_000n; // a typical play's limit × a little over the 100 gwei floor
+/** A typical play's gas limit (estimate × 1.15). */
+const PLAY_GAS = 45_000n;
+/** If the gas price can't be read, assume a little over testnet's 100 gwei floor. */
+const FALLBACK_GAS_PRICE = 110_000_000_000n;
+/** Checkpoints stop while this many plays' worth of budget is left. */
+const PLAYS_KEPT_FOR = 8n;
 
 interface PlayLogState {
   phase: LogPhase;
@@ -39,6 +47,8 @@ interface PlayLogState {
   lastLatencyMs: number | null;
   avgLatencyMs: number | null;
   budgetWei: bigint;
+  /** One logged transaction's cost at this match's gas price. */
+  costWei: bigint;
 
   begin: (matchId: number) => Promise<void>;
   play: (tick: number, deckIndex: number, x: number, y: number) => void;
@@ -83,30 +93,36 @@ export const usePlayLog = create<PlayLogState>((set, get) => {
     lastLatencyMs: null,
     avgLatencyMs: null,
     budgetWei: 0n,
+    costWei: PLAY_GAS * FALLBACK_GAS_PRICE,
 
     begin: async (matchId) => {
       const session = sessionFor(matchId);
       if (!session) { set({ phase: 'off' }); return; }
       // A Privy session signer's calls are sponsored: there is no float to ration.
-      const balance = session.kind === 'privy'
-        ? 10n ** 24n
-        : await publicClient().getBalance({ address: session.address }).catch(() => 0n);
+      const [balance, gasPrice] = await Promise.all([
+        session.kind === 'privy'
+          ? Promise.resolve(10n ** 24n)
+          : publicClient().getBalance({ address: session.address }).catch(() => 0n),
+        publicClient().getGasPrice().catch(() => FALLBACK_GAS_PRICE),
+      ]);
+      // 10% over the quoted price, as the sender pads it.
+      const costWei = PLAY_GAS * ((gasPrice * 11n) / 10n);
       set({
         phase: 'live', matchId, sent: 0, confirmed: 0, playsLost: 0, marksLost: 0,
-        lastHash: null, lastLatencyMs: null, avgLatencyMs: null,
+        lastHash: null, lastLatencyMs: null, avgLatencyMs: null, costWei,
         budgetWei: balance > CLAIM_RESERVE_WEI ? balance - CLAIM_RESERVE_WEI : 0n,
       });
     },
 
     play: (tick, deckIndex, x, y) => {
-      const { phase, matchId, budgetWei } = get();
+      const { phase, matchId, budgetWei, costWei } = get();
       if (phase !== 'live' || matchId === null) return;
       const session = sessionFor(matchId);
-      if (!session || budgetWei < PLAY_COST_WEI) {
+      if (!session || budgetWei < costWei) {
         set((s) => ({ playsLost: s.playsLost + 1 }));
         return;
       }
-      set((s) => ({ sent: s.sent + 1, budgetWei: s.budgetWei - PLAY_COST_WEI }));
+      set((s) => ({ sent: s.sent + 1, budgetWei: s.budgetWei - costWei }));
       const startedAt = Date.now();
       playTx(session, matchId, tick, deckIndex, clamp16(x), clamp16(y))
         .then((hash) => watch(hash, startedAt))
@@ -117,11 +133,12 @@ export const usePlayLog = create<PlayLogState>((set, get) => {
     },
 
     mark: (tick, stateHash) => {
-      const { phase, matchId, budgetWei } = get();
+      const { phase, matchId, budgetWei, costWei } = get();
       if (phase !== 'live' || matchId === null) return;
       const session = sessionFor(matchId);
-      if (!session || budgetWei < PLAY_COST_WEI * 2n) return;
-      set((s) => ({ budgetWei: s.budgetWei - PLAY_COST_WEI }));
+      // Never spend what the remaining plays need on a checkpoint.
+      if (!session || budgetWei < costWei * (PLAYS_KEPT_FOR + 1n)) return;
+      set((s) => ({ budgetWei: s.budgetWei - costWei }));
       checkpointTx(session, matchId, tick, stateHash)
         .catch(() => set((s) => ({ marksLost: s.marksLost + 1 })));
     },
@@ -131,6 +148,7 @@ export const usePlayLog = create<PlayLogState>((set, get) => {
     reset: () => set({
       phase: 'off', matchId: null, sent: 0, confirmed: 0, playsLost: 0, marksLost: 0,
       lastHash: null, lastLatencyMs: null, avgLatencyMs: null, budgetWei: 0n,
+      costWei: PLAY_GAS * FALLBACK_GAS_PRICE,
     }),
   };
 });

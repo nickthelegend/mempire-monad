@@ -22,6 +22,8 @@ export const fmtStake = (n: number, currency: 'MON' | 'AUSD'): string => {
 
 export const fmtUsd = (n: number): string => {
   const v = safe(n);
+  // Memecoins trade far below a cent: show significant digits, never "$0".
+  if (v > 0 && v < 0.01) return `$${v.toLocaleString('en-US', { maximumSignificantDigits: 3 })}`;
   return v >= 1000
     ? `$${(v / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 })}k`
     : `$${v.toLocaleString('en-US', { maximumFractionDigits: v < 1 ? 4 : 0 })}`;

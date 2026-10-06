@@ -1,4 +1,5 @@
-import { IS_MAINNET } from '../chain/provider';
+import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
+import { STAKE_MON_NEEDED } from '../chain/session';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CardFrame } from '../components/CardFrame';
@@ -131,7 +132,7 @@ function ConnectHero() {
       <div style={{ padding: '0 12px', marginTop: 6 }}>
         <Pill onClick={openPicker} tone="gold" style={{ fontSize: 19 }}>Play now</Pill>
       </div>
-      <span className="label" style={{ fontSize: 12 }}>{IS_MAINNET ? 'Monad mainnet · real funds' : 'Monad testnet · passkey sign-in · no wallet needed'}</span>
+      <span className="label" style={{ fontSize: 12 }}>{IS_MAINNET ? 'Monad mainnet · real funds' : `${NETWORK_LABEL} · passkey sign-in · no wallet needed`}</span>
     </div>
   );
 }
@@ -400,8 +401,8 @@ export function Arena() {
       ? `${8 - mintedDeck} of your cards are not minted onchain yet`
       : holds < stake
         ? `You hold ${fmtStake(holds, currency)} — fund ${shortAddr(wallet.address)} to stake this tier`
-        : wallet.kind !== 'privy' && wallet.mon < 0.13
-          ? `Not enough MON for gas — ${shortAddr(wallet.address)} needs ~0.13`
+        : wallet.kind !== 'privy' && wallet.mon < STAKE_MON_NEEDED
+          ? `Not enough MON for gas — ${shortAddr(wallet.address)} needs ~${STAKE_MON_NEEDED}`
           : '';
   const canStake = stakeBlocker === '';
 

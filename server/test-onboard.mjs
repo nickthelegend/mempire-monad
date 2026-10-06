@@ -98,7 +98,7 @@ try {
     coins.slice().sort((a, b) => a - b).join() === (first.data?.starterCoins ?? []).slice().sort((a, b) => a - b).join());
 
   const mon = await chain.getBalance({ address: alice.address });
-  check('the MON drip landed (0.05)', mon === parseEther('0.05'), formatEther(mon));
+  check('the MON drip landed (0.25, enough for a first stake)', mon === parseEther('0.25'), formatEther(mon));
 
   console.log('\n3. once per address');
   const replay = await req('POST', '/api/onboard', body);
@@ -108,11 +108,11 @@ try {
   const lower = await req('POST', '/api/onboard', await signed(alice, 'onboard', {}, alice.address.toLowerCase()));
   check('the lowercase spelling of the same address is also 409', lower.status === 409, lower.data?.error);
   check('still exactly 8 cards', (await cardsOf(alice.address)).ids.length === 8);
-  check('no second drip', (await chain.getBalance({ address: alice.address })) === parseEther('0.05'));
+  check('no second drip', (await chain.getBalance({ address: alice.address })) === parseEther('0.25'));
 
   const after = await req('GET', `/api/onboard/${alice.address.toLowerCase()}`);
   check('status after: starter claimed, claim complete',
-    after.data?.starterClaimed === true && after.data?.claim?.complete === true && after.data?.mon?.balance === '0.05',
+    after.data?.starterClaimed === true && after.data?.claim?.complete === true && after.data?.mon?.balance === '0.25',
     JSON.stringify(after.data?.claim ?? null).slice(0, 120));
 
   console.log('\n4. concurrency');

@@ -34,6 +34,9 @@ export function StarterKit() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [took, setTook] = useState<number | null>(null);
+  // What the relay did about AUSD: 'sent', or 'queued' inside Agora's faucet
+  // cooldown (the relay retries on its own about a minute later).
+  const [ausd, setAusd] = useState<string | null>(null);
   const started = useRef(false);
 
   const claim = async () => {
@@ -47,7 +50,12 @@ export function StarterKit() {
       if (!r.ok) throw new Error(j?.error ?? `the relay answered ${r.status}`);
       await refreshSettled();
       setTook(performance.now() - t0);
+      setAusd(typeof j?.ausd === 'string' ? j.ausd : null);
       setPhase('done');
+      if (j?.ausd === 'queued') {
+        // The relay's retry lands ~65 s later; refresh balances after it.
+        setTimeout(() => { void refreshSettled().then(() => setAusd('sent')); }, 75_000);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPhase('failed');
@@ -85,8 +93,9 @@ export function StarterKit() {
             Your deck is on chain{took !== null ? ` · ${(took / 1000).toFixed(1)}s` : ''}
           </span>
           <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
-            Eight ERC-721 fighters are yours, plus test AUSD and gas. Pick a tier in the
-            Arena and put a dollar on your first match.
+            {ausd === 'queued'
+              ? 'Eight ERC-721 fighters and gas are yours. Your test AUSD is on its way: Agora\'s faucet pays one account a minute, and the relay retries on its own.'
+              : 'Eight ERC-721 fighters are yours, plus test AUSD and gas. Pick a tier in the Arena and put a dollar on your first match.'}
           </p>
           <button
             type="button"

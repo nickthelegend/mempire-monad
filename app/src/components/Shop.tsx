@@ -216,7 +216,7 @@ export function Shop() {
                   )}
                 </span>
                 <span className="fine" style={{ display: 'block', fontSize: 12 }}>
-                  {coin.priceUsd > 0 ? fmtUsd(coin.priceUsd) : coin.pythSymbol}
+                  {coin.priceUsd > 0 ? fmtUsd(coin.priceUsd) : 'no live price'}
                   {owned && <span style={{ color: 'var(--teal)' }}> · owned</span>}
                 </span>
               </span>
@@ -227,7 +227,7 @@ export function Shop() {
                 <span style={{ display: 'flex', gap: 5 }}>
                   <button
                     onClick={() => void buyWithToken(o.mint, tokenPrice)}
-                    disabled={pending !== null}
+                    disabled={pending !== null || !(coin.priceUsd > 0)}
                     aria-label={`Buy ${tickerOf(coin)} for ${tokenPrice} $MEMPIRE`}
                     className="btn-3d"
                     style={{
@@ -246,6 +246,7 @@ export function Shop() {
                   </button>
                   <button
                     onClick={() => void buyWithSol(o.mint, solPrice)}
+                    disabled={pending !== null || !(coin.priceUsd > 0)}
                     aria-label={`Buy ${tickerOf(coin)} for ${chainMode === 'onchain'
                       ? `${mintFeeSol} MON mint fee`
                       : `${solPrice} MON`}`}

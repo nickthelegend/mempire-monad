@@ -13,7 +13,8 @@ import { ARCHETYPES } from '../sim/archetypes';
 import { FP, fp } from '../sim/fixed';
 import { BattleScene, dropDecision, isLegalDrop, resolveGroundHit } from '../three/BattleScene';
 import type { MatchCard } from '../sim/types';
-import { CHESTS } from '../state/economy';
+import { CHEST_SLOTS } from '../state/economy';
+import { useChain } from '../state/chain';
 import { useEscrow } from '../state/escrow';
 import { useMatch } from '../state/match';
 
@@ -45,6 +46,7 @@ function ResultOverlay() {
   const { result, stakeSol, currency, dismiss, practice, soloVsBot } = useMatch();
   const fmtMon = (n: number) => fmtStake(n, currency);
   const escrowPhase = useEscrow((s) => s.phase);
+  const chainChests = useChain((s) => s.chests);
   const nav = useNavigate();
   if (!result) return null;
   /**
@@ -73,6 +75,7 @@ function ResultOverlay() {
    * actually true and points at the recovery.
    */
   const awaitingPayout = escrowed && !['settled', 'refunded'].includes(escrowPhase);
+  const slotsFull = chainChests.filter((c) => c.state < 4).length >= CHEST_SLOTS;
   const title = result.voided ? 'Voided' : result.draw ? 'Split' : result.won ? 'Pot Secured' : 'Rekt';
   const color = result.draw ? 'var(--dim)' : result.won ? 'var(--gold)' : 'var(--red)';
   return (
@@ -116,11 +119,11 @@ function ResultOverlay() {
         {/* Staggered so the arithmetic reads in the order it happens: the pot
             fills, the rake is taken out of it, then what you actually take
             lands last and largest. */}
-        <MoneyRow label="Pot" value={fmtMon(result.potSol)} count={{ to: result.potSol, delayMs: 340 }} />
+        <MoneyRow label="Pot" value={fmtMon(result.potSol)} count={{ to: result.potSol, delayMs: 340, format: fmtMon }} />
         <MoneyRow
           label={`House rake (${result.draw ? 5 : 10}%)`}
           value={`−${fmtMon(result.rakeSol)}`}
-          count={{ to: result.rakeSol, prefix: '−', delayMs: 520 }}
+          count={{ to: result.rakeSol, prefix: '−', delayMs: 520, format: fmtMon }}
         />
         <MoneyRow
           big
@@ -129,8 +132,8 @@ function ResultOverlay() {
             : result.won ? 'You take' : result.draw ? 'Returned' : 'You lost'}
           value={result.payoutSol > 0 ? `+${fmtMon(result.payoutSol)}` : `−${fmtMon(stakeSol)}`}
           count={result.payoutSol > 0
-            ? { to: result.payoutSol, prefix: '+', delayMs: 700 }
-            : { to: stakeSol, prefix: '−', delayMs: 700 }}
+            ? { to: result.payoutSol, prefix: '+', delayMs: 700, format: fmtMon }
+            : { to: stakeSol, prefix: '−', delayMs: 700, format: fmtMon }}
         />
         {!escrowed && (
           <p
@@ -189,15 +192,21 @@ function ResultOverlay() {
           )}
         </div>
       )}
-      {result.won && !practice && (
+      {/* Chests come only from the arena, on chain, for a staked win both
+          seats agreed on. Unstaked wins earn none, so they get no row. */}
+      {result.won && !practice && escrowed && (
         <div className="well" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span aria-hidden style={{ fontSize: 22 }}>🎁</span>
           <span style={{ textAlign: 'left', minWidth: 0 }}>
             <span className="display display--sm" style={{ fontSize: 15, display: 'block' }}>
-              {result.chest ? `${CHESTS[result.chest].name} earned` : 'Chest slots full'}
+              {escrowPhase === 'settled' ? 'Chest granted on chain' : slotsFull ? 'Chest slots full' : 'Chest on settlement'}
             </span>
             <span className="fine" style={{ fontSize: 12 }}>
-              {result.chest ? 'Open it on the Cards tab' : 'Open one to make room'}
+              {escrowPhase === 'settled'
+                ? 'Open it on the Cards tab'
+                : slotsFull
+                  ? 'The arena forfeits this chest — open one to make room'
+                  : 'The arena grants it when both results land'}
             </span>
           </span>
         </div>

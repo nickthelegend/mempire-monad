@@ -60,11 +60,13 @@ up() {
   cast chain-id --rpc-url "$RPC" >/dev/null 2>&1 \
     || { echo "anvil is not reachable at $RPC — run scripts/local-up.sh --relay from the repo root"; exit 1; }
 
-  # Addresses: config.local.yaml must match the live deployment.
+  # Addresses and start block: config.local.yaml must match the live
+  # deployment. A redeploy can land at the same addresses (same deployer, same
+  # nonce) on a fresh fork, so the start block is checked too.
   local dep="$ROOT/shared/deployments/31337.json" key addr
-  for key in cards arena marketMeta; do
-    addr=$(node -e "process.stdout.write(require('$dep').$key)")
-    if ! grep -q "\"$addr\"" "$HERE/$CONFIG"; then
+  for key in cards arena marketMeta startBlock; do
+    addr=$(node -e "process.stdout.write(String(require('$dep').$key))")
+    if ! grep -q "$addr" "$HERE/$CONFIG"; then
       echo "config.local.yaml is behind $dep — syncing"
       (cd "$HERE" && node scripts/sync-addresses.mjs --chain 31337 --config "$CONFIG")
       break

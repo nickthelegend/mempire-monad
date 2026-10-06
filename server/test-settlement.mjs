@@ -63,6 +63,8 @@ try {
     won: true, crowns: [3, 0], escrowed: true, matchId: Number(id), currency: 'MON',
   }));
   check('a report before settlement is counted but not credited', early.status === 200);
+  // The client retries only on `pending`; without it this win's money is never credited.
+  check('and it says pending, so the client comes back for the money', early.data?.pending === true, JSON.stringify(early.data));
   let board = (await req('GET', '/api/leaderboard')).data;
   check('no MON credited yet', board.find((r) => r.address === p0.address.toLowerCase())?.netMon === 0);
 

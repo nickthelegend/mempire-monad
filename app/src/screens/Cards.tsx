@@ -82,6 +82,8 @@ function CoinRow({ coin }: { coin: Coin }) {
   // price, its 24h move, and the modifier MarketMeta gave it this epoch.
   void chainBalances;
   const affordable = onchain ? chainSol >= FEES.mintMon : wallet.mon >= FEES.mintMon;
+  // No live quote → the relay can't sign a price → the contract would refuse.
+  const live = coin.priceUsd > 0;
   // Holding the coin is no longer a requirement, on chain or here. The balance
   // still renders on the row — how much of a coin you hold is interesting — it
   // simply no longer decides whether you may mint its card.
@@ -198,8 +200,8 @@ function CoinRow({ coin }: { coin: Coin }) {
             onClick={() => {
               if (onchain) void mintOnchain();
             }}
-            disabled={minting || !affordable || !onchain}
-            title={affordable ? undefined : `needs ${fmtMon(FEES.mintMon)}`}
+            disabled={minting || !affordable || !onchain || !live}
+            title={!live ? 'No live price for this coin right now — a card is minted only at a fresh price' : affordable ? undefined : `needs ${fmtMon(FEES.mintMon)}`}
             className="btn-3d"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -219,7 +221,7 @@ function CoinRow({ coin }: { coin: Coin }) {
             }}
           >
             {minting && <Spinner />}
-            {minting ? 'Minting' : affordable ? `Mint · ${fmtMon(FEES.mintMon)}` : 'Need MON'}
+            {minting ? 'Minting' : !live ? 'No live price' : affordable ? `Mint · ${fmtMon(FEES.mintMon)}` : 'Need MON'}
           </button>
         )}
       </div>
@@ -467,8 +469,8 @@ export function Cards() {
         <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>
           A fighter can be minted only with a fresh Pyth price for it, posted in the
           mint transaction itself — no live price, no card. Today&apos;s ▲▼ is the
-          market meta: Chainlink CRE turns each asset&apos;s 24h move into a bounded
-          (±15%) stat modifier on chain.
+          market meta: Chainlink CRE (24h move) or Pyth momentum (spot vs its moving
+          average) becomes a bounded (±15%) stat modifier on chain.
         </p>
         <TxReceipt />
       </section>

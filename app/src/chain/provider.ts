@@ -16,6 +16,8 @@ export const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? 10143);
 /** Label for badges and copy. Kept as CLUSTER so call sites read the same as before. */
 export const CLUSTER = CHAIN_ID === 143 ? 'monad' : CHAIN_ID === 10143 ? 'monad-testnet' : 'localhost';
 export const IS_MAINNET = CHAIN_ID === 143;
+/** The network's name as the UI says it. */
+export const NETWORK_LABEL = CHAIN_ID === 143 ? 'Monad mainnet' : CHAIN_ID === 10143 ? 'Monad testnet' : 'Local Monad fork';
 /** Every card is an ERC-721 on this chain; there is no separate tokenise step. */
 export const NFT_ENABLED = true;
 

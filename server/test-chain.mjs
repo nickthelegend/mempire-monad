@@ -73,7 +73,7 @@ export async function startTestChain({ port = TEST_PORT } = {}) {
 
   const anvil = spawn('anvil', [
     '--port', String(port), '--chain-id', String(TEST_CHAIN_ID), '--prune-history', '300',
-    '--fork-url', FORK_URL, '--silent',
+    '--fork-url', FORK_URL, '--silent', '--hardfork', 'cancun', '--retries', '10', '--timeout', '60000',
   ], { stdio: 'ignore' });
   const kill = () => { try { anvil.kill('SIGKILL'); } catch { /* gone */ } };
   process.on('exit', kill);

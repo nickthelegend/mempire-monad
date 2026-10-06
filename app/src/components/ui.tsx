@@ -233,17 +233,18 @@ export function Crowns({ n, size = 13 }: { n: number; size?: number }) {
 }
 
 /**
- * Counts a SOL amount up into place. Split out so `MoneyRow` can stay a plain
- * component when the number is static — a hook cannot be called conditionally.
+ * Counts an amount up into place, formatted in the match's own currency (AUSD
+ * reads as dollars). Split out so `MoneyRow` can stay a plain component when
+ * the number is static — a hook cannot be called conditionally.
  */
-function CountedSol({
-  to, prefix, delayMs, style,
-}: { to: number; prefix?: string; delayMs?: number; style: CSSProperties }) {
+function CountedAmount({
+  to, prefix, delayMs, style, format,
+}: { to: number; prefix?: string; delayMs?: number; style: CSSProperties; format: (n: number) => string }) {
   const shown = useCountUp(to, 950, delayMs);
   return (
     <span className="money" style={style}>
       {prefix}
-      {fmtMon(shown)}
+      {format(shown)}
     </span>
   );
 }
@@ -264,7 +265,8 @@ export function MoneyRow({
   label, value, big, stack, count,
 }: {
   label: string; value: string; big?: boolean; stack?: boolean;
-  count?: { to: number; prefix?: string; delayMs?: number };
+  /** `format` defaults to MON; pass the match currency's formatter for AUSD. */
+  count?: { to: number; prefix?: string; delayMs?: number; format?: (n: number) => string };
 }) {
   return (
     <div style={{
@@ -282,10 +284,11 @@ export function MoneyRow({
     >
       <span className="label" style={{ minWidth: 0, whiteSpace: 'nowrap' }}>{label}</span>
       {count ? (
-        <CountedSol
+        <CountedAmount
           to={count.to}
           prefix={count.prefix}
           delayMs={count.delayMs}
+          format={count.format ?? fmtMon}
           style={{ fontSize: big ? 21 : 14, whiteSpace: 'nowrap', flexShrink: 0 }}
         />
       ) : (

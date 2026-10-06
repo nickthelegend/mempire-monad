@@ -420,7 +420,13 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
         hashes: Number(hashes) || 0,
       },
     });
-    res.json({ ok: true });
+    // An escrowed match the chain has not settled yet is the normal case for a
+    // first report. Say so: the client retries only on `pending`, and without
+    // it the money for this win would never be credited.
+    if (escrowed && validId && !verified) {
+      return res.json({ ok: true, pending: true, note: 'counted; the chain has not shown this settlement yet' });
+    }
+    res.json({ ok: true, ...(verified ? { credited: verified.net, currency: verified.currency } : {}) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

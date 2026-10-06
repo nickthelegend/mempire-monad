@@ -1,4 +1,4 @@
-import { IS_MAINNET } from '../chain/provider';
+import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoneyRow, Pill } from '../components/ui';
@@ -106,10 +106,19 @@ export function Empire() {
    * exactly this: an unstaked match reports the pot it *would* have paid, and
    * summing those printed a "Won" figure that never existed — the same
    * class of lie the result card was cured of. Rating counts all matches;
-   * SOL counts escrowed ones.
+   * money counts escrowed ones, each in the currency it was staked in.
    */
-  const earned = history.reduce((s, h) => s + (h.escrowed ? h.payoutSol : 0), 0);
-  const raked = history.reduce((s, h) => s + (h.escrowed ? h.rakeSol : 0), 0);
+  const sumBy = (pick: (h: (typeof history)[number]) => number) => {
+    const t = { MON: 0, AUSD: 0 };
+    for (const h of history) if (h.escrowed) t[h.currency ?? 'MON'] += pick(h);
+    return t;
+  };
+  const both = (t: { MON: number; AUSD: number }) => {
+    const parts = [t.AUSD ? fmtStake(t.AUSD, 'AUSD') : '', t.MON ? fmtMon(t.MON) : ''].filter(Boolean);
+    return parts.length ? parts.join(' · ') : fmtStake(0, 'AUSD');
+  };
+  const earned = both(sumBy((h) => h.payoutSol));
+  const raked = both(sumBy((h) => h.rakeSol));
 
   return (
     <div style={{ padding: '18px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -141,14 +150,14 @@ export function Empire() {
             <MoneyRow stack label="MON" value={fmtMon(wallet.mon)} />
             <MoneyRow stack label="AUSD" value={fmtStake(ausd, 'AUSD')} />
             <MoneyRow stack label="$MEMPIRE" value={Math.floor(mempire).toLocaleString()} />
-            <MoneyRow stack label="Won" value={fmtMon(earned)} />
+            <MoneyRow stack label="Won" value={earned} />
           </section>
 
           <section className="panel" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
             {[
               ['Record', `${wins}W · ${losses}L`],
               ['Cards', String(cards.length)],
-              ['House raked', fmtMon(raked)],
+              ['House raked', raked],
             ].map(([label, value]) => (
               <div key={label}>
                 <div className="display display--sm" style={{ fontSize: 18 }}>{value}</div>
@@ -194,13 +203,13 @@ export function Empire() {
                       {h.draw ? 'DRAW' : h.won ? 'WON' : 'REKT'}
                     </span>
                     <span className="fine" style={{ fontSize: 12 }}>
-                      pot {fmtMon(h.potSol)} · {h.hashes} commits
+                      pot {fmtStake(h.potSol, h.currency ?? 'MON')} · {h.hashes} commits
                     </span>
                     <span className="money" style={{ marginLeft: 'auto', color: !h.escrowed ? 'var(--dim)' : h.payoutSol > 0 ? 'var(--gold)' : 'var(--red)' }}>
                       {/* An unescrowed match moved nothing; showing ±SOL for it
                           would restate the number the result card already
                           disclaims. */}
-                      {!h.escrowed ? 'rating only' : h.payoutSol > 0 ? `+${fmtMon(h.payoutSol)}` : `−${fmtMon(h.potSol / 2)}`}
+                      {!h.escrowed ? 'rating only' : h.payoutSol > 0 ? `+${fmtStake(h.payoutSol, h.currency ?? 'MON')}` : `−${fmtStake(h.potSol / 2, h.currency ?? 'MON')}`}
                     </span>
                   </div>
                 ))}
@@ -222,10 +231,10 @@ export function Empire() {
             {wallet.isGuest
               ? (IS_MAINNET
                 ? 'Guest mode on mainnet is play-only — connect a wallet to mint, stake, or hold anything real. '
-                : 'Guest mode — this browser holds a real testnet key, so mints and stakes are real Monad transactions. Sign in with a passkey to keep the account on every device. ')
+                : `Guest mode — this browser holds a real key on the ${NETWORK_LABEL}, so mints and stakes are real transactions. Sign in with a passkey to keep the account on every device. `)
               : wallet.kind === 'passkey'
                 ? 'Passkey account — derived from your passkey, never stored. Same account on any device your passkey syncs to. '
-                : `${IS_MAINNET ? 'Mainnet' : 'Testnet'} — balances are read from Monad and staked matches escrow for real. `}
+                : `${NETWORK_LABEL} — balances are read from the chain and staked matches escrow for real. `}
             Mint fee 0.01 MON · rake 10% of the pot, 5% on a draw.
           </p>
         </>
