@@ -110,3 +110,17 @@ Ship (4): README; SUBMISSION; DEPLOY-LATER; testnet live + video
 - **Ship 3/4.** README, SUBMISSION and DEPLOY-LATER are done. The testnet deploy and video await the go.
 
 **Final ≈ 88% (28/32), up from ≈ 62% (20/32).** The four missing items need only the user: three sponsor keys or logins, and the testnet go.
+
+## Development wave (7 Oct)
+
+Judge's-eye review, ranked weaknesses and acceptance criteria: [docs/ROADMAP-WIN.md](docs/ROADMAP-WIN.md).
+
+| # | Feature | Status |
+|---|---|---|
+| W1 | Monad pipeline: live commit-state strip (testnet WSS) + honest two-timer receipts + 300 ms copy | IN PROGRESS |
+| W2 | Moves that land: on-chain state on each deployed unit | TODO |
+| W3 | Verifiable replay from the chain (checked against on-chain checkpoints) | TODO |
+| W4 | Coached first match | TODO |
+| W5 | Leaderboards & clans in one tabbed board | TODO |
+| M  | Monad-native items 4–8 (P256 binding, staking reads, gas/reserve, Multicall3) | TODO |
+
