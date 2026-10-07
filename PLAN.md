@@ -61,22 +61,25 @@ Judging weights:
 | 5.3 | docs/DEPLOY-LATER.md | Ordered runbook to live in under 1 hour: funding amounts, keys and where to set them, deploy, verify, host, smoke test, shot list | review | DONE: docs/DEPLOY-LATER.md |
 | 6.x | Testnet deploy, hosting, live video | Awaiting the user's go and MON funding | — | BLOCKED |
 
-## Gaps (from the code, 6 Oct)
+## Gaps (from the code, 6 Oct; statuses 7 Oct)
 
-| Gap | Evidence | Impact | Sev | Fix → task |
-|---|---|---|---|---|
-| Pyth mock mode prices from a fixture file and invents momentum from a hash | `server/pyth.js:29-95`, `shared/prices.fixture.json` | Fake prices could be minted into cards and stats | **P0** | 1.1 |
-| MockPyth accepts unsigned updates from anyone | `contracts/src/mocks/MockPyth.sol` | Any player could post their own "price" | **P0** | 1.1 |
-| Privy mock custody holds user keys on the relay | `server/privy.js:127-160`, `app/src/lib/privy.ts:111-160` | A mock presented as a wallet | **P0** | 1.2 |
-| Kimi mock strategist and commentary in the product path | `server/ai.js:163-630`, `app/src/lib/ai.ts:105`, `Commentary.tsx:225` | "Kimi (mock)" is fake AI | **P0** | 1.3 |
-| Seeded starter cards in the collection when not on chain | `app/src/state/collection.ts:48-58`, `useChainSync.ts:101` | Shows cards the player doesn't own | **P0** | 1.4 |
-| Local chests drop local-only cards after bot wins | `app/src/state/economy.ts:184-312`, `match.ts:1536`, `Chests.tsx:553` | Rewards that aren't real | **P0** | 1.4 |
-| Placeholder ad boards in the desktop gutters | `app/src/components/AdSlot.tsx`, `Shell.tsx:63,169` | Placeholder content | P2 | 1.5 |
-| In-memory store when no MONGODB_URI | `server/memstore.js`, `index.js` | Not a persisted DB | **P1** | 2.2 |
-| Pure-local mocks for AUSD and faucet | `contracts/src/mocks/MockAUSD.sol`, `DeployLocal.s.sol` | Not the real AUSD contract | P1 | 2.1 (fork uses the real AUSD) |
-| CRE simulate not run | `cre login` absent | Bounty proof missing | P1 | BLOCKED: user `cre login` |
-| No live Kimi, Privy or Pyth keys | env | Real paths untestable | P1 | BLOCKED: keys |
-| Testnet not deployed | 0 MON | No public demo | P1 | BLOCKED: awaiting go |
+| Gap | Evidence | Impact | Sev | Fix → task | Status |
+|---|---|---|---|---|---|
+| Pyth mock mode prices from a fixture file and invents momentum from a hash | `server/pyth.js:29-95`, `shared/prices.fixture.json` | Fake prices could be minted into cards and stats | **P0** | 1.1 | CLOSED: signed `LocalPriceOracle`; live quotes only |
+| MockPyth accepts unsigned updates from anyone | `contracts/src/mocks/MockPyth.sol` | Any player could post their own "price" | **P0** | 1.1 | CLOSED: moved to `contracts/test/mocks` (test double only) |
+| Privy mock custody holds user keys on the relay | `server/privy.js:127-160`, `app/src/lib/privy.ts:111-160` | A mock presented as a wallet | **P0** | 1.2 | CLOSED: deleted; honest 503 without keys |
+| Kimi mock strategist and commentary in the product path | `server/ai.js:163-630`, `app/src/lib/ai.ts:105`, `Commentary.tsx:225` | "Kimi (mock)" is fake AI | **P0** | 1.3 | CLOSED: deleted; "Kimi · not configured" |
+| Seeded starter cards in the collection when not on chain | `app/src/state/collection.ts:48-58`, `useChainSync.ts:101` | Shows cards the player doesn't own | **P0** | 1.4 | CLOSED: chain-only collection |
+| Local chests drop local-only cards after bot wins | `app/src/state/economy.ts:184-312`, `match.ts:1536`, `Chests.tsx:553` | Rewards that aren't real | **P0** | 1.4 | CLOSED: chain-only chests |
+| Placeholder ad boards in the desktop gutters | `app/src/components/AdSlot.tsx`, `Shell.tsx:63,169` | Placeholder content | P2 | 1.5 | CLOSED: `MarketBoard` |
+| In-memory store when no MONGODB_URI | `server/memstore.js`, `index.js` | Not a persisted DB | **P1** | 2.2 | CLOSED: MongoDB, one DB per deployment; test-persistence |
+| Pure-local mocks for AUSD and faucet | `contracts/src/mocks/MockAUSD.sol`, `DeployLocal.s.sol` | Not the real AUSD contract | P1 | 2.1 (fork uses the real AUSD) | CLOSED: the fork uses Agora's real AUSD and faucet |
+| CRE simulate not run | `cre login` absent | Bounty proof missing | P1 | BLOCKED: user `cre login` | BLOCKED: user `cre login` |
+| No live Kimi, Privy or Pyth keys | env | Real paths untestable | P1 | BLOCKED: keys | BLOCKED: keys |
+| Testnet not deployed | 0 MON | No public demo | P1 | BLOCKED: awaiting go | BLOCKED: awaiting go |
+| No CI | `.github/` absent | Nothing guards main | P2 | final round | CLOSED: `.github/workflows/ci.yml` (forge, app typecheck/sim/lint/build, relay incl. MongoDB persistence, CRE, Envio) |
+| Production build failed: `@stripe/crypto` (via Privy) imports the optional peer `@stripe/stripe-js` | `vite build` | Vercel build would fail | P2 | final round | CLOSED: peer installed; `vite build` green |
+| `THREE.Clock` deprecation warning in the console | `@react-three/fiber` 9.8.1 internals | Console noise | P3 | — | ACCEPTED: third-party; fixed only in fiber 10 canaries |
 
 ## Completion checklist (100% = all of these)
 
