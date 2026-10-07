@@ -1,4 +1,4 @@
-import { DEPLOYMENT, explorerUrl } from '../chain/provider';
+import { DEPLOYMENT, explorerUrl, HAS_EXPLORER } from '../chain/provider';
 import { useEffect, useRef } from 'react';
 import { useChain } from '../state/chain';
 import { coinByMint, tickerOf } from '../lib/coins';
@@ -264,9 +264,9 @@ export function CardDetail({
           </span>
         </div>
 
-        {onChain && DEPLOYMENT && (
+        {onChain && DEPLOYMENT && HAS_EXPLORER && (
           <a
-            href={`${explorerUrl(DEPLOYMENT.cards, 'address').replace('/address/', '/nft/')}/${onChain.id}`}
+            href={`${explorerUrl(DEPLOYMENT.cards, 'address')!.replace('/address/', '/nft/')}/${onChain.id}`}
             target="_blank"
             rel="noreferrer"
             className="btn-3d"

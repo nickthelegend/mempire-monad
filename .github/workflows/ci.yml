@@ -49,6 +49,8 @@ jobs:
         run: npx tsc -b
       - name: simulation determinism
         run: npx tsx scripts/sim-test.ts
+      - name: Monad commit-state reducer
+        run: npx tsx scripts/monad-heads-test.ts
       - name: lint
         run: npx oxlint
       - name: production build

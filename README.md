@@ -30,7 +30,7 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
 
 | | |
 |---|---|
-| **400 ms blocks** | A card play is in a block before the unit crosses the bridge. The play log isn't summarised after the match; it is written while the match is played. |
+| **300 ms blocks, ~600 ms finality** | A card play is in a block before the unit crosses the bridge, and final two slots later. The play log isn't summarised after the match; it is written while the match is played. The app shows Monad testnet's live block pipeline (Proposed → Voted → Finalized) with the milliseconds it measures. |
 | **Cheap enough to log every action** | About 32k gas per play. Sending each card play as its own transaction is only viable because blocks are fast and gas is cheap. |
 | **Settlement in one block** | The second claim pays the pot in the same transaction. |
 | **EVM** | Cards are ERC-721s that show up in any wallet or explorer. AUSD is a standard ERC-20 with permit. |

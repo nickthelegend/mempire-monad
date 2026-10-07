@@ -117,7 +117,7 @@ Judge's-eye review, ranked weaknesses and acceptance criteria: [docs/ROADMAP-WIN
 
 | # | Feature | Status |
 |---|---|---|
-| W1 | Monad pipeline: live commit-state strip (testnet WSS) + honest two-timer receipts + 300 ms copy | IN PROGRESS |
+| W1 | Monad pipeline: live commit-state strip (testnet WSS) + honest two-timer receipts + 300 ms copy | DONE: live strip measured voted ~290 ms / final ~575 ms in Chrome; reducer 13/13; fork labelled; screenshots docs/screens/wave/w1-* |
 | W2 | Moves that land: on-chain state on each deployed unit | TODO |
 | W3 | Verifiable replay from the chain (checked against on-chain checkpoints) | TODO |
 | W4 | Coached first match | TODO |

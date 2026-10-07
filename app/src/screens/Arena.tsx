@@ -1,5 +1,6 @@
 import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
 import { STAKE_MON_NEEDED } from '../chain/session';
+import { MonadPipeline } from '../components/MonadPipeline';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CardFrame } from '../components/CardFrame';
@@ -126,13 +127,15 @@ function ConnectHero() {
       <p className="display" style={{ fontSize: 21, lineHeight: 1.2 }}>
         Every coin is a fighter.
       </p>
-      <p style={{ color: 'var(--dim)', fontSize: 14, maxWidth: 300, margin: '-8px auto 0' }}>
-        Coins, stocks and crypto as fighters. Level them up by winning, and battle for the pot.
+      <p style={{ color: 'var(--dim)', fontSize: 14, maxWidth: 320, margin: '-8px auto 0' }}>
+        Coins, stocks and crypto as fighters, buffed or nerfed by today&apos;s market. Stake a dollar,
+        and every card you drop lands on Monad while you play.
       </p>
       <div style={{ padding: '0 12px', marginTop: 6 }}>
         <Pill onClick={openPicker} tone="gold" style={{ fontSize: 19 }}>Play now</Pill>
       </div>
       <span className="label" style={{ fontSize: 12 }}>{IS_MAINNET ? 'Monad mainnet · real funds' : `${NETWORK_LABEL} · passkey sign-in · no wallet needed`}</span>
+      <div style={{ textAlign: 'left' }}><MonadPipeline /></div>
     </div>
   );
 }
@@ -625,6 +628,8 @@ export function Arena() {
           )}
         </div>
       </section>
+
+      <MonadPipeline compact />
 
       {/* live feed — real settlements only */}
       <section aria-label="Recent settlements" className="well" style={{ padding: '9px 12px', overflow: 'hidden' }}>

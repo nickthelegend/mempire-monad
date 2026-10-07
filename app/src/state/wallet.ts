@@ -18,7 +18,7 @@ import {
  *
  * A passkey sign-in opens a signing session: the derived key lives in memory
  * and every transaction signs without a prompt — mints, merges, card plays,
- * claims. That is what makes a 400 ms chain feel like a game rather than a
+ * claims. That is what makes a 300 ms chain feel like a game rather than a
  * stream of confirmations. It is also a live key, so it is scoped in time:
  *
  *  - it ends after IDLE_MS without a signature, and at MAX_MS no matter what;

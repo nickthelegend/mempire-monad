@@ -1,11 +1,14 @@
 import { usePlayLog, type LogPhase } from '../state/playLog';
 import { DEPLOYMENT, explorerUrl } from '../chain/provider';
+import { IS_MONAD_NETWORK } from '../chain/landing';
 
 /*
  * What the chain has of this match, said in one pill.
  *
- * "on Monad · 7 · 0.6s" means seven card plays are in blocks and the last one
- * landed 0.6 s after it left the player's hand. The latency is measured, not
+ * "on Monad · 7 · exec 310 ms · final 620 ms" means seven card plays are in
+ * blocks, the last one executed 310 ms after it left the player's hand and was
+ * final 620 ms after. On the local fork it reads "local fork · 7 · 40 ms": the
+ * fork mines instantly and has no finality to measure, so it says so. The latency is measured, not
  * quoted: send-to-receipt on the player's own connection. Plays that could not
  * be logged are counted beside it rather than hidden, and a lost checkpoint is
  * reported separately, because it is a different and smaller failure — the
@@ -14,7 +17,13 @@ import { DEPLOYMENT, explorerUrl } from '../chain/provider';
 
 const LOOK: Record<LogPhase, { dot: string; text: string; title: string }> = {
   off: { dot: 'var(--dim)', text: 'local sim', title: 'No session key — the match runs locally' },
-  live: { dot: 'var(--teal)', text: 'on Monad', title: 'Every card play is a Monad transaction from this match’s session key' },
+  live: {
+    dot: 'var(--teal)',
+    text: IS_MONAD_NETWORK ? 'on Monad' : 'local fork',
+    title: IS_MONAD_NETWORK
+      ? 'Every card play is a Monad transaction from this match’s session key'
+      : 'Every card play is a transaction on the local fork of Monad testnet — instant mining, so these are not Monad timings',
+  },
   done: { dot: 'var(--teal)', text: 'logged', title: 'The match’s plays are on chain' },
 };
 
@@ -25,6 +34,7 @@ export function MonadLogBadge() {
   const marksLost = usePlayLog((s) => s.marksLost);
   const latency = usePlayLog((s) => s.lastLatencyMs);
   const lastHash = usePlayLog((s) => s.lastHash);
+  const finalMs = usePlayLog((s) => s.lastFinalMs);
   if (phase === 'off') return null;
   const look = LOOK[phase];
 
@@ -47,14 +57,15 @@ export function MonadLogBadge() {
       <span className="label" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
         {look.text}
         {confirmed > 0 && ` · ${confirmed}`}
-        {latency !== null && ` · ${(latency / 1000).toFixed(1)}s`}
+        {latency !== null && (IS_MONAD_NETWORK ? ` · exec ${latency} ms` : ` · ${latency} ms`)}
+        {IS_MONAD_NETWORK && finalMs !== null && ` · final ${finalMs} ms`}
         {playsLost > 0 && ` · ${playsLost} unlogged`}
         {marksLost > 0 && ` · ${marksLost} unmarked`}
       </span>
     </>
   );
 
-  const href = lastHash ? explorerUrl(lastHash, 'tx') : DEPLOYMENT ? explorerUrl(DEPLOYMENT.arena, 'address') : null;
+  const href = (lastHash ? explorerUrl(lastHash, 'tx') : DEPLOYMENT ? explorerUrl(DEPLOYMENT.arena, 'address') : undefined) ?? null;
   return href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" title={`${look.title} — open the latest one`} style={shell}>
       {body}

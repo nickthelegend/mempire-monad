@@ -138,7 +138,7 @@ export const useEscrow = create<EscrowStore>((set, get) => ({
   },
 
   awaitActive: async (matchId) => {
-    // 400 ms blocks: a join that is coming arrives in seconds. Poll briefly.
+    // 300 ms blocks: a join that is coming arrives in seconds. Poll briefly.
     for (let i = 0; i < 60; i += 1) {
       const m = await readMatch(matchId).catch(() => null);
       if (m?.state === MATCH_STATE_ACTIVE) {

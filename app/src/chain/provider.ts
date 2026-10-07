@@ -104,7 +104,7 @@ export function publicClient(): PublicClient {
     client = createPublicClient({
       chain: CHAIN,
       transport: http(RPC_URL, { retryCount: 3, retryDelay: 250, batch: { wait: 16 } }),
-      // Monad produces a block every 400 ms; polling slower than that only
+      // Monad produces a block every 300 ms; polling slower than that only
       // makes a confirmed transaction look slow.
       pollingInterval: 400,
     }) as PublicClient;
@@ -112,8 +112,11 @@ export function publicClient(): PublicClient {
   return client;
 }
 
-export function explorerUrl(hashOrAddress: string, kind: 'tx' | 'address' = 'tx'): string {
+/** Explorers index real networks only: on the local fork a hash is plain text, not a dead link. */
+export const HAS_EXPLORER = CHAIN_ID === 10143 || CHAIN_ID === 143;
+
+export function explorerUrl(hashOrAddress: string, kind: 'tx' | 'address' = 'tx'): string | undefined {
   const base = CHAIN.blockExplorers?.default.url;
-  if (!base) return '#';
+  if (!base || !HAS_EXPLORER) return undefined;
   return `${base}/${kind === 'tx' ? 'tx' : 'address'}/${hashOrAddress}`;
 }

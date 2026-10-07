@@ -1,3 +1,4 @@
+import { IS_MONAD_NETWORK } from './landing';
 import {
   decodeEventLog, encodeFunctionData, erc20Abi, maxUint256, parseSignature, zeroAddress, type Abi, type Address, type Hash, type Hex,
 } from 'viem';
@@ -306,6 +307,15 @@ async function sendLogged(session: Signer, data: Hex, fallbackGas: bigint): Prom
   try {
     gas = ((await publicClient().estimateGas({ account: session.address, to, data })) * 115n) / 100n;
   } catch { /* the fallback is sized for a first play */ }
+  // On Monad itself, `eth_sendRawTransactionSync` returns the receipt in the
+  // same round trip (at Proposed), so the play is "executed" one poll sooner.
+  // anvil's version takes a different parameter list, so the fork keeps the
+  // ordinary send.
+  const w = session.wallet as typeof session.wallet & { sendTransactionSync?: (a: unknown) => Promise<{ transactionHash: Hash }> };
+  if (IS_MONAD_NETWORK && session.kind !== 'privy' && typeof w.sendTransactionSync === 'function') {
+    const r = await w.sendTransactionSync({ account: session.account, chain: session.wallet.chain, to, data, gas });
+    return r.transactionHash;
+  }
   return session.wallet.sendTransaction({ account: session.account, chain: session.wallet.chain, to, data, gas });
 }
 

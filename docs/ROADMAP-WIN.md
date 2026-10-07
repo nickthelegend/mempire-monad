@@ -74,9 +74,9 @@ Written 7 Oct after using the local fork build cold, as a judge would: no contex
 
 | # | Item | Status | Where |
 |---|---|---|---|
-| 1 | Live commit-state strip (`monadNewHeads`/`monadLogs`) | **live-read** (testnet WSS) | feature 1 |
-| 2 | Two-timer receipts (`eth_sendRawTransactionSync` + finalized) | **fork-only now**; testnet timings **awaiting testnet go** | feature 1/2 |
-| 3 | Tx status (`txpool_statusByHash`) | **built**, active on 10143 only; **awaiting testnet go** | feature 1 |
+| 1 | Live commit-state strip (`monadNewHeads`/`monadLogs`) | **live-read**, built: `app/src/lib/monadHeads.ts`, `components/MonadPipeline.tsx`. Measured in Chrome: voted ~290 ms, final ~575 ms | W1 |
+| 2 | Two-timer receipts (`eth_sendRawTransactionSync` + finalized) | **built** (`chain/landing.ts`, `state/playLog.ts`). Fork shows "local fork · N ms" (instant mining); executed + final timings **awaiting testnet go** | W1 |
+| 3 | Tx status (`txpool_statusByHash`) | **built** (`chain/landing.ts`), active on Monad networks only; **awaiting testnet go** | W1 |
 | 4 | Passkeys on chain (Mera + P256 `0x0100`) | Mera **built**; P256 binding contract **built** + tested on the fork (`0x0100` works on anvil) | after the top 5 |
 | 5 | Native staking reads (`0x1000`) | **live-read**: epoch, proposer and validator panel from testnet | after the top 5 |
 | 6 | Gas correctness (limit-charged, reserve 10 MON, 128 KB, MIP-8) | **built**: estimate ×1.15 tight limits, simulate-before-send, reserve-aware relayer drips, MIP-8 layout notes | after the top 5 |

@@ -8,12 +8,13 @@ declare -a NAMES RESULTS
 run() { # name, dir, command…
   local name=$1 dir=$2; shift 2
   local out; out=$( (cd "$ROOT/$dir" && "$@") 2>&1 ); local code=$?
-  local tail; tail=$(printf '%s\n' "$out" | grep -E "passed|failed|SIM OK|Tests|tests passed|B14" | tail -1)
+  local tail; tail=$(printf '%s\n' "$out" | grep -E "passed|failed|SIM OK|MONAD HEADS OK|Tests|tests passed|B14" | tail -1)
   NAMES+=("$name"); RESULTS+=("$([ $code -eq 0 ] && echo PASS || echo FAIL) · ${tail:-exit $code}")
 }
 run "contracts (forge)"          contracts forge test
 run "simulation determinism"     app       npx tsx scripts/sim-test.ts
 run "app typecheck"              app       npx tsc -b
+run "Monad commit states"        app       npx tsx scripts/monad-heads-test.ts
 run "relay: auth"                server    node test-auth.mjs
 run "relay: memstore"            server    node test-memstore.mjs
 run "relay: locker"              server    node test-locker.mjs

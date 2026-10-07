@@ -74,7 +74,7 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 
 ## Monad integration
 
-- Every card play is an on-chain transaction from a session key, viable only because of 400 ms blocks and low gas. The in-match badge shows measured send-to-receipt latency.
+- Every card play is an on-chain transaction from a session key, viable only because of 300 ms blocks (final in ~600 ms) and low gas. The in-match badge shows measured send-to-receipt latency.
 - The second claim settles the pot in the same block.
 - Gas limits are sized from estimates (Monad bills the limit), and the session key's float is swept back after the match.
 - Contracts are verified on Sourcify through MonadVision.
@@ -86,7 +86,7 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 | 0:00–0:15 | Cards screen: live prices, ▲▼ meta badges, the MarketBoard | "Every coin is a fighter, and today's market decides who's strong." |
 | 0:15–0:45 | Fresh browser: **Play now → Create with passkey →** Face ID; the starter kit lands (*Your deck is on chain · 1.2s*); Empire shows 8 cards, AUSD and MON | "One passkey prompt. No seed phrase, no extension, no faucet." |
 | 0:45–1:00 | Arena → **$ AUSD** → Pauper ($1) → Battle in two windows; they match | "A dollar stake, one transaction: the permit and the stake together." |
-| 1:00–1:45 | The match: drop cards; the badge reads *on Monad · 7 · 0.6s*; click it to open the play on MonadVision | "Every card is a Monad transaction from a session key. 400 ms blocks make that playable." |
+| 1:00–1:45 | The match: drop cards; the badge reads *on Monad · 7 · 0.6s*; click it to open the play on MonadVision | "Every card is a Monad transaction from a session key. 300 ms blocks make that playable." |
 | 1:45–2:10 | The result: $1.80 paid, chest granted, +50 $MEMPIRE; open the chest (commit → reveal → real ERC-721s) | "The second claim settles the pot in the same block." |
 | 2:10–2:30 | Card sheet: *+8% hp & dmg today*; then the CRE simulate output and the `MetaPosted` tx | "The market is the meta: Chainlink CRE writes it on chain, bounded at ±15%." |
 | 2:30–2:45 | Clear site data → *I already have a Mera passkey* → same address and cards; the locker opens | "Stateless: the passkey is the account, on any device." |

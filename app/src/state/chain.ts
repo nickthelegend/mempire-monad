@@ -136,7 +136,7 @@ export const useChain = create<ChainState>((set, get) => {
       }
     },
 
-    // A settlement or a chest reveal lands in the next block — 400 ms — but the
+    // A settlement or a chest reveal lands in the next block — 300 ms — but the
     // RPC a read hits may be a block behind. Three reads over a few seconds is
     // the difference between "it worked" and "it worked after a refresh".
     refreshSettled: async () => {
@@ -160,7 +160,7 @@ export const useChain = create<ChainState>((set, get) => {
       mempireBalance: 0, mode: get().config ? 'simulated' : 'offline', lastSignature: null,
     }),
     noteSignature: (sig) => set({ lastSignature: sig }),
-    explorer: (idOrSig, kind = 'tx') => explorerUrl(idOrSig, kind),
+    explorer: (idOrSig, kind = 'tx') => explorerUrl(idOrSig, kind) ?? '',
     cardById: (id) => get().cards.find((c) => c.id === id),
   };
 });
