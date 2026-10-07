@@ -92,3 +92,10 @@ Written 7 Oct after using the local fork build cold, as a judge would: no contex
 3. A clan war format: clan-vs-clan staked brackets.
 4. A season pass from `$MEMPIRE` sinks.
 5. Damage numbers and a tower-fall slow-mo for the trailer.
+
+## Shipped in this wave
+
+- **W1** Monad pipeline (live testnet commit states, two-timer receipts, 300 ms copy): `d2bf6a4`
+- **W2** Moves that land (HUD ticker driven by real receipts): `338d42c`
+- **W3** Verifiable replay from the chain: see the commit after `338d42c`
+

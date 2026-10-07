@@ -220,7 +220,7 @@ function beginPlayLog(matchId: number): void {
  * of the chain, never of what an opponent claims. Epoch 0 means no meta yet.
  */
 const metaCache = new Map<number, Map<number, number>>();
-async function modifiersAt(epoch: number): Promise<Map<number, number>> {
+export async function modifiersAt(epoch: number): Promise<Map<number, number>> {
   if (epoch <= 0) return new Map();
   const hit = metaCache.get(epoch);
   if (hit) return hit;
@@ -229,7 +229,7 @@ async function modifiersAt(epoch: number): Promise<Map<number, number>> {
   return bps;
 }
 
-function withMeta(deck: MatchCard[], bps: Map<number, number>): MatchCard[] {
+export function withMeta(deck: MatchCard[], bps: Map<number, number>): MatchCard[] {
   return deck.map((c) => {
     const coin = COINS.find((k) => k.mint === c.coinId.toLowerCase());
     return { ...c, metaBps: coin ? (bps.get(coin.coinId) ?? 0) : 0 };

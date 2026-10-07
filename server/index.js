@@ -8,6 +8,7 @@
  * one key this process signs with is the relayer's, and it can mint a starter
  * deck and pay a testnet drip, nothing more.
  */
+import { registerReplayRoutes } from './replay.js';
 import cors from 'cors';
 import express from 'express';
 import { MongoClient } from 'mongodb';
@@ -680,6 +681,7 @@ const server = await (async () => {
   registerTelemetryRoutes(app, db, requireWallet);
   registerInsightRoutes(app, db);
   registerOpsRoutes(app, db);
+  registerReplayRoutes(app, db);
 
   // Now that there is a database, the shared limiter can take over from the
   // pass-through installed at module load.

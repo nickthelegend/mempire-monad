@@ -399,6 +399,7 @@ export function registerMatchmaker(server, db) {
               hashes: new Map(),
               done: false,
               createdAt: Date.now(),
+              pairKey: null,
             };
             matches.set(id, m);
             waiting.ws.matchId = id;
@@ -413,6 +414,16 @@ export function registerMatchmaker(server, db) {
              * pairing this relay actually made.
              */
             const pairKey = randomBytes(16).toString('hex');
+            m.pairKey = pairKey;
+            /*
+             * The replay record. A match's plays and state checkpoints are on
+             * chain; the two things a replay also needs are not: the seed this
+             * relay drew and the decks as the two sims received them (card
+             * levels can change after a match, by merging). Kept here, and the
+             * replay verifies them against the chain rather than trusting them:
+             * card ids against the deck commitment, levels against the power
+             * the arena recorded, and the whole run against the checkpoints.
+             */
             if (pairings) {
               pairings.insertOne({
                 _id: pairKey,
@@ -421,6 +432,12 @@ export function registerMatchmaker(server, db) {
                 ranked: Boolean(msg.ranked) && Boolean(waiting.ranked),
                 reports: {},
                 at: new Date(),
+                replay: {
+                  seed: seed || 0x9e3779b9,
+                  format,
+                  decks: [waiting.deck ?? null, msg.deck ?? null],
+                  onchainMatchId: null,
+                },
               }).catch(() => { /* the ladder simply refuses reports it cannot verify */ });
             }
 
@@ -527,6 +544,14 @@ export function registerMatchmaker(server, db) {
           const id = Number(msg.onchainMatchId);
           const txHash = typeof msg.txHash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(msg.txHash)
             ? msg.txHash : null;
+          // Seat 0 opened the arena match: tie the replay record to its id.
+          // Only seat 0 may set it, once; the replay checks the chain anyway.
+          if (pairings && m.pairKey && stage === 'opened' && ws === m.players[0] && Number.isSafeInteger(id) && id > 0) {
+            pairings.updateOne(
+              { _id: m.pairKey, 'replay.onchainMatchId': null },
+              { $set: { 'replay.onchainMatchId': id } },
+            ).catch(() => {});
+          }
           send(opponentOf(m, ws), {
             t: 'chain',
             stage,

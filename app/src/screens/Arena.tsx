@@ -654,6 +654,16 @@ export function Arena() {
                 <span className="money" style={{ marginLeft: 'auto', fontSize: 14, whiteSpace: 'nowrap' }}>
                   +{fmtStake(winnerAddr ? payout : payout / 2, row.currency)}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => nav(`/replay/${row.id}`)}
+                  aria-label={`Replay match #${row.id} from the chain`}
+                  title="Replay from the chain"
+                  className="label"
+                  style={{ background: 'none', border: '1.5px solid var(--border)', borderRadius: 999, color: 'var(--teal)', padding: '2px 8px', fontSize: 11, cursor: 'pointer', minHeight: 28, flexShrink: 0 }}
+                >
+                  ▶ replay
+                </button>
               </div>
             );
           })()

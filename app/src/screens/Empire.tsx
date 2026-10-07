@@ -205,6 +205,18 @@ export function Empire() {
                     <span className="fine" style={{ fontSize: 12 }}>
                       pot {fmtStake(h.potSol, h.currency ?? 'MON')} · {h.hashes} commits
                     </span>
+                    {h.escrowed && h.matchId ? (
+                      <button
+                        type="button"
+                        onClick={() => nav(`/replay/${h.matchId}`)}
+                        aria-label={`Replay match #${h.matchId} from the chain`}
+                        title="Replay from the chain"
+                        className="label"
+                        style={{ background: 'none', border: '1.5px solid var(--border)', borderRadius: 999, color: 'var(--teal)', padding: '2px 8px', fontSize: 11, cursor: 'pointer', minHeight: 28, flexShrink: 0 }}
+                      >
+                        ▶ replay
+                      </button>
+                    ) : null}
                     <span className="money" style={{ marginLeft: 'auto', color: !h.escrowed ? 'var(--dim)' : h.payoutSol > 0 ? 'var(--gold)' : 'var(--red)' }}>
                       {/* An unescrowed match moved nothing; showing ±SOL for it
                           would restate the number the result card already

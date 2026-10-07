@@ -51,6 +51,8 @@ jobs:
         run: npx tsx scripts/sim-test.ts
       - name: Monad commit-state reducer
         run: npx tsx scripts/monad-heads-test.ts
+      - name: verifiable replay (checkpoints reproduced, tampering caught)
+        run: npx tsx scripts/replay-test.ts
       - name: lint
         run: npx oxlint
       - name: production build
@@ -76,6 +78,8 @@ jobs:
       - run: node test-auth.mjs
       - run: node test-memstore.mjs
       - run: node test-locker.mjs
+      - name: replay record (matchmaker → /api/replay)
+        run: node test-replay.mjs
       - name: Kimi (against a fake Moonshot server — a test double)
         run: node test-ai.mjs
       - name: persistence across a restart (real MongoDB)
