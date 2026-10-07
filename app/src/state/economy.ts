@@ -9,7 +9,7 @@
  * that a currency the game *spends* should not be repriced by traders. The
  * argument against it was on screen the whole time — a header reading
  * `0 $MEMPIRE` beside `120 ♛`, where the number players watched was the one
- * that did not exist. There is one currency now and it is the SPL token; see
+ * that did not exist. There is one currency now and it is the ERC-20 token; see
  * `state/mempire.ts`.
  *
  * Chests therefore pay in **cards**, not currency. That is also the better

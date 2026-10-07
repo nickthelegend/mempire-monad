@@ -22,7 +22,7 @@ import { track } from '../lib/track';
  *
  * The caller usually knows roughly what the player holds. "Roughly" is what
  * produces a disabled button with no reason, or worse a transaction that
- * reverts on chain with a raw SPL error. This re-reads on open and again
+ * reverts on chain with a raw ERC-20 error. This re-reads on open and again
  * before signing, and when it is short it says by exactly how much.
  */
 export function ConfirmSpend({
@@ -171,7 +171,7 @@ export function ConfirmSpend({
         </div>
 
         <p className="fine" style={{ color: 'var(--dim)', margin: 0 }}>
-          A real SPL transfer to the treasury. Nothing is signed until
+          A real ERC-20 transfer to the treasury. Nothing is signed until
           you press the button above.
         </p>
       </div>

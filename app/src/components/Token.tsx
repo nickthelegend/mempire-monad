@@ -1,7 +1,7 @@
 /**
  * A Crown — the game's soft currency.
 
- * Deliberately NOT $MEMPIRE. That is a real SPL token with a real pool, and
+ * Deliberately NOT $MEMPIRE. That is a real ERC-20 token, and
  * a currency the game *spends* has to be stable: if the traded price ran up
  * 50x, a chest skip would cost forty dollars and nobody would spend it; if it
  * went to zero the economy would be denominated in nothing. Either way the
@@ -16,7 +16,7 @@
  * Android — so the game's own currency looked like a different currency
  * depending on who was looking at it. And it was a *generic* premium currency,
  * the one every free-to-play game has, when this game has an actual token with
- * an actual mint address and an actual pool behind it.
+ * an actual token contract behind it.
  *
  * Drawn as an SVG so it is one shape everywhere, scales to any size without
  * going soft, and inherits the crown that the rest of the chrome already uses.

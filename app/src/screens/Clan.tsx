@@ -227,7 +227,7 @@ function Home() {
     const err = await lend(address, id);
     setLocalError(err);
     // The lend reward used to be 5 Crowns mirrored locally. Crowns are gone,
-    // and $MEMPIRE cannot be minted client-side — it is a real SPL balance, so
+    // and $MEMPIRE cannot be minted client-side — it is a real ERC-20 balance, so
     // the only honest way to pay this is a transfer from the treasury. Until
     // the relay does that, lending is thanks and standing, not a payout.
   };

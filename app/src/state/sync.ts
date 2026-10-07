@@ -126,7 +126,7 @@ export function usePlayerSync(): void {
       // Chest slots mid-unlock are real progress and must survive a reload —
       // absolute timestamps, so a timer that was running keeps running — along
       // with the day's shop state. The currency is no longer restored here:
-      // $MEMPIRE is an SPL balance read from the chain, and a saved copy of it
+      // $MEMPIRE is an ERC-20 balance read from the chain, and a saved copy of it
       // would be a second, staler answer to a question the chain settles.
       if (saved.shop?.offers?.length) {
         // a stale day self-heals on the shop's next ensureFresh tick

@@ -17,9 +17,9 @@ import { mempireBalance } from '../chain/spend';
  * after". They did not. They had 120 of a thing that does not exist on chain,
  * next to none of the thing that does — and the one number they watched all
  * game was the fake one. A token economy whose visible balance is play money
- * is not a token economy, it is a scoreboard with a mint address attached.
+ * is not a token economy, it is a scoreboard with a token address attached.
  *
- * So there is one currency now, it is the real SPL token, and this store is
+ * So there is one currency now, it is the real ERC-20 token, and this store is
  * where its balance lives. Read it, do not cache it elsewhere: it is the only
  * copy, and it is always what the chain last said.
  *
