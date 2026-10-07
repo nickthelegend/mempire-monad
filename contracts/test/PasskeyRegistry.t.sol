@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {PasskeyRegistry} from "../src/PasskeyRegistry.sol";
+import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
 
 /// Real P256 signatures (forge's `signP256`) over real WebAuthn-shaped
 /// assertions, verified through the P256VERIFY precompile at `0x0100`.
@@ -121,13 +122,30 @@ contract PasskeyRegistryTest is Test {
         reg.verifySession(address(0xB0B), stepUp, authData, json2, r2, s2);
     }
 
-    function test_precompileGasIsSmall() public {
-        string memory json = _client(reg.challengeFor(alice), "webauthn.get");
-        (bytes32 r, bytes32 s) = _sign(authData, json);
-        vm.prank(alice);
-        uint256 g = gasleft();
-        reg.bind(x, y, authData, json, r, s);
-        // Whole bind (JSON scan + two sha256 + storage) stays far below a Solidity P256 verify (~200k+).
-        assertLt(g - gasleft(), 150_000);
+    function test_thePrecompileIsFarCheaperThanSolidity() public {
+        P256Harness h = new P256Harness();
+        bytes32 digest = keccak256("compare");
+        (bytes32 r, bytes32 s) = vm.signP256(PK, digest);
+        uint256 g0 = gasleft();
+        bool okNative = h.native(digest, r, s, x, y);
+        uint256 nativeGas = g0 - gasleft();
+        g0 = gasleft();
+        bool okSolidity = h.solidity(digest, r, s, x, y);
+        uint256 solidityGas = g0 - gasleft();
+        assertTrue(okNative && okSolidity);
+        emit log_named_uint("P256 via 0x0100 (gas)", nativeGas);
+        emit log_named_uint("P256 in Solidity (gas)", solidityGas);
+        // Monad's precompile is the reason passkey checks on chain are affordable.
+        assertLt(nativeGas * 10, solidityGas);
+    }
+}
+
+contract P256Harness {
+    function native(bytes32 h, bytes32 r, bytes32 s, bytes32 x, bytes32 y) external view returns (bool) {
+        return P256.verifyNative(h, r, s, x, y);
+    }
+
+    function solidity(bytes32 h, bytes32 r, bytes32 s, bytes32 x, bytes32 y) external view returns (bool) {
+        return P256.verifySolidity(h, r, s, x, y);
     }
 }
