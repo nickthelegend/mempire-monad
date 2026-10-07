@@ -26,3 +26,9 @@ lint_on_build = false
 monad_testnet = "https://testnet-rpc.monad.xyz"
 local = "http://127.0.0.1:8611"
 fork = "http://127.0.0.1:8612"
+
+# The EVM with the P256VERIFY precompile at 0x0100 (EIP-7951), as Monad has.
+# The PasskeyRegistry tests run here; under the default (cancun) profile they skip.
+[profile.osaka]
+evm_version = "osaka"
+solc_version = "0.8.30"

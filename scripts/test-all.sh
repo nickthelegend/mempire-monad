@@ -12,6 +12,7 @@ run() { # name, dir, command…
   NAMES+=("$name"); RESULTS+=("$([ $code -eq 0 ] && echo PASS || echo FAIL) · ${tail:-exit $code}")
 }
 run "contracts (forge)"          contracts forge test
+run "passkeys via 0x0100 (osaka)" contracts env FOUNDRY_PROFILE=osaka forge test --match-contract PasskeyRegistry
 run "simulation determinism"     app       npx tsx scripts/sim-test.ts
 run "app typecheck"              app       npx tsc -b
 run "Monad commit states"        app       npx tsx scripts/monad-heads-test.ts
@@ -20,6 +21,7 @@ run "relay: auth"                server    node test-auth.mjs
 run "relay: memstore"            server    node test-memstore.mjs
 run "relay: locker"              server    node test-locker.mjs
 run "relay: replay record"       server    node test-replay.mjs
+run "relay: Monad reserve rule"   server    node test-reserve.mjs
 run "relay: persistence (mongo)" server    node test-persistence.mjs
 run "relay: Kimi AI"             server    node test-ai.mjs
 run "relay: onboarding (chain)"  server    node test-onboard.mjs

@@ -5,6 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {MempireToken} from "../src/MempireToken.sol";
 import {MempireCards} from "../src/MempireCards.sol";
+import {PasskeyRegistry} from "../src/PasskeyRegistry.sol";
 import {MempireArena} from "../src/MempireArena.sol";
 import {MarketMeta} from "../src/MarketMeta.sol";
 import {IPyth} from "../src/interfaces/IPyth.sol";
@@ -44,6 +45,7 @@ contract Deploy is Script {
         MempireCards cards;
         MarketMeta meta;
         MempireArena arena;
+        PasskeyRegistry passkeys;
     }
 
     function run() external virtual {
@@ -99,6 +101,8 @@ contract Deploy is Script {
         d.cards = new MempireCards(e.deployer, d.token, IPyth(e.pyth), e.deployer, MINT_FEE, e.timeScale, e.baseUri);
         d.meta = new MarketMeta(e.deployer, e.forwarder);
         d.arena = new MempireArena(e.deployer, d.cards, e.ausd, d.meta, e.deployer);
+        // Verifies WebAuthn passkey assertions with Monad's P256 precompile (0x0100).
+        d.passkeys = new PasskeyRegistry();
         d.cards.setArena(address(d.arena));
         d.cards.setRelayer(e.relayer);
         d.meta.setPyth(IPyth(e.pyth), d.cards);
@@ -117,6 +121,7 @@ contract Deploy is Script {
         o.serialize("token", address(d.token));
         o.serialize("cards", address(d.cards));
         o.serialize("marketMeta", address(d.meta));
+        o.serialize("passkeyRegistry", address(d.passkeys));
         string memory out = o.serialize("arena", address(d.arena));
         vm.writeJson(out, string.concat(vm.projectRoot(), "/../shared/deployments/", vm.toString(block.chainid), ".json"));
     }

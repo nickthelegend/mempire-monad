@@ -11,6 +11,7 @@ import { useMatch } from '../state/match';
 import { useWallet } from '../state/wallet';
 import { useChain } from '../state/chain';
 import { LiveOnMonad } from '../components/LiveOnMonad';
+import { MonadNetworkPanel } from '../components/MonadNetworkPanel';
 import { fetchStrandedMatches, type ChainMatch } from '../chain/read';
 import { useEscrow } from '../state/escrow';
 
@@ -289,6 +290,8 @@ export function Empire() {
           </section>
 
           <LiveOnMonad />
+
+          <MonadNetworkPanel />
 
           <Leaderboard me={wallet.address} />
 

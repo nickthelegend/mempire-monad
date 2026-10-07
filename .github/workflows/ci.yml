@@ -25,6 +25,9 @@ jobs:
       - name: forge test
         working-directory: contracts
         run: forge test
+      - name: passkeys via the P256 precompile (Osaka EVM, as on Monad)
+        working-directory: contracts
+        run: FOUNDRY_PROFILE=osaka forge test --match-contract PasskeyRegistry
 
   app:
     runs-on: ubuntu-latest
@@ -80,6 +83,8 @@ jobs:
       - run: node test-locker.mjs
       - name: replay record (matchmaker → /api/replay)
         run: node test-replay.mjs
+      - name: Monad reserve balance (10 MON) on relayer drips
+        run: node test-reserve.mjs
       - name: Kimi (against a fake Moonshot server — a test double)
         run: node test-ai.mjs
       - name: persistence across a restart (real MongoDB)
