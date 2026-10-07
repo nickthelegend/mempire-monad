@@ -41,7 +41,7 @@
 import { formatEther, formatUnits, parseEther, parseEventLogs } from 'viem';
 import { requireWallet } from './auth.js';
 import {
-  IS_TEST_CHAIN, abis, archetypeOf, coinById, deployment, normAddress, publicClient, roster,
+  CHAIN_ID, IS_TEST_CHAIN, abis, archetypeOf, coinById, deployment, normAddress, publicClient, roster,
 } from './chain.js';
 import { checkRelayer, relayerAddress, relayerRefusal, sendRelayerTx } from './relayer.js';
 import { recordEvent } from './telemetry.js';
@@ -108,6 +108,30 @@ const AUSD_MAX_ATTEMPTS = 20;
  * AUSD call with margin.
  */
 const GAS_RESERVE = parseEther('0.2');
+
+/*
+ * Monad's reserve balance (MIP-4). Consensus runs on state three blocks old,
+ * so every EOA keeps `user_reserve_balance` = 10 MON: a transaction whose value
+ * spend would leave the sender below min(10 MON, its balance) reverts at
+ * execution — and still pays its gas. The relayer sends MON drips again and
+ * again, so it never gets the one-off "emptying transaction" exception: on a
+ * Monad network it must stay above 10 MON after every drip, or the drip
+ * reverts on chain for the price of the gas. Not enforced by anvil, so this is
+ * applied by chain id and unit-tested as a pure function (test-reserve.mjs).
+ */
+export const MONAD_RESERVE = parseEther('10');
+export const isMonadNetwork = (chainId) => chainId === 10143 || chainId === 143;
+
+/** MON the relayer must hold to onboard one player without breaking a rule. */
+export function relayerNeeds({ chainId, drip, gasReserve = GAS_RESERVE, testChain = true }) {
+  return gasReserve + (testChain ? drip : 0n) + (isMonadNetwork(chainId) ? MONAD_RESERVE : 0n);
+}
+
+/** Whether a drip of `drip` keeps the relayer reserve-safe after paying `gasCost`. */
+export function dripIsReserveSafe({ chainId, balance, drip, gasCost }) {
+  if (!isMonadNetwork(chainId)) return balance >= drip + gasCost;
+  return balance - drip - gasCost >= MONAD_RESERVE;
+}
 
 const short = (e) => String(e?.shortMessage ?? e?.message ?? e).split('\n')[0].slice(0, 200);
 
@@ -261,6 +285,11 @@ export function registerOnboardRoutes(app, db, { ipGate, readGate } = {}) {
     if (!IS_TEST_CHAIN || drip === 0n) return { status: 'unconfigured' };
     const balance = await client.getBalance({ address });
     if (balance >= drip) return { status: 'skipped' };
+    // Checked again at send time: other drips may have run since the route's check.
+    const relayerBalance = await client.getBalance({ address: relayerAddress() });
+    if (!dripIsReserveSafe({ chainId: CHAIN_ID, balance: relayerBalance, drip, gasCost: parseEther('0.01') })) {
+      return { status: 'failed', error: 'the relayer is at Monad’s 10 MON reserve; the drip would revert' };
+    }
     const { hash } = await sendRelayerTx({ to: address, value: drip });
     return { status: 'sent', tx: hash, amount: formatEther(drip) };
   }
@@ -289,7 +318,7 @@ export function registerOnboardRoutes(app, db, { ipGate, readGate } = {}) {
      * operator can act on, with nothing written.
      */
     const funds = await client.getBalance({ address: relayerAddress() }).catch(() => 0n);
-    const needed = GAS_RESERVE + (IS_TEST_CHAIN ? drip : 0n);
+    const needed = relayerNeeds({ chainId: CHAIN_ID, drip, testChain: IS_TEST_CHAIN });
     if (funds < needed) {
       return res.status(503).json({
         error: 'the onboarding relayer is out of MON — nothing was claimed, try again later',
