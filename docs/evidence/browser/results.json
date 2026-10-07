@@ -1,0 +1,86 @@
+{
+  "at": "2026-10-07T05:27:27.495Z",
+  "browser": "Google Chrome (Playwright channel \"chrome\", headless)",
+  "results": [
+    {
+      "id": "D1a",
+      "title": "passkey sign-up (virtual authenticator, PRF) → account + starter deck",
+      "result": "PASS",
+      "evidence": "address 0x19C0C366FcFE663f17B4E894a08f521d9B6012c6, 8 cards on chain, session chip \"passkey · 30m\"",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "D1b",
+      "title": "stateless test: storage cleared, same passkey → same account",
+      "result": "PASS",
+      "evidence": "before 0x19C0C366FcFE663f17B4E894a08f521d9B6012c6, after 0x19C0C366FcFE663f17B4E894a08f521d9B6012c6",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "D2",
+      "title": "passkey locker: save, wipe, restore with the same passkey",
+      "result": "PASS",
+      "evidence": "after a storage wipe and passkey sign-in: \"Restored 3 deck(s) saved 10/7/2026, 10:51:13 AM.\"",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C9",
+      "title": "deck screen: 8 owned cards, same after reload (guest)",
+      "result": "PASS",
+      "evidence": "before $BTC,$SOL,$MON,$PEPE,$NVDA,$SHIB,$ETH,$DOGE; after $BTC,$SOL,$MON,$PEPE,$NVDA,$SHIB,$ETH,$DOGE",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C11",
+      "title": "staked $1 AUSD ranked match: escrow, on-chain plays, settlement",
+      "result": "PASS",
+      "evidence": "match #6 state 3 winner 0 plays 25+17; badge \"LOGGED · 25 · 0.0S\"; result reads in $: true",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C13",
+      "title": "leaderboard credits the chain-verified AUSD win; Empire shows it in $",
+      "result": "PASS",
+      "evidence": "winner row netAusd 0.8; Empire history \"pot $2 · 90 commits\"",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C15",
+      "title": "found a clan: charter paid on chain, persists across reload",
+      "result": "PASS",
+      "evidence": "\"Judges 9608\" on screen after reload: true; relay /api/clans/mine → {\"tag\":\"GP247R\",\"name\":\"Judges 9608\",\"description\":\"a new empire rises\",\"crest\":",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C16",
+      "title": "375×812: no horizontal overflow on any screen",
+      "result": "PASS",
+      "evidence": "arena: overflow 0px; cards: overflow 0px; deck: overflow 0px; clan: overflow 0px; empire: overflow 0px",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C17",
+      "title": "accessibility basics: every visible control named, images have alt",
+      "result": "PASS",
+      "evidence": "arena: unnamed 0, img-no-alt 0, <32px buttons 0; cards: unnamed 0, img-no-alt 0, <32px buttons 0; deck: unnamed 0, img-no-alt 0, <32px buttons 0; clan: unnamed 0, img-no-alt 0, <32px buttons 0; empire: unnamed 0, img-no-alt 0, <32px buttons 0",
+      "clean": true,
+      "noise": []
+    },
+    {
+      "id": "C18",
+      "title": "relay down: no crash, no invented data, recovers",
+      "result": "PASS",
+      "evidence": "relay stopped: page rendered without a crash (608 chars, no NaN/undefined); leaderboard hidden: false; relay back: true",
+      "clean": true,
+      "noise": []
+    }
+  ]
+}

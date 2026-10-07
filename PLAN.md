@@ -54,8 +54,8 @@ Judging weights:
 | 2.3 | Indexer on the fork stack | Envio local config points at the fork; verify-local is green | `pnpm verify:local` | DONE: seed-local + verify-local 52/52 on the fork |
 | 2.4 | Tests never touch the dev chain | Chain suites run on a throwaway fork (:8613, chain 31338) and tear it down | test-all | DONE: onboarding 36, settlement 12, Privy 21, e2e 25 |
 | 3.1 | Write the zero-mock test plan | Every screen, endpoint, contract call, integration and edge case, with expected results | file exists | DONE: docs/TEST-PLAN-ZERO-MOCK.md |
-| 3.2 | Execute the plan in Chrome | Every item PASS / FAIL / UNTESTED (with reason); console and network clean | the plan file | IN PROGRESS: A1–A11 and B1–B6 PASS; C1–C8, C10–C12, C14 PASS in Chrome (11 defects found and fixed); C9, C13 re-run, C15–C18 remaining |
-| 4.1 | Quality gate | test-all green; slither triaged; secret scan clean; 375px pass | logs | DONE: test-all green; slither triaged (1 fix); secret scan clean; lint 0 errors. 375px pending (C16) |
+| 3.2 | Execute the plan in Chrome | Every item PASS / FAIL / UNTESTED (with reason); console and network clean | the plan file | DONE: 44 items. 37 PASS, 0 FAIL, 4 UNTESTED (Privy, Kimi and CRE keys; Pyth Hermes), 3 awaiting testnet go. 18 defects found and fixed. |
+| 4.1 | Quality gate | test-all green; slither triaged; secret scan clean; 375px pass | logs | DONE: test-all green; slither triaged (1 fix); secret scan clean; lint 0 errors; 375px 0 px overflow on every screen; a11y basics clean |
 | 5.1 | README | One-command demo, what is new in the window vs pre-existing work, AI disclosure, why Monad, diagram, sponsors | review | DONE |
 | 5.2 | SUBMISSION.md | Per-bounty portal fields, evidence, 3-minute demo script with timestamps | review | DONE (testnet TODOs await the go) |
 | 5.3 | docs/DEPLOY-LATER.md | Ordered runbook to live in under 1 hour: funding amounts, keys and where to set them, deploy, verify, host, smoke test, shot list | review | DONE: docs/DEPLOY-LATER.md |
@@ -96,4 +96,14 @@ Ship (4): README; SUBMISSION; DEPLOY-LATER; testnet live + video
 
 **Initial ≈ 62%.**
 
-**Final:** (updated at the end)
+**Final (7 Oct): 28 of 32 items are real and verified.**
+- **Features 8/8.** Passkey accounts are verified in real Chrome with a PRF virtual authenticator (sign-up, stateless sign-in). Guest, onboarding, mint, chests, merge (chain e2e), the staked match and the locker all pass.
+- **Flows 6/6.** First five minutes; practice; a staked PvP win (25 + 17 plays on chain, settled, credited); void and dispute (forge and the indexer seed); timeout refund (e2e); the locker restored after a storage wipe with the same passkey.
+- **Data 3/3.** Live OKX/CoinGecko prices signed into the oracle; MongoDB that survives restarts, one database per deployment; the Envio indexer, with `verify-local` 52/52 on two chains.
+- **Integrations 4/7.**
+  - Real: Mera ×2, Envio, and Pyth model + AUSD (a signed local oracle and Agora's real AUSD and faucet).
+  - **Not yet live:** Privy (keys), Kimi (`MOONSHOT_API_KEY`), CRE (`cre login`). Each shows an honest "not configured" state.
+- **Quality 4/4.** 14 suites green; the zero-mock browser pass; the secret scan; 375px.
+- **Ship 3/4.** README, SUBMISSION and DEPLOY-LATER are done. The testnet deploy and video await the go.
+
+**Final ≈ 88% (28/32), up from ≈ 62% (20/32).** The four missing items need only the user: three sponsor keys or logins, and the testnet go.

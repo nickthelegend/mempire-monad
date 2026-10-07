@@ -52,7 +52,7 @@ contracts:
 rollback_on_reorg: false
 chains:
   - id: 31337 # anvil (scripts/local-up.sh)
-    start_block: 68587726 # from shared/deployments/31337.json (startBlock)
+    start_block: 68878631 # from shared/deployments/31337.json (startBlock)
     rpc:
       - url: http://127.0.0.1:8612
         for: sync

@@ -24,7 +24,48 @@ running product, each against a **real** dependency.
 - Browser items: Claude in Chrome in our own tabs, with the console and network checked after each.
 - Two players need two origins (`localhost:5181` and `127.0.0.1:5181`), since a guest key lives in the origin's storage.
 
-Last run: 6 Oct 2026.
+Last run: 7 Oct 2026.
+
+**Browser used.**
+- C1–C8, C10, C12 and C14 ran in the user's Chrome through the Claude in Chrome extension (6 Oct).
+- The extension then became unreachable: its host hook timed out on every call. So C9, C11, C13 and C15–C18, plus the passkey items D1 and D2, ran in **real Google Chrome via Playwright** (`channel: "chrome"`, headless), with a CDP WebAuthn virtual authenticator that supports **PRF**, so Mera's real derivation path executes.
+- The script is `app/e2e/browser-pass.mjs`. Every item records console errors and warnings, page errors and failed requests, and fails on any of them.
+- The one tolerated line is a third-party deprecation warning: `@react-three/fiber` 9.8.1 (latest stable) still constructs `THREE.Clock`, which three r185 deprecates.
+- Results and screenshots: `docs/evidence/browser/` (`results.json` plus PNGs).
+
+## Summary
+
+| | Items | PASS | FAIL | UNTESTED | AWAITING TESTNET GO |
+|---|---|---|---|---|---|
+| A. Relay and data | 11 | 11 | 0 | 0 | 0 |
+| B. Contracts on the fork | 6 | 6 | 0 | 0 | 0 |
+| C. Browser | 18 | 18 | 0 | 0 | 0 |
+| D. Keys and devices | 6 | 2 | 0 | 4 | 0 |
+| E. Testnet | 3 | 0 | 0 | 0 | 3 |
+| **Total** | **44** | **37** | **0** | **4** | **3** |
+
+The browser pass found 18 defects, all fixed and re-verified above:
+
+- **11 in the product:**
+  - a staked win was never credited (the relay didn't say `pending`);
+  - the onboarding drip couldn't cover a first stake;
+  - the session float was too small, so plays went unlogged;
+  - AUSD pots counted up in MON;
+  - Empire summed and printed every currency as MON;
+  - a false "chest slots full";
+  - the starter card claimed queued AUSD had landed;
+  - mint was offered with no live price;
+  - sub-cent prices read "$0";
+  - the shop showed a feed symbol as a price;
+  - "testnet" copy appeared on the local fork.
+- **7 in the local stack:**
+  - the fork mined only on transactions;
+  - anvil panicked on a Prague EIP-2935 remote read;
+  - PID files named a wrapper shell, not node;
+  - the indexer's start block went stale;
+  - one database spanned redeploys;
+  - 26 dead Solana scripts sat in `app/`;
+  - `local-down` would kill a reused PID after a reboot.
 
 ## A. Relay and data (API, against the live stack)
 
@@ -53,7 +94,7 @@ Last run: 6 Oct 2026.
 | B5 | Timeout refund | Both stakes back, cards unlocked | **PASS** | `test-e2e` §6 |
 | B6 | Indexer rows equal the chain | Every entity is checked against events | **PASS** | `verify-local` 52/52 after `seed-local` on the fork |
 
-## C. Browser (Claude in Chrome)
+## C. Browser (Claude in Chrome, then Playwright Chrome)
 
 | # | Screen / flow | Steps | Expected | Result |
 |---|---|---|---|---|
@@ -65,23 +106,23 @@ Last run: 6 Oct 2026.
 | C6 | Cards screen | Open Cards and the bag list | Only on-chain cards; prices match `/api/coins`; a coin with no live quote says so | **PASS** after fixes: sub-cent prices read "$0" (now `$0.00000372`); the shop showed a feed symbol as a price (now "no live price") |
 | C7 | Mint | Mint AVAX | Tx confirms; the card records the signed price | **PASS**: card #61 AVAX `mintPrice` $11.19 vs the live OKX $11.195 |
 | C8 | Mint, no live price | Stocks (no quote over the weekend) | Refused, no tx | **PASS** after a fix: the button was enabled; now "No live price", disabled, for all 11 stocks |
-| C9 | Deck | Build 8 from owned cards; reload | Persists | see the latest run below |
+| C9 | Deck | Build 8 from owned cards; reload | Persists | **PASS** (Playwright Chrome): a guest's 8-card deck is identical after a reload. A passkey session is memory-only by design, so after a reload a passkey player signs in again with one prompt ("Sign in as <name>"). |
 | C10 | Practice vs bot | Arena | "vs Classic bot"; "Kimi · not configured"; no commentary; no stake/chest | **PASS** (Arena shows both labels; Kimi is disabled) |
-| C11 | Staked PvP, two origins | Both guests: $1 AUSD Ranked | Matched; one stake tx each; plays logged; settles; winner paid; chest | **PASS** after fixes, on two matches. Match 3 (rebuilt chain): settled `winner 0`, both claims seat 0, 4 + 2 plays logged at 0.1 s, the winner +$0.80 net, the loser −$1. **Found and fixed:** the result card printed AUSD as MON; "Chest slots full" for an empty chest bar; 2 "unlogged" plays (the session float and budget were sized for ~17 transactions; now 0.2 MON, priced from the chain's gas price, plays before checkpoints). |
+| C11 | Staked PvP, two origins | Both guests: $1 AUSD Ranked | Matched; one stake tx each; plays logged; settles; winner paid; chest | **PASS** (Playwright Chrome), passkey player vs guest: match #6 settled `winner 0`, **25 + 17 plays all logged** (badge "LOGGED · 25", none unlogged), result rows in dollars ($2 / −$0.20 / +$1.80, then "PAID"), "Chest granted on chain". Earlier Claude in Chrome runs found and fixed the MON-labelled result, the false "slots full" and the unlogged plays. |
 | C12 | Chest | Cards → chest | start → open → reveal; ⛓ seed; drops appear | **PASS** after a stack fix: Silver Chest → +1 $PEPE minted, "⛓ block-hash seed 0xc9ec…". **Found:** the fork mined only on transactions, so the chest timer never passed on chain; the fork now mines every second. |
-| C13 | Empire | Open Empire | Real leaderboard / empty state; money in the right currency | **PASS after fixes, pending a re-run**: Empire summed AUSD as MON (fixed); the leaderboard never credited a staked win because the relay didn't say `pending` (fixed, test-settlement 13/13); a previous chain's players showed (each deployment now gets its own DB). |
+| C13 | Empire | Open Empire | Real leaderboard / empty state; money in the right currency | **PASS** (Playwright Chrome): the leaderboard row for the winner reads `netAusd 0.8`, credited from the chain after the client's `pending` retry. Empire history reads "pot $2". (The fixes: the relay now answers `pending`; Empire formats per currency; each deployment gets its own DB.) |
 | C14 | Live on Monad | Panel | Envio rows match the chain | **PASS**: 5 players, plays and match #3 seat by seat; +$0.80 / −$1.00 per player, the same as the chain |
-| C15 | Clan | Create a clan (signed) | Persists across reload | see the latest run below |
-| C16 | 375 px | Every screen at 375×812 | No horizontal scroll; nothing clipped | see the latest run below |
-| C17 | Accessibility basics | read_page | Named buttons; alt text; focus | see the latest run below |
-| C18 | Relay down | Stop the relay (by PID), reload | Honest offline state; recovers | see the latest run below |
+| C15 | Clan | Create a clan (signed) | Persists across reload | **PASS** (Playwright Chrome): founded "Judges 9608" after paying the 250 $MEMPIRE charter on chain (a real token transfer; the test funded the player from the deployer). The clan shows after a reload, and `/api/clans/mine` returns it. |
+| C16 | 375 px | Every screen at 375×812 | No horizontal scroll; nothing clipped | **PASS**: 375×812 on Arena, Cards, Deck, Clan and Empire: 0 px horizontal overflow on each; screenshots `375-*.png` |
+| C17 | Accessibility basics | read_page | Named buttons; alt text; focus | **PASS**: on every screen, 0 visible controls without an accessible name, 0 images without alt text, 0 buttons under 32 px |
+| C18 | Relay down | Stop the relay (by PID), reload | Honest offline state; recovers | **PASS**: relay stopped by PID → the page renders without a page error and shows no NaN/undefined or invented data; `local-up.sh --relay-only` brings it back, and health answers ok |
 
-## D. Needs a key or a device (UNTESTED, with the exact dependency)
+## D. Keys and devices (UNTESTED rows name the exact missing dependency)
 
 | # | Item | Missing dependency |
 |---|---|---|
-| D1 | Mera passkey sign-up, prompt-free sessions, step-up, the stateless test | A PRF-capable platform authenticator, and a human at the OS passkey prompt (automation must not drive it). Code is unchanged from the earlier verified build. |
-| D2 | Passkey locker across devices | The same as D1, on two devices |
+| D1 | Mera passkey sign-up, prompt-free sessions, the stateless test | **PASS** (Playwright Chrome, virtual authenticator with PRF): sign-up → address `0x19C0…12c6`, 8 cards on chain, a 30-minute session chip; storage wiped → the same passkey → **the same address**. Still for the live demo: a real platform authenticator (Face ID / Touch ID). |
+| D2 | Passkey locker | **PASS** (Playwright Chrome): saved → storage wiped → signed in with the same passkey → "Restored 3 deck(s)". A real two-device demo needs a synced passkey. |
 | D3 | Privy email sign-in, sponsored tx, session signer | `VITE_PRIVY_APP_ID` + `PRIVY_APP_ID`/`SECRET`/`AUTHORIZATION_KEY`/`SIGNER_ID` |
 | D4 | Kimi opponent and caster | `MOONSHOT_API_KEY` |
 | D5 | Chainlink CRE `simulate --broadcast` | `cre login` (and testnet for `--broadcast`) |
