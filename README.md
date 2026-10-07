@@ -159,7 +159,7 @@ git clone --recurse-submodules https://github.com/nickthelegend/mempire-monad &&
 - the **relay** on :8799, with its meta keeper posting live momentum every window;
 - the **app** on :5181.
 
-It needs Foundry, Node 22+, `jq` and `mongod`. The indexer is optional: `cd indexer && pnpm i && ./scripts/local-indexer.sh up` (Docker), then rerun `local-up.sh` so the app picks it up.
+It needs Foundry, Node 24+ (npm 11), `jq` and `mongod`. The indexer is optional: `cd indexer && pnpm i && ./scripts/local-indexer.sh up` (Docker), then rerun `local-up.sh` so the app picks it up.
 
 Without keys, the sponsor features that need them say so instead of pretending:
 - email sign-in (Privy) is not offered;
