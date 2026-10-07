@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { LeagueBadge, TrophyDelta } from '../components/LeagueBadge';
 import { EscrowBadge } from '../components/EscrowBadge';
 import { MonadLogBadge } from '../components/MonadLogBadge';
+import { PlayTicker } from '../components/PlayTicker';
 import { Commentary, OpponentBrainBadge } from '../components/Commentary';
 import { CardArtWell } from '../components/CardFrame';
 import { ArchetypeIcon, MoneyRow, Pill } from '../components/ui';
@@ -46,6 +47,7 @@ function ResultOverlay() {
   const { result, stakeSol, currency, dismiss, practice, soloVsBot } = useMatch();
   const fmtMon = (n: number) => fmtStake(n, currency);
   const escrowPhase = useEscrow((s) => s.phase);
+  const escrowMatchId = useEscrow((s) => s.matchId);
   const chainChests = useChain((s) => s.chests);
   const nav = useNavigate();
   if (!result) return null;
@@ -214,6 +216,16 @@ function ResultOverlay() {
       <p className="fine" style={{ fontSize: 12 }}>
         {result.hashes} state hashes committed · settled by final-state signature
       </p>
+      {escrowPhase === 'settled' && escrowMatchId !== null && (
+        // Only navigate: the Replay screen dismisses the finished match once it
+        // has mounted. Dismissing here would clear the result while the lazy
+        // Replay chunk loads (navigations are transitions, so this screen stays
+        // mounted meanwhile) and this screen's no-result guard would redirect
+        // to the Arena first.
+        <Pill ghost onClick={() => nav(`/replay/${escrowMatchId}`)}>
+          ▶ Replay from the chain
+        </Pill>
+      )}
       <Pill onClick={() => { dismiss(); nav('/'); }}>Return to Arena</Pill>
     </div>
   );
@@ -553,7 +565,7 @@ export function Battle() {
         </div>
         {/* Which layer this match is running on, and where its money is. Both
             belong next to the pot, because both are claims about what is real —
-            and "0.1 SOL" printed above a match that escrowed nothing is exactly
+            and a pot printed above a match that escrowed nothing is exactly
             the claim this pair exists to keep honest. */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
           <MonadLogBadge />
@@ -561,6 +573,7 @@ export function Battle() {
           {/* Who holds the other seat: the classic bot or Kimi. */}
           {match.mode === 'bot' && <OpponentBrainBadge />}
         </div>
+        <PlayTicker />
         {/* A third row, not an absolute overlay — it was landing on top of the
             crown score for the entire double-elixir phase and all of overtime. */}
         {doubleElixir && sim.phase !== 'ended' && (
