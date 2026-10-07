@@ -48,6 +48,6 @@
     "esbuild@0.28.2": true
   },
   "overrides": {
-    "typescript": "$typescript"
+    "typescript": "~6.0.2"
   }
 }
