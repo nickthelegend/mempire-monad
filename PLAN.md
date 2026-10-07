@@ -53,12 +53,12 @@ Judging weights:
 | 2.2 | Real persisted DB | The relay runs on MongoDB (own mongod, own dbpath); data survives a relay restart | restart test | DONE: test-persistence 5/5 (restart on real MongoDB) |
 | 2.3 | Indexer on the fork stack | Envio local config points at the fork; verify-local is green | `pnpm verify:local` | DONE: seed-local + verify-local 52/52 on the fork |
 | 2.4 | Tests never touch the dev chain | Chain suites run on a throwaway fork (:8613, chain 31338) and tear it down | test-all | DONE: onboarding 36, settlement 12, Privy 21, e2e 25 |
-| 3.1 | Write the zero-mock test plan | Every screen, endpoint, contract call, integration and edge case, with expected results | file exists | NOT STARTED |
-| 3.2 | Execute the plan in Chrome | Every item PASS / FAIL / UNTESTED (with reason); console and network clean | the plan file | NOT STARTED |
-| 4.1 | Quality gate | test-all green; slither triaged; secret scan clean; 375px pass | logs | NOT STARTED |
-| 5.1 | README | One-command demo, what is new in the window vs pre-existing work, AI disclosure, why Monad, diagram, sponsors | review | NOT STARTED |
-| 5.2 | SUBMISSION.md | Per-bounty portal fields, evidence, 3-minute demo script with timestamps | review | NOT STARTED |
-| 5.3 | docs/DEPLOY-LATER.md | Ordered runbook to live in under 1 hour: funding amounts, keys and where to set them, deploy, verify, host, smoke test, shot list | review | NOT STARTED |
+| 3.1 | Write the zero-mock test plan | Every screen, endpoint, contract call, integration and edge case, with expected results | file exists | DONE: docs/TEST-PLAN-ZERO-MOCK.md |
+| 3.2 | Execute the plan in Chrome | Every item PASS / FAIL / UNTESTED (with reason); console and network clean | the plan file | IN PROGRESS: A1–A11 and B1–B6 PASS; C1–C8, C10–C12, C14 PASS in Chrome (11 defects found and fixed); C9, C13 re-run, C15–C18 remaining |
+| 4.1 | Quality gate | test-all green; slither triaged; secret scan clean; 375px pass | logs | DONE: test-all green; slither triaged (1 fix); secret scan clean; lint 0 errors. 375px pending (C16) |
+| 5.1 | README | One-command demo, what is new in the window vs pre-existing work, AI disclosure, why Monad, diagram, sponsors | review | DONE |
+| 5.2 | SUBMISSION.md | Per-bounty portal fields, evidence, 3-minute demo script with timestamps | review | DONE (testnet TODOs await the go) |
+| 5.3 | docs/DEPLOY-LATER.md | Ordered runbook to live in under 1 hour: funding amounts, keys and where to set them, deploy, verify, host, smoke test, shot list | review | DONE: docs/DEPLOY-LATER.md |
 | 6.x | Testnet deploy, hosting, live video | Awaiting the user's go and MON funding | — | BLOCKED |
 
 ## Gaps (from the code, 6 Oct)
