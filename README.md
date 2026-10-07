@@ -1,5 +1,7 @@
 # Mempire on Monad
 
+[![ci](https://github.com/nickthelegend/mempire-monad/actions/workflows/ci.yml/badge.svg)](https://github.com/nickthelegend/mempire-monad/actions/workflows/ci.yml)
+
 **A real-time 1v1 card battler where the market is the meta.** Every fighter is a real asset — majors, memecoins and tokenised stocks. Today's price moves buff or nerf each one a little. Two players put up a dollar stake, play a three-minute lane battle, and a contract on Monad pays the winner, in the same block both results land.
 
 Sign in with a passkey: no seed phrase, no extension, no wallet popups during a match.
@@ -72,7 +74,7 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
 
 ### Deployed addresses (Monad testnet, chain 10143)
 
-`TODO after deploy`. Also in [`shared/deployments/10143.json`](shared/deployments/10143.json). All contracts are verified on Sourcify (MonadVision).
+`TODO after deploy`. The deploy script writes them to `shared/deployments/10143.json` and verifies every contract on Sourcify (MonadVision).
 
 | | Address |
 |---|---|
