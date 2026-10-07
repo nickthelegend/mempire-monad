@@ -35,6 +35,17 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
 | **Settlement in one block** | The second claim pays the pot in the same transaction. |
 | **EVM** | Cards are ERC-721s that show up in any wallet or explorer. AUSD is a standard ERC-20 with permit. |
 
+### Monad-native, and shown in the app
+
+These are the things a generic EVM port wouldn't have; each says where it runs. Full detail is in [docs/MONAD-NATIVE.md](docs/MONAD-NATIVE.md).
+
+- **Live block pipeline** (live testnet read). The first screen shows Monad testnet's latest blocks moving Proposed → Voted → Finalized → Verified, from `monadNewHeads`, with the ms measured in your browser (~290 ms voted, ~575 ms final).
+- **Your moves, landing.** Every card you drop shows in the battle HUD as its transaction travels: sent → executed (ms) → final. On Monad that's `eth_sendRawTransactionSync` plus a finality check against the finalized block hash. The local fork says "fork" instead of inventing a finality time.
+- **Verifiable replay.** Any staked match re-runs from its on-chain plays, and each recomputed state hash is checked against the checkpoints both seats posted: "✓ Verified against N on-chain checkpoints".
+- **Passkeys checked by the chain.** Mera passkey accounts, plus Monad's P256VERIFY precompile (`0x0100`). `PasskeyRegistry` binds and verifies WebAuthn assertions on chain, and the app has a real passkey signature verified by the precompile, with a tampered copy refused.
+- **Native staking** (live testnet read). Epoch and the block proposer's validator, from the staking precompile (`0x1000`), batched through the canonical Multicall3.
+- **Gas the Monad way.** Explicit limits (Monad charges the limit), simulate-before-send, and onboarding drips that respect the 10 MON reserve balance.
+
 ---
 
 ## Architecture
@@ -60,6 +71,9 @@ No step needs a wallet extension, a faucet visit or a seed phrase.
 ```
 
 ### Contracts (`contracts/`, Foundry, Solidity 0.8.28)
+
+`PasskeyRegistry` (P256 passkeys via `0x0100`) is the fifth contract. Its tests run under the `osaka` profile, the EVM with that precompile.
+
 
 | Contract | What it does |
 |---|---|

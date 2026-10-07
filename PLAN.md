@@ -120,7 +120,7 @@ Judge's-eye review, ranked weaknesses and acceptance criteria: [docs/ROADMAP-WIN
 | W1 | Monad pipeline: live commit-state strip (testnet WSS) + honest two-timer receipts + 300 ms copy | DONE: live strip measured voted ~290 ms / final ~575 ms in Chrome; reducer 13/13; fork labelled; screenshots docs/screens/wave/w1-* |
 | W2 | Moves that land: on-chain state on each deployed unit | DONE: HUD pills per card drop, driven by real receipts ("$SOL 46 ms · fork" in Chrome); docs/screens/wave/w2-* |
 | W3 | Verifiable replay from the chain (checked against on-chain checkpoints) | DONE: "✓ Verified against 3 on-chain checkpoints" for a staked match in Chrome; sim replay test 14/14 incl. tampering; relay record 11/11; docs/screens/wave/w3-* |
-| W4 | Coached first match | TODO |
-| W5 | Leaderboards & clans in one tabbed board | TODO |
-| M  | Monad-native items 4–8 (P256 binding, staking reads, gas/reserve, Multicall3) | TODO |
+| W4 | Coached first match | DONE: steps advance on real sim evidence; Chrome walk 1/4 → done; docs/screens/wave/w4-* |
+| W5 | Leaderboards & clans in one tabbed board | DONE: Trophies / Net $ / Net MON / Clans with real rows in Chrome; docs/screens/wave/w5-* |
+| M  | Monad-native items 4–8 (P256 binding, staking reads, gas/reserve, Multicall3) | DONE: see docs/MONAD-NATIVE.md; x402/MPP not applicable (reason recorded) |
 

@@ -77,11 +77,11 @@ Written 7 Oct after using the local fork build cold, as a judge would: no contex
 | 1 | Live commit-state strip (`monadNewHeads`/`monadLogs`) | **live-read**, built: `app/src/lib/monadHeads.ts`, `components/MonadPipeline.tsx`. Measured in Chrome: voted ~290 ms, final ~575 ms | W1 |
 | 2 | Two-timer receipts (`eth_sendRawTransactionSync` + finalized) | **built** (`chain/landing.ts`, `state/playLog.ts`). Fork shows "local fork · N ms" (instant mining); executed + final timings **awaiting testnet go** | W1 |
 | 3 | Tx status (`txpool_statusByHash`) | **built** (`chain/landing.ts`), active on Monad networks only; **awaiting testnet go** | W1 |
-| 4 | Passkeys on chain (Mera + P256 `0x0100`) | Mera **built**; P256 binding contract **built** + tested on the fork (`0x0100` works on anvil) | after the top 5 |
-| 5 | Native staking reads (`0x1000`) | **live-read**: epoch, proposer and validator panel from testnet | after the top 5 |
-| 6 | Gas correctness (limit-charged, reserve 10 MON, 128 KB, MIP-8) | **built**: estimate ×1.15 tight limits, simulate-before-send, reserve-aware relayer drips, MIP-8 layout notes | after the top 5 |
+| 4 | Passkeys on chain (Mera + P256 `0x0100`) | **built**: `PasskeyRegistry` (9 forge tests, Osaka EVM); the in-app passkey check is a **live-read** of testnet `0x0100` (the local fork is pinned to cancun, which lacks it) | `abfe286` |
+| 5 | Native staking reads (`0x1000`) | **live-read**: epoch, delay period, the proposer's stake and commission, in Empire | `abfe286` |
+| 6 | Gas correctness (limit-charged, reserve 10 MON, 128 KB, MIP-8) | **built**: explicit limits, simulate-before-send, reserve-aware relayer drips (test-reserve 8/8), MIP-8 layout documented in docs/MONAD-NATIVE.md | `abfe286` |
 | 7 | x402 / MPP payments | **not applicable**: Mempire's money is the staked pot, escrowed by the arena in MON or AUSD (EIP-2612 permit). There is no API or content sold per call, and routing stakes through a facilitator would add a custodian. | — |
-| 8 | Canonical contracts (WMON, Multicall3, Permit2, Sourcify) | Multicall3 **built** for batched reads; Sourcify verification **in the deploy script**; WMON **not applicable** (stakes are native MON or AUSD; wrapping adds a step and no capability); Permit2 **not applicable** (AUSD has native EIP-2612) | after the top 5 |
+| 8 | Canonical contracts (WMON, Multicall3, Permit2, Sourcify) | Multicall3 **built** (carries the staking reads); Sourcify verification **in the deploy script**; WMON **not applicable** (stakes are native MON or AUSD; wrapping adds a step and no capability); Permit2 **not applicable** (AUSD has native EIP-2612) | `abfe286` |
 
 (Statuses are updated as each lands; see the commit for each.)
 
@@ -97,5 +97,8 @@ Written 7 Oct after using the local fork build cold, as a judge would: no contex
 
 - **W1** Monad pipeline (live testnet commit states, two-timer receipts, 300 ms copy): `d2bf6a4`
 - **W2** Moves that land (HUD ticker driven by real receipts): `338d42c`
-- **W3** Verifiable replay from the chain: see the commit after `338d42c`
+- **W3** Verifiable replay from the chain: `bfc4355`
+- **W4** Coached first match: `76aeb05`
+- **W5** Leaderboards & clans: `b0337c0`
+- **Monad-native** passkeys via P256 `0x0100`, staking `0x1000` via Multicall3, reserve-aware drips: `abfe286` (two commits)
 

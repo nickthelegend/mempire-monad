@@ -13,7 +13,7 @@
 
 ## One paragraph
 
-Mempire turns the market into a game. Every fighter is a real asset: BTC, MON, NVDA, BONK and 32 more. A Chainlink CRE workflow writes today's price moves on chain as small, bounded buffs and nerfs. Two players put a dollar of AUSD on a three-minute lane battle, every card they drop is a Monad transaction from a per-match session key, and the contract pays the winner in the block where both results land. A new player gets there with one passkey prompt: no seed phrase, no extension, no faucet, no popups during the match.
+Mempire turns the market into a game. Every fighter is a real asset: BTC, MON, NVDA, BONK and 32 more. A Chainlink CRE workflow writes today's price moves on chain as small, bounded buffs and nerfs. Two players put a dollar of AUSD on a three-minute lane battle, every card they drop is a Monad transaction from a per-match session key, and the contract pays the winner in the block where both results land. A new player gets there with one passkey prompt: no seed phrase, no extension, no faucet, no popups during the match. Afterwards, anyone can replay the match from Monad and see it verified against the state hashes both players posted, and the app shows Monad's own block pipeline, live, as it plays.
 
 ## Why this is a consumer payments product
 
@@ -74,7 +74,19 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 
 ## Monad integration
 
-- Every card play is an on-chain transaction from a session key, viable only because of 300 ms blocks (final in ~600 ms) and low gas. The in-match badge shows measured send-to-receipt latency.
+Monad-native, with where each runs (details in [docs/MONAD-NATIVE.md](docs/MONAD-NATIVE.md)):
+
+| Integration | Runs |
+|---|---|
+| Live block pipeline: `monadNewHeads` commit states with measured ms (~290 ms voted, ~575 ms final) | live testnet read |
+| Per-play two-timer receipts: `eth_sendRawTransactionSync` + finality checked against the finalized hash; `txpool_statusByHash` | local fork labelled; testnet timings awaiting the go |
+| Verifiable replay: match re-run from on-chain plays and checked against on-chain state checkpoints | local fork (any chain) |
+| Passkeys: Mera accounts + P256VERIFY `0x0100` (`PasskeyRegistry`, and the in-app check) | live testnet read; contract tested on Osaka |
+| Native staking precompile `0x1000` via Multicall3 | live testnet read |
+| Gas on Monad: explicit limits, simulate-before-send, 10 MON reserve-aware drips | built + unit-tested |
+| x402 / MPP | not applicable: the money is an escrowed pot, not a per-call sale |
+
+- Every card play is an on-chain transaction from a session key, viable only because of 300 ms blocks (final in ~600 ms) and low gas.
 - The second claim settles the pot in the same block.
 - Gas limits are sized from estimates (Monad bills the limit), and the session key's float is swept back after the match.
 - Contracts are verified on Sourcify through MonadVision.
@@ -83,14 +95,15 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 
 | Time | Shot | Say |
 |---|---|---|
-| 0:00–0:15 | Cards screen: live prices, ▲▼ meta badges, the MarketBoard | "Every coin is a fighter, and today's market decides who's strong." |
-| 0:15–0:45 | Fresh browser: **Play now → Create with passkey →** Face ID; the starter kit lands (*Your deck is on chain · 1.2s*); Empire shows 8 cards, AUSD and MON | "One passkey prompt. No seed phrase, no extension, no faucet." |
-| 0:45–1:00 | Arena → **$ AUSD** → Pauper ($1) → Battle in two windows; they match | "A dollar stake, one transaction: the permit and the stake together." |
-| 1:00–1:45 | The match: drop cards; the badge reads *on Monad · 7 · 0.6s*; click it to open the play on MonadVision | "Every card is a Monad transaction from a session key. 300 ms blocks make that playable." |
-| 1:45–2:10 | The result: $1.80 paid, chest granted, +50 $MEMPIRE; open the chest (commit → reveal → real ERC-721s) | "The second claim settles the pot in the same block." |
-| 2:10–2:30 | Card sheet: *+8% hp & dmg today*; then the CRE simulate output and the `MetaPosted` tx | "The market is the meta: Chainlink CRE writes it on chain, bounded at ±15%." |
-| 2:30–2:45 | Clear site data → *I already have a Mera passkey* → same address and cards; the locker opens | "Stateless: the passkey is the account, on any device." |
-| 2:45–3:00 | Live on Monad: the Envio feed, the leaderboard, win rates on buffed days | "Indexed by Envio. That's Mempire." |
+| 0:00–0:15 | The first screen: "Every coin is a fighter", and under it Monad testnet's blocks turning voted → final, live, with ms | "That strip is Monad, live: a block is voted in ~290 ms and final in ~575 ms. Every card you play is one of those transactions." |
+| 0:15–0:40 | **Play now → Create with passkey →** Face ID; the starter deck lands (*Your deck is on chain · 4s*) | "One passkey prompt. No seed phrase, no extension, no faucet." |
+| 0:40–0:55 | First Practice: the coach ("Drop a fighter 1/4 → … → You've got it") | "A coached first match, driven by what you actually do." |
+| 0:55–1:10 | Arena → $1 Ranked in two windows; they match; one transaction each (permit + stake) | "A dollar stake, escrowed by the contract." |
+| 1:10–1:50 | The match: drop cards; each one's pill goes *sent → executed 300 ms → final 600 ms*; the badge counts plays on chain | "Every card is a Monad transaction while the unit walks the lane." |
+| 1:50–2:10 | The result: $1.80 paid, chest granted; **▶ Replay from the chain** | "The second claim pays the pot in the same block." |
+| 2:10–2:30 | The replay: **✓ Verified against N on-chain checkpoints**, playing back in the arena | "This is the match, rebuilt from Monad and checked against the state hashes both players posted." |
+| 2:30–2:45 | Empire: Monad network panel (staking epoch, proposer); **Verify a passkey on Monad** → ✓ by `0x0100` | "Monad's precompiles: native staking, and passkeys verified by the chain." |
+| 2:45–3:00 | Leaderboards (Trophies / Net $ / Clans), the Envio feed, the card meta line from CRE | "Indexed by Envio, meta by Chainlink CRE. That's Mempire." |
 
 ## Verifiable evidence
 
