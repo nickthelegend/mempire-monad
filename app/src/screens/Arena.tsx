@@ -1,6 +1,7 @@
 import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
 import { STAKE_MON_NEEDED } from '../chain/session';
 import { MonadPipeline } from '../components/MonadPipeline';
+import { resetCoach } from '../components/Coach';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CardFrame } from '../components/CardFrame';
@@ -268,7 +269,7 @@ function TopHud({ onReplayTutorial }: { onReplayTutorial: () => void }) {
               Copy address
             </button>
             <button
-              onClick={() => { resetTutorial(); setOpen(false); onReplayTutorial(); }}
+              onClick={() => { resetTutorial(); resetCoach(); setOpen(false); onReplayTutorial(); }}
               className="menu-item"
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 10px', borderRadius: 8, fontSize: 13, minHeight: 44, fontWeight: 700, color: 'var(--dim-on-wood)' }}
             >

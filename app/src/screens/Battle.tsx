@@ -4,6 +4,7 @@ import { LeagueBadge, TrophyDelta } from '../components/LeagueBadge';
 import { EscrowBadge } from '../components/EscrowBadge';
 import { MonadLogBadge } from '../components/MonadLogBadge';
 import { PlayTicker } from '../components/PlayTicker';
+import { Coach } from '../components/Coach';
 import { Commentary, OpponentBrainBadge } from '../components/Commentary';
 import { CardArtWell } from '../components/CardFrame';
 import { ArchetypeIcon, MoneyRow, Pill } from '../components/ui';
@@ -513,6 +514,7 @@ export function Battle() {
 
   return (
     <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
+      <Coach />
       {/* top bar */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
