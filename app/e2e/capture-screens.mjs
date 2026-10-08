@@ -127,7 +127,7 @@ try {
   await sleep(1500);
 
   // 8. Merge a duplicate if the chest produced one.
-  const merge = A.getByRole('button', { name: /Merge · Lv/ }).first();
+  const merge = A.getByRole('button', { name: /Merge a duplicate into/ }).first();
   if (await merge.isVisible().catch(() => false)) {
     await merge.scrollIntoViewIfNeeded();
     await capture(A, 8, 'merge', 'Merge — a duplicate burns into a level');

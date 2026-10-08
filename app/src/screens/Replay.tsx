@@ -8,6 +8,7 @@ import { TICKS_PER_SEC, type SimState } from '../sim/types';
 import { useMatch } from '../state/match';
 import { shortAddr } from '../lib/format';
 import { BattleScene } from '../three/BattleScene';
+import { vfx } from '../three/vfx';
 
 /*
  * A staked match, re-run from Monad.
@@ -41,6 +42,9 @@ export function Replay() {
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1);
   const [tick, setTick] = useState(0);
   const simRef = useRef<SimState | null>(null);
+  // Fractional ticks owed: slow motion (a tower falling) steps the replay at a
+  // fraction of the speed, so playback carries the remainder between intervals.
+  const owed = useRef(0);
 
   useEffect(() => {
     let live = true;
@@ -79,7 +83,10 @@ export function Replay() {
     const iv = setInterval(() => {
       const sim = simRef.current;
       if (!sim) return;
-      for (let i = 0; i < speed; i += 1) {
+      owed.current += speed * vfx.timeScale;
+      const steps = Math.floor(owed.current);
+      owed.current -= steps;
+      for (let i = 0; i < steps; i += 1) {
         if (sim.phase === 'ended') { setPlaying(false); break; }
         replayStep(sim, byTick);
       }
@@ -150,7 +157,9 @@ export function Replay() {
             <span className="display display--sm" style={{ fontSize: 18 }} aria-label={`Crowns: seat 0 ${crowns[0]}, seat 1 ${crowns[1]}`}>
               ♛ {crowns[0]} – {crowns[1]}
             </span>
-            <span className="mono" style={{ fontSize: 14 }} aria-label="Match clock">{clock(tick)}</span>
+            <span className="mono" style={{ fontSize: 14 }} aria-label="Match clock">
+              {clock(tick)}{vfx.timeScale < 1 && <span className="label" style={{ marginLeft: 6, fontSize: 11, color: 'var(--gold)' }}>slow-mo</span>}
+            </span>
             <span style={{ display: 'flex', gap: 6 }}>
               <Pill ghost onClick={() => setPlaying((p) => !p)} style={{ minHeight: 40, padding: '6px 14px', fontSize: 14 }}>{playing ? 'Pause' : 'Play'}</Pill>
               {SPEEDS.map((sp) => (
