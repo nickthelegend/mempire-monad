@@ -28,6 +28,8 @@ export interface ReplayBundle extends ReplayInput {
   settled: boolean;
   checks: { deckIds: boolean; archetypes: boolean; power: boolean; detail: string[] };
   blocks: [number, number];
+  /** Wall-clock ms both seats counted down to (tick 0), for live spectating. */
+  startAt: number | null;
 }
 
 interface MatchView {
@@ -45,6 +47,13 @@ async function blockAtOrAfter(ts: number, lo: number, hi: number): Promise<numbe
 }
 
 /** Every arena log for one match id, in block order, scanning in RPC-sized windows. */
+type ArenaLog = Log & { eventName: string; args: Record<string, unknown> };
+const toInput = (l: ArenaLog): InputEvent => ({
+  tick: Number(l.args.tick), player: Number(l.args.seat) as 0 | 1, deckIndex: Number(l.args.cardIndex),
+  x: Number(l.args.x), y: Number(l.args.y),
+});
+const toCheckpoint = (l: ArenaLog): Checkpoint => ({ tick: Number(l.args.tick), seat: Number(l.args.seat), hash: BigInt(l.args.stateHash as bigint) });
+
 async function matchLogs(matchId: number, from: number, until: (logs: { eventName: string }[]) => boolean): Promise<{ logs: (Log & { eventName: string; args: Record<string, unknown> })[]; to: number }> {
   const client = publicClient();
   const latest = Number(await client.getBlockNumber());
@@ -78,7 +87,7 @@ export async function loadReplay(matchId: number): Promise<ReplayBundle> {
 
   const res = await apiFetch(`/api/replay/${matchId}`);
   if (!res?.ok) throw new Error(res?.status === 404 ? 'the relay has no replay record for this match (it predates replays, or was not a relayed staked match)' : 'the relay is unreachable');
-  const rec = await res.json() as { seed: number; format: 'standard' | 'rush'; decks: [MatchCard[] | null, MatchCard[] | null] };
+  const rec = await res.json() as { seed: number; format: 'standard' | 'rush'; startAt: number | null; decks: [MatchCard[] | null, MatchCard[] | null] };
   if (!rec.decks?.[0] || !rec.decks?.[1]) throw new Error('the replay record is missing a deck');
 
   const m = await client.readContract({ address: DEPLOYMENT.arena, abi: ARENA_ABI, functionName: 'getMatch', args: [BigInt(matchId)] }) as unknown as MatchView;
@@ -113,18 +122,28 @@ export async function loadReplay(matchId: number): Promise<ReplayBundle> {
   const bps = await modifiersAt(epoch).catch(() => new Map<number, number>());
   const decks: [MatchCard[], MatchCard[]] = [withMeta(rec.decks[0]!, bps), withMeta(rec.decks[1]!, bps)];
 
-  const inputs: InputEvent[] = logs.filter((l) => l.eventName === 'Played').map((l) => ({
-    tick: Number(l.args.tick), player: Number(l.args.seat) as 0 | 1, deckIndex: Number(l.args.cardIndex),
-    x: Number(l.args.x), y: Number(l.args.y),
-  }));
-  const checkpoints: Checkpoint[] = logs.filter((l) => l.eventName === 'Checkpoint').map((l) => ({
-    tick: Number(l.args.tick), seat: Number(l.args.seat), hash: BigInt(l.args.stateHash as bigint),
-  }));
+  const inputs: InputEvent[] = logs.filter((l) => l.eventName === 'Played').map(toInput);
+  const checkpoints: Checkpoint[] = logs.filter((l) => l.eventName === 'Checkpoint').map(toCheckpoint);
 
   return {
     matchId, seed: rec.seed, format: rec.format, decks, inputs, checkpoints,
     seats: [m.p0, m.p1], metaEpoch: epoch, chainWinner: Number(m.winner), settled: Number(m.state) === 3,
     checks: { deckIds, archetypes, power, detail },
     blocks: [start, to],
+    startAt: rec.startAt ?? null,
+  };
+}
+
+/**
+ * For a match still being played: the plays and checkpoints that have landed
+ * since `bundle` was read, from the block after the last one scanned.
+ */
+export async function pollReplay(bundle: ReplayBundle): Promise<{ inputs: InputEvent[]; checkpoints: Checkpoint[]; settled: boolean; to: number }> {
+  const { logs, to } = await matchLogs(bundle.matchId, bundle.blocks[1] + 1, () => false);
+  return {
+    inputs: logs.filter((l) => l.eventName === 'Played').map(toInput),
+    checkpoints: logs.filter((l) => l.eventName === 'Checkpoint').map(toCheckpoint),
+    settled: logs.some((l) => l.eventName === 'MatchSettled' || l.eventName === 'MatchVoided'),
+    to,
   };
 }

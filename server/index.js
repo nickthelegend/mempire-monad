@@ -32,7 +32,7 @@ import { recordEvent, registerTelemetryRoutes } from './telemetry.js';
 import { registerInsightRoutes } from './insights.js';
 import { errorRecorder, rateLimiter, registerOpsRoutes, walletLimiter } from './ops.js';
 import { applyMatch, leagueFor } from './ranking.js';
-import { registerMatchmaker } from './matchmaker.js';
+import { liveMatches, registerMatchmaker } from './matchmaker.js';
 
 const { MONGODB_URI, MONGODB_DB = 'mempire', PORT = 8787 } = process.env;
 
@@ -681,7 +681,7 @@ const server = await (async () => {
   registerTelemetryRoutes(app, db, requireWallet);
   registerInsightRoutes(app, db);
   registerOpsRoutes(app, db);
-  registerReplayRoutes(app, db);
+  registerReplayRoutes(app, db, { liveMatches });
 
   // Now that there is a database, the shared limiter can take over from the
   // pass-through installed at module load.

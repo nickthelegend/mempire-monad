@@ -101,6 +101,15 @@ function fnv(s) {
 
 let nextMatchId = 1;
 
+/*
+ * Staked matches being played right now, by arena match id, for spectators.
+ * An entry appears when seat 0 reports the arena match it opened and goes when
+ * the relay's match ends. Only what a spectator needs to find and time it: the
+ * plays themselves are read from the chain.
+ */
+const live = new Map();
+export const liveMatches = () => [...live.values()];
+
 export function registerMatchmaker(server, db) {
   /*
    * What the relay saw, written down so the ladder can be checked against it.
@@ -186,7 +195,7 @@ export function registerMatchmaker(server, db) {
 
   function endMatch(id) {
     const m = matches.get(id);
-    if (m) { m.done = true; matches.delete(id); }
+    if (m) { m.done = true; matches.delete(id); if (m.onchainMatchId) live.delete(m.onchainMatchId); }
   }
 
   function opponentOf(m, ws) {
@@ -400,6 +409,9 @@ export function registerMatchmaker(server, db) {
               done: false,
               createdAt: Date.now(),
               pairKey: null,
+              onchainMatchId: null,
+              startAt: null,
+              format: null,
             };
             matches.set(id, m);
             waiting.ws.matchId = id;
@@ -415,6 +427,8 @@ export function registerMatchmaker(server, db) {
              */
             const pairKey = randomBytes(16).toString('hex');
             m.pairKey = pairKey;
+            m.startAt = startAt;
+            m.format = format;
             /*
              * The replay record. A match's plays and state checkpoints are on
              * chain; the two things a replay also needs are not: the seed this
@@ -435,6 +449,7 @@ export function registerMatchmaker(server, db) {
                 replay: {
                   seed: seed || 0x9e3779b9,
                   format,
+                  startAt,
                   decks: [waiting.deck ?? null, msg.deck ?? null],
                   onchainMatchId: null,
                 },
@@ -546,6 +561,10 @@ export function registerMatchmaker(server, db) {
             ? msg.txHash : null;
           // Seat 0 opened the arena match: tie the replay record to its id.
           // Only seat 0 may set it, once; the replay checks the chain anyway.
+          if (stage === 'opened' && ws === m.players[0] && Number.isSafeInteger(id) && id > 0 && !m.onchainMatchId) {
+            m.onchainMatchId = id;
+            live.set(id, { matchId: id, startAt: m.startAt, format: m.format, seats: m.addr });
+          }
           if (pairings && m.pairKey && stage === 'opened' && ws === m.players[0] && Number.isSafeInteger(id) && id > 0) {
             pairings.updateOne(
               { _id: m.pairKey, 'replay.onchainMatchId': null },
@@ -647,7 +666,7 @@ export function registerMatchmaker(server, db) {
     }
     const now = Date.now();
     for (const [id, m] of matches) {
-      if (now - (m.createdAt ?? 0) > MATCH_TTL_MS) matches.delete(id);
+      if (now - (m.createdAt ?? 0) > MATCH_TTL_MS) { matches.delete(id); if (m.onchainMatchId) live.delete(m.onchainMatchId); }
     }
   }, 30_000);
   wss.on('close', () => clearInterval(reaper));

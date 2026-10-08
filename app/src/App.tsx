@@ -24,6 +24,7 @@ import { Empire } from './screens/Empire';
 
 const Battle = lazy(() => import('./screens/Battle').then((m) => ({ default: m.Battle })));
 const Replay = lazy(() => import('./screens/Replay').then((m) => ({ default: m.Replay })));
+const Spectate = lazy(() => import('./screens/Spectate').then((m) => ({ default: m.Spectate })));
 
 export default function App() {
   return (
@@ -36,6 +37,14 @@ export default function App() {
             <Route path="/deck" element={<Deck />} />
             <Route path="/clan" element={<Clan />} />
             <Route path="/empire" element={<Empire />} />
+            <Route
+              path="/watch/:id"
+              element={(
+                <Suspense fallback={<Loading />}>
+                  <Spectate />
+                </Suspense>
+              )}
+            />
             <Route
               path="/replay/:id"
               element={(

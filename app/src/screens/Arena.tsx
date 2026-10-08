@@ -1,6 +1,7 @@
 import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
 import { STAKE_MON_NEEDED } from '../chain/session';
 import { MonadPipeline } from '../components/MonadPipeline';
+import { LiveNow } from '../components/LiveNow';
 import { resetCoach } from '../components/Coach';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -631,6 +632,7 @@ export function Arena() {
       </section>
 
       <MonadPipeline compact />
+      <LiveNow />
 
       {/* live feed — real settlements only */}
       <section aria-label="Recent settlements" className="well" style={{ padding: '9px 12px', overflow: 'hidden' }}>

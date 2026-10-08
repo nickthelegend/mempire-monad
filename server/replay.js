@@ -8,20 +8,27 @@
  * arena match id when seat 0 opens it. The client verifies all of it against
  * the chain before calling a replay "verified".
  *
- *   GET /api/replay/:matchId → { matchId, seats, seed, format, decks }
+ *   GET /api/replay/:matchId → { matchId, seats, seed, format, startAt, decks }
+ *   GET /api/live            → staked matches being played now
  */
 const PUBLIC = (doc) => ({
   matchId: doc.replay.onchainMatchId,
   seats: doc.seats,
   seed: doc.replay.seed,
   format: doc.replay.format,
+  startAt: doc.replay.startAt ?? null,
   decks: doc.replay.decks,
   at: doc.at,
 });
 
-export function registerReplayRoutes(app, db) {
+export function registerReplayRoutes(app, db, { liveMatches = () => [] } = {}) {
   const pairings = db.collection('ladder_pairings');
   pairings.createIndex({ 'replay.onchainMatchId': 1 }).catch(() => {});
+
+  /** Staked matches in progress, for spectators: GET /api/live → [{ matchId, startAt, format, seats }]. */
+  app.get('/api/live', (_req, res) => {
+    res.json({ matches: liveMatches().sort((a, b) => b.startAt - a.startAt).slice(0, 20) });
+  });
 
   app.get('/api/replay/:matchId', async (req, res) => {
     const id = Number(req.params.matchId);

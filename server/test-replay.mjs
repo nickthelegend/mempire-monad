@@ -77,12 +77,19 @@ try {
   check('and the format', got.data?.format === 'rush');
   check('and the decks exactly as queued, by seat', JSON.stringify(got.data?.decks) === JSON.stringify([deckA, deckB]));
   check('and the seats', got.data?.seats?.[0] === a.address.toLowerCase() && got.data?.seats?.[1] === b.address.toLowerCase(), JSON.stringify(got.data?.seats));
+  check('and the start instant both seats count down to', got.data?.startAt === m0.startAt, `${got.data?.startAt} vs ${m0.startAt}`);
+  const liveNow = await req('GET', '/api/live');
+  const entry = liveNow.data?.matches?.find((x) => x.matchId === 4242);
+  check('the match is listed live for spectators', Boolean(entry) && entry.startAt === m0.startAt && entry.format === 'rush', JSON.stringify(liveNow.data).slice(0, 120));
 
   s0.ws.send(JSON.stringify({ t: 'chain', stage: 'opened', onchainMatchId: 5151 }));
   await new Promise((r) => { setTimeout(r, 300); });
   check('a second report cannot move the record', (await req('GET', '/api/replay/5151')).status === 404 && (await req('GET', '/api/replay/4242')).status === 200);
   check('a malformed id is 400', (await req('GET', '/api/replay/abc')).status === 400);
   s0.ws.close(); s1.ws.close();
+  await new Promise((r) => { setTimeout(r, 500); });
+  const after = await req('GET', '/api/live');
+  check('and is gone once the match ends', !after.data?.matches?.some((x) => x.matchId === 4242), JSON.stringify(after.data).slice(0, 120));
 } catch (e) {
   check('suite ran to completion', false, String(e?.stack ?? e).slice(0, 300));
 } finally {
