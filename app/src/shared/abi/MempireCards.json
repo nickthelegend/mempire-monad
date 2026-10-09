@@ -653,6 +653,25 @@
   },
   {
     "type": "function",
+    "name": "grantGolden",
+    "inputs": [
+      {
+        "name": "player",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "isApprovedForAll",
     "inputs": [
       {
@@ -1143,6 +1162,19 @@
   },
   {
     "type": "function",
+    "name": "seasonPass",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "setApprovalForAll",
     "inputs": [
       {
@@ -1222,6 +1254,19 @@
     "inputs": [
       {
         "name": "relayer_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSeasonPass",
+    "inputs": [
+      {
+        "name": "seasonPass_",
         "type": "address",
         "internalType": "address"
       }
@@ -2002,6 +2047,11 @@
   {
     "type": "error",
     "name": "NotRelayer",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotSeasonPass",
     "inputs": []
   },
   {

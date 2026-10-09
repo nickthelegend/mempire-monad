@@ -6,6 +6,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {MempireToken} from "../src/MempireToken.sol";
 import {MempireCards} from "../src/MempireCards.sol";
 import {PasskeyRegistry} from "../src/PasskeyRegistry.sol";
+import {SeasonPass, IArenaWins} from "../src/SeasonPass.sol";
 import {MempireArena} from "../src/MempireArena.sol";
 import {MarketMeta} from "../src/MarketMeta.sol";
 import {IPyth} from "../src/interfaces/IPyth.sol";
@@ -46,6 +47,7 @@ contract Deploy is Script {
         MarketMeta meta;
         MempireArena arena;
         PasskeyRegistry passkeys;
+        SeasonPass season;
     }
 
     function run() external virtual {
@@ -103,6 +105,15 @@ contract Deploy is Script {
         d.arena = new MempireArena(e.deployer, d.cards, e.ausd, d.meta, e.deployer);
         // Verifies WebAuthn passkey assertions with Monad's P256 precompile (0x0100).
         d.passkeys = new PasskeyRegistry();
+        // Season 1: 14 days, 200 $MEMPIRE to the treasury, golden chests at 1/3/5/8 staked wins.
+        d.season = new SeasonPass(e.deployer, d.token, IArenaWins(address(d.arena)), d.cards, e.deployer);
+        d.cards.setSeasonPass(address(d.season));
+        uint16[] memory tiers = new uint16[](4);
+        tiers[0] = 1;
+        tiers[1] = 3;
+        tiers[2] = 5;
+        tiers[3] = 8;
+        d.season.startSeason(uint64(block.timestamp), uint64(block.timestamp + 14 days), 200 ether, tiers);
         d.cards.setArena(address(d.arena));
         d.cards.setRelayer(e.relayer);
         d.meta.setPyth(IPyth(e.pyth), d.cards);
@@ -122,6 +133,7 @@ contract Deploy is Script {
         o.serialize("cards", address(d.cards));
         o.serialize("marketMeta", address(d.meta));
         o.serialize("passkeyRegistry", address(d.passkeys));
+        o.serialize("seasonPass", address(d.season));
         string memory out = o.serialize("arena", address(d.arena));
         vm.writeJson(out, string.concat(vm.projectRoot(), "/../shared/deployments/", vm.toString(block.chainid), ".json"));
     }

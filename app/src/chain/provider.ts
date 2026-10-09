@@ -48,6 +48,9 @@ export interface Deployment {
   ausd: Address;
   pyth: Address;
   relayer: Address;
+  /** Present in deployments made after the season pass / passkey contracts landed. */
+  seasonPass?: Address;
+  passkeyRegistry?: Address;
   startBlock: number;
 }
 

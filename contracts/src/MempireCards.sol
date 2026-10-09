@@ -92,6 +92,7 @@ contract MempireCards is ERC721, Ownable2Step {
     address public treasury;
     address public arena;
     address public relayer;
+    address public seasonPass;
     uint256 public mintFee;
     /// Divides every chest timer. 1 on a real deployment; 60 on testnet so a
     /// judge sees a three-hour chest open in three minutes.
@@ -150,6 +151,7 @@ contract MempireCards is ERC721, Ownable2Step {
     error DifferentCoins();
     error MaxLevel();
     error NotArena();
+    error NotSeasonPass();
     error NotRelayer();
     error StarterTaken();
     error BadDeck();
@@ -187,6 +189,11 @@ contract MempireCards is ERC721, Ownable2Step {
     function setRelayer(address relayer_) external onlyOwner {
         relayer = relayer_;
         emit ConfigChanged();
+    }
+
+    /// The season pass may grant golden chests (its tier rewards) and nothing else.
+    function setSeasonPass(address seasonPass_) external onlyOwner {
+        seasonPass = seasonPass_;
     }
 
     function setTreasury(address treasury_) external onlyOwner {
@@ -377,6 +384,15 @@ contract MempireCards is ERC721, Ownable2Step {
             return;
         }
         _grant(player, tier, false);
+    }
+
+    /// A season-pass tier reward: a golden chest, exactly as if bought (no slot,
+    /// no timer). Only the season pass may call this.
+    function grantGolden(address player) external returns (uint256 id) {
+        if (msg.sender != seasonPass || seasonPass == address(0)) revert NotSeasonPass();
+        id = _grant(player, GOLDEN, true);
+        chests[id].state = CHEST_UNLOCKING;
+        chests[id].readyAt = uint40(block.timestamp);
     }
 
     /// Buy a golden chest. It needs no slot and no timer.

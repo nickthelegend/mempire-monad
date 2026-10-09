@@ -6,6 +6,7 @@ import { CardFrame } from '../components/CardFrame';
 import { ChainBadge } from '../components/ChainBadge';
 import { ChestRail } from '../components/Chests';
 import { Shop } from '../components/Shop';
+import { SeasonPassPanel } from '../components/SeasonPassPanel';
 import { CoinBadge, Pill, Spinner } from '../components/ui';
 import { mintCardTx, readableChainError, upgradeCardTx } from '../chain/actions';
 import { click, play } from '../lib/audio';
@@ -377,6 +378,7 @@ export function Cards() {
 
       <ChestRail />
 
+      <SeasonPassPanel />
       <Shop />
 
       <section aria-label="Your cards">

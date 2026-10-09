@@ -105,6 +105,9 @@ contract MempireArena is IArenaView, Ownable2Step, ReentrancyGuard {
     uint64 public nextMatchId = 1;
     mapping(uint64 id => Match) internal _matches;
     mapping(address player => uint16) public rewardedWins;
+    /// Staked wins a player has finished (walkovers excluded), uncapped. Read by
+    /// SeasonPass, so season progress comes from the arena itself.
+    mapping(address player => uint32) public wins;
     /// Payouts a recipient refused (a contract with no receive, a blocked
     /// token transfer), held for them to pull.
     mapping(address currency => mapping(address player => uint256)) public owed;
@@ -409,6 +412,7 @@ contract MempireArena is IArenaView, Ownable2Step, ReentrancyGuard {
         // A walkover pays the pot, but not the bonus or the chest: those are
         // for winning a match both seats finished.
         if (winnerAddress != address(0) && !byTimeout) {
+            wins[winnerAddress] += 1;
             _reward(id, winnerAddress);
             cards.grantChest(winnerAddress, keccak256(abi.encode(id, m.final0, m.final1)));
         }
