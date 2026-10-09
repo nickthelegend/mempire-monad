@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { createPublicClient, createWalletClient, formatEther, http, parseEther, zeroAddress } from 'viem';
 import { startTestChain } from './test-chain.mjs';
-import { client, freshAccount, signed, startRelay, tally } from './test-util.mjs';
+import { authMessage, client, freshAccount, signed, startRelay, tally } from './test-util.mjs';
 
 const tc = await startTestChain();
 const RPC_URL = tc.rpcUrl;
@@ -75,11 +75,18 @@ try {
   console.log('\n3. the money column');
   const rake = await pub.readContract({ address: dep.arena, abi: arenaAbi, functionName: 'rakeBps' });
   const wantWin = Number(formatEther(stake * 2n - (stake * 2n * BigInt(rake)) / 10_000n - stake));
-  const retry = await req('POST', `/api/match/${p0.address}`, await signed(p0, 'match.post', {
-    won: true, crowns: [3, 0], escrowed: true, matchId: Number(id), currency: 'MON',
+  const baseTs = Date.now();
+  const retries = await Promise.all(Array.from({ length: 8 }, async (_, i) => {
+    const ts = baseTs + i;
+    const signature = await p0.signMessage({ message: authMessage(p0.address, 'match.post', ts) });
+    return req('POST', `/api/match/${p0.address}`, {
+      address: p0.address, ts, signature,
+      won: true, crowns: [3, 0], escrowed: true, matchId: Number(id), currency: 'MON',
+    });
   }));
-  check('the retry credits what the chain paid', retry.data?.credited === wantWin && retry.data?.currency === 'MON',
-    JSON.stringify(retry.data));
+  check('all concurrent settlement retries are accepted', retries.every((r) => r.status === 200), retries.map((r) => r.status).join(','));
+  const credits = retries.filter((r) => r.data?.credited === wantWin && r.data?.currency === 'MON');
+  check('concurrent retries credit what the chain paid exactly once', credits.length === 1, `credits ${credits.length}`);
   const again = await req('POST', `/api/match/${p0.address}`, await signed(p0, 'match.post', {
     won: true, crowns: [3, 0], escrowed: true, matchId: Number(id), currency: 'MON',
   }));

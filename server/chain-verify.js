@@ -115,6 +115,8 @@ export async function verifySettledMatch(matchId, address) {
     pot: Number(formatUnits(pot, currency.decimals)),
     won,
     draw,
+    voided: winner === WINNER_NONE,
+    createdAt: Number(m.createdAt) * 1000,
     players: players.map((p) => p.toLowerCase()),
   };
 }

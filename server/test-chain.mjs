@@ -84,7 +84,7 @@ export async function startTestChain({ port = TEST_PORT } = {}) {
   if ((await chainId(rpcUrl)) !== TEST_CHAIN_ID) { kill(); throw new Error('the test fork did not come up'); }
   await scrubDevAccounts(rpcUrl);
 
-  const forge = spawnSync('forge', ['script', 'script/DeployLocal.s.sol', '--rpc-url', rpcUrl, '--broadcast', '--silent'], {
+  const forge = spawnSync('forge', ['script', 'script/DeployLocal.s.sol', '-j', '1', '--rpc-url', rpcUrl, '--broadcast', '--silent'], {
     cwd: `${ROOT}contracts`, encoding: 'utf8',
   });
   if (forge.status !== 0 || !existsSync(rootDep)) {

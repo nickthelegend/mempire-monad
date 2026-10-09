@@ -63,7 +63,7 @@ echo "mongo  mongodb://127.0.0.1:27019"
 DB="mempire_local_$(jq -r .startBlock "$ROOT/shared/deployments/31337.json")"
 
 if [ "${1:-}" != "--no-relay" ]; then
-  (cd "$ROOT/server" && exec >/dev/null && CHAIN_ID=31337 RPC_URL=$RPC PORT=8799 PUBLIC_APP_URL=http://localhost:5181 \
+  (cd "$ROOT/server" && exec >/dev/null && CHAIN_ID=31337 RPC_URL=$RPC PORT=8799 PUBLIC_APP_URL=http://localhost:5181 CLAN_WAR_SIZE="${CLAN_WAR_SIZE:-2}" \
     MONGODB_URI=mongodb://127.0.0.1:27019 MONGODB_DB="$DB" \
     RELAYER_PRIVATE_KEY="$(cast wallet private-key "$MNEMONIC" 1)" \
     ORACLE_PRIVATE_KEY="$(cast wallet private-key "$MNEMONIC" 4)" \

@@ -83,6 +83,8 @@ jobs:
       - run: node test-locker.mjs
       - name: replay record (matchmaker → /api/replay)
         run: node test-replay.mjs
+      - name: clan wars (bracket, scoring, signed entry) and one-time money credit
+        run: node test-clanwars.mjs && node test-clanwars-http.mjs && node test-match-credit.mjs
       - name: Monad reserve balance (10 MON) on relayer drips
         run: node test-reserve.mjs
       - name: Kimi (against a fake Moonshot server — a test double)

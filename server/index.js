@@ -15,7 +15,9 @@ import { MongoClient } from 'mongodb';
 import { requireWallet, setReplayStore, setWalletLimiter } from './auth.js';
 import { CHAIN_ID, RPC_URL, deployment, normAddress } from './chain.js';
 import { verifySettledMatch } from './chain-verify.js';
+import { claimMoneyCredit } from './match-credit.js';
 import { registerClanRoutes } from './clans.js';
+import { registerClanWarRoutes } from './clanwars.js';
 import { keeperStatus, startKeeper } from './keeper.js';
 import { pythMode } from './pyth.js';
 import { registerPrivyRoutes } from './privy.js';
@@ -108,6 +110,7 @@ app.use((err, _req, res, next) => {
  * later would sit behind all of them and never run. This holds the slot.
  */
 let credits = null;
+let scoreClanWar = async () => {};
 let limit = null;
 /*
  * A bucket for the public GETs that are not free to serve.
@@ -278,6 +281,7 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
      * either way — rating is the relay's to keep, money is not.
      */
     let verified = null;
+    let moneyClaimed = false;
     /*
      * One match id, one spelling.
      *
@@ -328,16 +332,19 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
             note: 'counted; the chain has not shown this settlement yet',
           });
         }
-        await credits.updateOne(
-          { _id: creditId },
-          { $set: { moneyCredited: true, creditedAt: new Date() } },
-        );
-        await leaderboard.updateOne({ _id: address }, { $inc: { [NET_FIELD[late.currency]]: late.net } });
+        // Clan scoring is idempotent and happens before spending the money
+        // claim, so a transient bracket failure remains retryable.
+        await scoreClanWar(address, late, mid);
+        if (!await claimMoneyCredit(credits, creditId)) {
+          return res.json({ ok: true, duplicate: true, note: 'already recorded' });
+        }
+        await leaderboard.updateOne({ _id: address }, { $inc: { [NET_FIELD[late.currency]]: late.net } }, { upsert: true });
         return res.json({ ok: true, duplicate: true, credited: late.net, currency: late.currency });
       }
       verified = await verifySettledMatch(mid, address).catch(() => null);
       if (verified) {
-        await credits.updateOne({ _id: creditId }, { $set: { moneyCredited: true } });
+        await scoreClanWar(address, verified, mid);
+        moneyClaimed = await claimMoneyCredit(credits, creditId);
       }
     }
     await leaderboard.updateOne(
@@ -353,8 +360,8 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
           // whether or not escrow opened, so counting it unconditionally made
           // this column a running total of money that never existed — a
           // guest's unstaked wins included.
-          netMon: verified?.currency === 'MON' ? verified.net : 0,
-          netAusd: verified?.currency === 'AUSD' ? verified.net : 0,
+          netMon: moneyClaimed && verified?.currency === 'MON' ? verified.net : 0,
+          netAusd: moneyClaimed && verified?.currency === 'AUSD' ? verified.net : 0,
           /*
            * Bounded, because three towers is all there are.
            *
@@ -427,7 +434,7 @@ app.post('/api/match/:address', requireWallet('match.post'), async (req, res) =>
     if (escrowed && validId && !verified) {
       return res.json({ ok: true, pending: true, note: 'counted; the chain has not shown this settlement yet' });
     }
-    res.json({ ok: true, ...(verified ? { credited: verified.net, currency: verified.currency } : {}) });
+    res.json({ ok: true, ...(verified ? { credited: moneyClaimed ? verified.net : 0, currency: verified.currency, ...(!moneyClaimed ? { alreadyCredited: true } : {}) } : {}) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -670,6 +677,7 @@ const server = await (async () => {
   // Both the ladder listing and every rank lookup sort on this.
   await ladder.createIndex({ trophies: -1 });
   registerClanRoutes(app, db);
+  scoreClanWar = registerClanWarRoutes(app, db);
 
   // Onboarding: the starter deck, AUSD and the MON drip, signed by the
   // relayer. Registers either way and reports itself unavailable (503) when
@@ -714,7 +722,7 @@ const server = await (async () => {
 
   console.log(client ? `mongo connected → ${MONGODB_DB}` : 'store: in-memory');
   console.log(`chain ${CHAIN_ID} via ${RPC_URL} · ${deployment ? 'deployment loaded' : 'no deployment for this chain'}`);
-  const httpServer = app.listen(PORT, () => console.log(`mempire api on :${PORT}`));
+  const httpServer = app.listen(PORT, process.env.HOST ?? '0.0.0.0', () => console.log(`mempire api on :${PORT}`));
   registerMatchmaker(httpServer, db);
   startKeeper();
   return httpServer;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ClanCreateSheet } from '../components/ClanCreate';
 import { ClanCrest } from '../components/ClanCrest';
+import { ClanWarPanel } from '../components/ClanWarPanel';
 import { ClanRow, CrownCount, LendRequest, MemberCount, MemberRow } from '../components/ClanBits';
 import { ClanSheet } from '../components/ClanSheet';
 import { PRICES } from '../chain/spend';
@@ -221,7 +222,7 @@ function Home() {
   const canManage = role === 'leader' || role === 'coleader';
 
   const openRequests = mine.feed.filter((f) => f.kind === 'request' && !f.filledBy);
-  const myOpen = openRequests.find((f) => f.address === address);
+  const myOpen = openRequests.find((f) => f.address.toLowerCase() === address?.toLowerCase());
 
   const doLend = async (id: string) => {
     const err = await lend(address, id);
@@ -278,6 +279,8 @@ function Home() {
       )}
 
       {/* lend feed */}
+      <ClanWarPanel key={mine.tag} tag={mine.tag} leader={canManage} />
+
       <section aria-label="Lend requests">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <span className="label">Lend requests</span>
@@ -333,7 +336,7 @@ function Home() {
                 member={m}
                 rank={i + 1}
                 isMe={m.address === address}
-                onTap={canManage && m.address !== address ? () => { /* management sheet */ } : undefined}
+                onTap={canManage && m.address.toLowerCase() !== address?.toLowerCase() ? () => { /* management sheet */ } : undefined}
               />
             </div>
           ))}
