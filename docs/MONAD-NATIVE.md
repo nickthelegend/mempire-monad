@@ -15,6 +15,7 @@ Each integration lists where it runs, so nothing claims more than it shows:
 | 6 | **Gas correctness.** See below. | built | see below | `test-reserve.mjs` 8/8 |
 | 7 | **x402 / MPP payments.** | **not applicable** | — | Mempire's money is the staked pot, escrowed by `MempireArena` in MON or AUSD (EIP-2612 permit). Nothing is sold per call. Routing stakes through a facilitator would add a custodian between two players and their pot. |
 | 8 | **Canonical contracts.** Multicall3 `0xcA11…CA11` for batched reads (it carries the staking reads, because `aggregate3` uses CALL, which `0x1000` requires); Agora's AUSD; Sourcify verification on MonadVision in the deploy script. | **live-read** (Multicall3) / deploy | `chain/monadNetwork.ts`, `scripts/deploy-testnet.sh` | WMON and Permit2 are **not applicable**: stakes are native MON or AUSD, and AUSD has native EIP-2612 permits. |
+| 9 | **Gasless chests: EIP-7702 + an ERC-4337 paymaster.** A player with 0 MON delegates their own address to `MempireAccount7702` and opens and reveals chests through the canonical EntryPoint v0.8; `MempirePaymaster` pays, but only for chest calls the relay has simulated and signed. The relay is the bundler. | **fork** (Prague fork of testnet, canonical EntryPoint already there); testnet **awaiting testnet go** | [`contracts/src/MempirePaymaster.sol`](../contracts/src/MempirePaymaster.sol), [`MempireAccount7702.sol`](../contracts/src/MempireAccount7702.sol), [`server/gasless.js`](../server/gasless.js) | forge 6/6 against the EntryPoint's testnet bytecode; `server/test-gasless.mjs` 16/16 on a real chain: 0 MON before and after, 2 cards minted |
 
 ## Gas on Monad (item 6)
 
@@ -36,5 +37,5 @@ Each integration lists where it runs, so nothing claims more than it shows:
 
 ## Not built, and why
 
-- **EIP-7702 + a 4337 paymaster** for gasless onboarding needs hosted bundlers on testnet and a delegated EOA keeping 10 MON. It is next in the roadmap and awaits testnet.
+- **Gasless in the app UI.** The contracts and relay are done (row 9). The in-app path is next: the local fork moves to Prague (which works as of 9 Oct), then chest buttons send through the relay.
 - **Execution Events SDK** needs a Monad full node on the same Linux host, so it isn't usable from a web app.

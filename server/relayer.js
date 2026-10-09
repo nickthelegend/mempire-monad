@@ -62,6 +62,11 @@ let refusal = null;
 
 /** The relayer's address, or null when there is no usable key. */
 export const relayerAddress = () => account?.address ?? null;
+/** Signs a 32-byte hash as an EIP-191 message with the relayer key (gasless sponsorships). */
+export const signAsRelayer = (hash) => {
+  if (!account) throw new Error(refusal ?? 'relayer not configured');
+  return account.signMessage({ message: { raw: hash } });
+};
 /** Why there is no relayer, for logs and 503 bodies. */
 export const relayerRefusal = () => refusal;
 

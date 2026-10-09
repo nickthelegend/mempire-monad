@@ -32,7 +32,7 @@ export const IS_DEV_CHAIN = CHAIN_ID === 31337 || CHAIN_ID === 31338;
 export const IS_TEST_CHAIN = CHAIN_ID === 10143 || IS_DEV_CHAIN;
 
 const read = (rel) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
-const abiOf = (name) => {
+export const abiOf = (name) => {
   const j = read(`./shared/abi/${name}.json`);
   return Array.isArray(j) ? j : j.abi;
 };

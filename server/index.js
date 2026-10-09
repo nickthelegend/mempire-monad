@@ -18,6 +18,7 @@ import { verifySettledMatch } from './chain-verify.js';
 import { claimMoneyCredit } from './match-credit.js';
 import { registerClanRoutes } from './clans.js';
 import { registerClanWarRoutes } from './clanwars.js';
+import { registerGaslessRoutes } from './gasless.js';
 import { keeperStatus, startKeeper } from './keeper.js';
 import { pythMode } from './pyth.js';
 import { registerPrivyRoutes } from './privy.js';
@@ -684,6 +685,8 @@ const server = await (async () => {
   // this chain has no deployment or no relayer key, rather than 404ing.
   registerOnboardRoutes(app, db, { ipGate: onboardGate, readGate });
   registerPlayerRoutes(app, db);
+  // Gasless chests (EIP-7702 + 4337 paymaster); reports itself off without a paymaster.
+  registerGaslessRoutes(app);
   registerPrivyRoutes(app);
   registerLockerRoutes(app, db, { gate: (req, res, next) => (readLimit ? readLimit(req, res, next) : next()) });
   registerTelemetryRoutes(app, db, requireWallet);

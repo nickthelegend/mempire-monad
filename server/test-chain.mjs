@@ -62,7 +62,7 @@ const viemChain = (rpcUrl) => ({
   rpcUrls: { default: { http: [rpcUrl] } },
 });
 
-export async function startTestChain({ port = TEST_PORT } = {}) {
+export async function startTestChain({ port = TEST_PORT, hardfork = 'cancun' } = {}) {
   const rpcUrl = `http://127.0.0.1:${port}`;
   const existing = await chainId(rpcUrl);
   if (existing === TEST_CHAIN_ID && existsSync(serverDep)) {
@@ -73,7 +73,7 @@ export async function startTestChain({ port = TEST_PORT } = {}) {
 
   const anvil = spawn('anvil', [
     '--port', String(port), '--chain-id', String(TEST_CHAIN_ID), '--prune-history', '300',
-    '--fork-url', FORK_URL, '--silent', '--hardfork', 'cancun', '--retries', '10', '--timeout', '60000',
+    '--fork-url', FORK_URL, '--silent', '--hardfork', hardfork, '--retries', '10', '--timeout', '60000',
   ], { stdio: 'ignore' });
   const kill = () => { try { anvil.kill('SIGKILL'); } catch { /* gone */ } };
   process.on('exit', kill);

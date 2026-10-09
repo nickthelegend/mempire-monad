@@ -10,6 +10,9 @@ import {SeasonPass, IArenaWins} from "../src/SeasonPass.sol";
 import {MempireArena} from "../src/MempireArena.sol";
 import {MarketMeta} from "../src/MarketMeta.sol";
 import {IPyth} from "../src/interfaces/IPyth.sol";
+import {MempireAccount7702} from "../src/MempireAccount7702.sol";
+import {MempirePaymaster} from "../src/MempirePaymaster.sol";
+import {IEntryPointV08} from "../src/aa/IEntryPointV08.sol";
 
 /// Deploys the whole game and registers the roster from shared/roster.json.
 ///
@@ -23,6 +26,7 @@ import {IPyth} from "../src/interfaces/IPyth.sol";
 ///   CRE_FORWARDER         KeystoneForwarder allowed to post market meta
 ///   METADATA_BASE_URI     where tokenURI points
 ///   TIME_SCALE            divides chest timers (60 on testnet)
+///   PAYMASTER_DEPOSIT     MON the gasless paymaster starts with (default 0.5)
 contract Deploy is Script {
     using stdJson for string;
 
@@ -48,7 +52,12 @@ contract Deploy is Script {
         MempireArena arena;
         PasskeyRegistry passkeys;
         SeasonPass season;
+        MempireAccount7702 account7702;
+        MempirePaymaster paymaster;
     }
+
+    /// ERC-4337 v0.8, canonical on Monad testnet (and so on a fork of it).
+    IEntryPointV08 internal constant ENTRY_POINT = IEntryPointV08(0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108);
 
     function run() external virtual {
         _run(_env());
@@ -117,6 +126,13 @@ contract Deploy is Script {
         d.cards.setArena(address(d.arena));
         d.cards.setRelayer(e.relayer);
         d.meta.setPyth(IPyth(e.pyth), d.cards);
+        // Gasless chests: players delegate to MempireAccount7702 (EIP-7702); the
+        // relayer signs sponsorships and bundles. Needs the canonical EntryPoint.
+        if (address(ENTRY_POINT).code.length > 0) {
+            d.account7702 = new MempireAccount7702();
+            d.paymaster = new MempirePaymaster(e.deployer, ENTRY_POINT, address(d.cards), e.relayer);
+            d.paymaster.deposit{value: vm.envOr("PAYMASTER_DEPOSIT", uint256(0.5 ether))}();
+        }
     }
 
     function _write(Env memory e, Deployed memory d) internal {
@@ -134,6 +150,9 @@ contract Deploy is Script {
         o.serialize("marketMeta", address(d.meta));
         o.serialize("passkeyRegistry", address(d.passkeys));
         o.serialize("seasonPass", address(d.season));
+        o.serialize("entryPoint", address(ENTRY_POINT));
+        o.serialize("account7702", address(d.account7702));
+        o.serialize("paymaster", address(d.paymaster));
         string memory out = o.serialize("arena", address(d.arena));
         vm.writeJson(out, string.concat(vm.projectRoot(), "/../shared/deployments/", vm.toString(block.chainid), ".json"));
     }
