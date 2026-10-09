@@ -84,6 +84,8 @@ Monad-native, with where each runs (details in [docs/MONAD-NATIVE.md](docs/MONAD
 | Passkeys: Mera accounts + P256VERIFY `0x0100` (`PasskeyRegistry`, and the in-app check) | live testnet read; contract tested on Osaka |
 | Native staking precompile `0x1000` via Multicall3 | live testnet read |
 | Gas on Monad: explicit limits, simulate-before-send, 10 MON reserve-aware drips | built + unit-tested |
+| Spectate a live staked match: `Played` logs via `monadLogs` drive the sim; checkpoints verified as they land | local fork (polling, labelled); `monadLogs` on testnet awaiting the go |
+| Gasless chests: EIP-7702 delegation + `MempirePaymaster` on the canonical EntryPoint v0.8; the relay bundles | Prague fork of testnet (16/16); testnet awaiting the go |
 | x402 / MPP | not applicable: the money is an escrowed pot, not a per-call sale |
 
 - Every card play is an on-chain transaction from a session key, viable only because of 300 ms blocks (final in ~600 ms) and low gas.
@@ -99,11 +101,11 @@ Monad-native, with where each runs (details in [docs/MONAD-NATIVE.md](docs/MONAD
 | 0:15–0:40 | **Play now → Create with passkey →** Face ID; the starter deck lands (*Your deck is on chain · 4s*) | "One passkey prompt. No seed phrase, no extension, no faucet." |
 | 0:40–0:55 | First Practice: the coach ("Drop a fighter 1/4 → … → You've got it") | "A coached first match, driven by what you actually do." |
 | 0:55–1:10 | Arena → $1 Ranked in two windows; they match; one transaction each (permit + stake) | "A dollar stake, escrowed by the contract." |
-| 1:10–1:50 | The match: drop cards; each one's pill goes *sent → executed 300 ms → final 600 ms*; the badge counts plays on chain | "Every card is a Monad transaction while the unit walks the lane." |
+| 1:10–1:50 | The match: drop cards; each one's pill goes *sent → executed 300 ms → final 600 ms*; damage numbers; a tower falls in slow motion | "Every card is a Monad transaction while the unit walks the lane." |
 | 1:50–2:10 | The result: $1.80 paid, chest granted; **▶ Replay from the chain** | "The second claim pays the pot in the same block." |
-| 2:10–2:30 | The replay: **✓ Verified against N on-chain checkpoints**, playing back in the arena | "This is the match, rebuilt from Monad and checked against the state hashes both players posted." |
+| 2:10–2:30 | The replay: **✓ Verified against N on-chain checkpoints**; then **Live now → Watch**, a third window spectating another match from its logs | "Rebuilt from Monad and checked against the state hashes both players posted. Live matches too." |
 | 2:30–2:45 | Empire: Monad network panel (staking epoch, proposer); **Verify a passkey on Monad** → ✓ by `0x0100` | "Monad's precompiles: native staking, and passkeys verified by the chain." |
-| 2:45–3:00 | Leaderboards (Trophies / Net $ / Clans), the Envio feed, the card meta line from CRE | "Indexed by Envio, meta by Chainlink CRE. That's Mempire." |
+| 2:45–3:00 | Clan war score (3 – 0 from a staked win), the season pass tier claimed, leaderboards, the CRE meta line | "Clans fight with real stakes, scored from the chain. Indexed by Envio, meta by Chainlink CRE. That's Mempire." |
 
 ## Verifiable evidence
 

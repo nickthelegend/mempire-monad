@@ -45,6 +45,14 @@ These are the things a generic EVM port wouldn't have; each says where it runs. 
 - **Passkeys checked by the chain.** Mera passkey accounts, plus Monad's P256VERIFY precompile (`0x0100`). `PasskeyRegistry` binds and verifies WebAuthn assertions on chain, and the app has a real passkey signature verified by the precompile, with a tampered copy refused.
 - **Native staking** (live testnet read). Epoch and the block proposer's validator, from the staking precompile (`0x1000`), batched through the canonical Multicall3.
 - **Gas the Monad way.** Explicit limits (Monad charges the limit), simulate-before-send, and onboarding drips that respect the 10 MON reserve balance.
+- **Watch live from the chain.** Any staked match in progress can be spectated: the arena's `Played` logs (over `monadLogs` on Monad) drive the same deterministic sim, a few seconds behind, with each on-chain checkpoint checked as it lands.
+- **Gasless chests** (EIP-7702 + an ERC-4337 paymaster). A player with 0 MON delegates their own address and opens chests through the canonical EntryPoint v0.8; our paymaster pays, the relay bundles. Proven on a Prague fork of testnet.
+
+### Also new
+
+- **Season pass** for $MEMPIRE: staked wins unlock golden chests. The price is spent, not invested, and the app says so.
+- **Clan wars:** clan-vs-clan brackets scored only by staked wins the relay has verified on chain.
+- **Game feel:** damage numbers over every hit, and a slow-motion camera punch-in when a tower falls.
 
 ---
 

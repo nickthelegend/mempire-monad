@@ -85,7 +85,25 @@ Written 7 Oct after using the local fork build cold, as a judge would: no contex
 
 (Statuses are updated as each lands; see the commit for each.)
 
-## Next 5 after this wave
+## Wave 2 (8–9 Oct), shipped
+
+- **Spectator mode** over `monadLogs` (fork: polling, labelled): `3d1af0b`
+- **Game feel:** damage numbers and tower-fall slow-mo, plus the missing merge screen: `d9a0365`
+- **Season pass** for $MEMPIRE, honest copy: `ee94a8e`
+- **Clan wars**, scored by chain-verified staked wins: `04b1426`
+- **Gasless chests**, EIP-7702 + 4337 paymaster on the canonical EntryPoint v0.8 (Prague fork; testnet waits for the go): `c98597f`
+
+No swaps. Screens: `docs/screens/wave2/`.
+
+## Wave 3 (next 5)
+
+1. Gasless in the app: move the local fork to Prague and send chest actions through the relay for 0-MON players.
+2. Readability pass on the judge-path screens (Arena, battle HUD, result, Empire).
+3. Challenge a friend: a private staked match from a share link.
+4. Season and clan-war boards on Empire.
+5. Index SeasonPass and paymaster events in Envio.
+
+## Wave 1 next 5 (done in wave 2)
 
 1. Spectator mode: watch a live staked match through `monadLogs` on the arena.
 2. Gasless onboarding through EIP-7702 + a 4337 paymaster (needs testnet).
