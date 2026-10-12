@@ -140,11 +140,14 @@ Keep the `MetaPosted` / `MetaSource(source=0)` transaction hash for SUBMISSION.m
 
 ## 9. Privy (the user, optional but a bounty)
 
-Privy dashboard:
-1. Create the app and copy the app id and secret.
-2. Enable **Monad Testnet** under gas sponsorship, add credits, and enable TEE execution.
-3. Create an authorization key (P-256). Register it as a key quorum and copy its id (`PRIVY_SIGNER_ID`). Base64 the PKCS8 private key into `PRIVY_AUTHORIZATION_KEY`.
-4. Allowed origins: the Vercel URL.
+Done on 12 Oct with the shared "monad hub" Privy app. The keys are in the gitignored `server/.env` and `app/.env.local`:
+- ✓ app id and secret;
+- ✓ a P-256 authorization key, registered as a key quorum (`PRIVY_AUTHORIZATION_KEY`, `PRIVY_SIGNER_ID`);
+- ✓ origins appended to `metropolis-funding/PRIVY-ORIGINS.md`.
+
+Left for the user in the Privy dashboard: add those origins, and enable **Monad Testnet** gas sponsorship (with credits) and TEE execution.
+
+Also installed on 12 Oct: `PYTH_API_KEY` (Hermes answers 200), `MONGODB_URI` on the shared Atlas cluster with `MONGODB_DB=metropolis_mempire` (ping ok), and `ENVIO_API_TOKEN` in `indexer/.env`. Mempire does not use `MOONSHOT_API_KEY`, so the Kimi opponent stays "not configured" and the bot opponent stays.
 
 The relay creates the policy `mempire-match-actions` at boot: default deny; only arena `play`/`checkpoint`/`claim`, value 0, chain 10143. `GET /api/privy/config` should then say `mode: "privy"`.
 
