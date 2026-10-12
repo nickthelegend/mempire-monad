@@ -96,15 +96,20 @@ These are the things a generic EVM port wouldn't have; each says where it runs. 
 
 ### Deployed addresses (Monad testnet, chain 10143)
 
-`TODO after deploy`. The deploy script writes them to `shared/deployments/10143.json` and verifies every contract on Sourcify (MonadVision).
+Deployed 12 Oct 2026 from block 70456169; all verified on Sourcify (MonadVision). The same addresses are in `shared/deployments/10143.json`.
 
 | | Address |
 |---|---|
-| MempireArena | `TODO` |
-| MempireCards | `TODO` |
-| MarketMeta | `TODO` |
-| MempireToken | `TODO` |
+| MempireArena | [`0xec897071929657b898C18513EF85EC8A8f898Ea3`](https://testnet.monadvision.com/address/0xec897071929657b898C18513EF85EC8A8f898Ea3) |
+| MempireCards | [`0xde510Aa056ab8fA5B867Ac9fEF90a9c6CB37dC22`](https://testnet.monadvision.com/address/0xde510Aa056ab8fA5B867Ac9fEF90a9c6CB37dC22) |
+| MempireToken ($MEMPIRE) | [`0xFe140f43017CaA1f201f9e1DC7989c1F70f45234`](https://testnet.monadvision.com/address/0xFe140f43017CaA1f201f9e1DC7989c1F70f45234) |
+| MarketMeta | [`0x17Ca9e2102d2B38f3676fEc6B5EA6c927753d148`](https://testnet.monadvision.com/address/0x17Ca9e2102d2B38f3676fEc6B5EA6c927753d148) |
+| SeasonPass | [`0xC9fce06d747cce76Ce17C019d935795E0cE49203`](https://testnet.monadvision.com/address/0xC9fce06d747cce76Ce17C019d935795E0cE49203) |
+| PasskeyRegistry | [`0x91e9E6d880FbB31D7f000DcB9e30B222E298BDDd`](https://testnet.monadvision.com/address/0x91e9E6d880FbB31D7f000DcB9e30B222E298BDDd) |
+| MempirePaymaster | [`0xDe9359912EFcc3Acf3cD4c5797353B106bF0be6C`](https://testnet.monadvision.com/address/0xDe9359912EFcc3Acf3cD4c5797353B106bF0be6C) |
+| MempireAccount7702 | [`0x01b0950208B7E02c5361314c8DB4FF40042278dE`](https://testnet.monadvision.com/address/0x01b0950208B7E02c5361314c8DB4FF40042278dE) |
 
+EntryPoint v0.8 (canonical) `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`.
 External: Pyth `0x2880aB155794e7179c9eE2e38200202908C17B43`, AUSD `0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC`, CRE simulation forwarder `0xB9F79d863261869B234c481D1f9A7af84AeAd192`.
 
 ### The market is the meta

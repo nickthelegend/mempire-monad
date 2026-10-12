@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the four contracts to Monad testnet, register the roster, fund the
+# Deploy the contracts to Monad testnet, register the roster, fund the
 # reward pool, verify everything on Sourcify, and fan the addresses out to the
 # app, relay and indexer.
 #
@@ -29,7 +29,7 @@ CRE_FORWARDER="${CRE_FORWARDER:-0xB9F79d863261869B234c481D1f9A7af84AeAd192}" \
 METADATA_BASE_URI="${METADATA_BASE_URI:-https://mempire-monad-relay.up.railway.app/nft/}" \
 TIME_SCALE="${TIME_SCALE:-60}" \
 forge script script/Deploy.s.sol \
-  --rpc-url "$RPC" --broadcast --slow \
+  --rpc-url "$RPC" --broadcast --slow --gas-estimate-multiplier 110 \
   --verify --verifier sourcify --verifier-url "$SOURCIFY"
 
 cd "$ROOT"
