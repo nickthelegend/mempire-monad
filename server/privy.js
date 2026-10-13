@@ -72,8 +72,10 @@ export function matchPolicy() {
         { field_source: 'ethereum_transaction', field: 'value', operator: 'eq', value: '0' },
         { field_source: 'ethereum_transaction', field: 'chain_id', operator: 'eq', value: String(CHAIN_ID) },
         {
+          // The match id is each method's first argument; its name comes from
+          // the ABI itself, which Privy validates the field against.
           field_source: 'ethereum_calldata',
-          field: `${fn}.matchId`,
+          field: `${fn}.${abis.arena.find((x) => x.type === 'function' && x.name === fn).inputs[0].name}`,
           abi: abis.arena.filter((x) => x.type === 'function' && x.name === fn),
           operator: 'gte',
           value: '1',
