@@ -9,22 +9,28 @@ Paste-ready. Every claim below is checkable on Monad testnet or in the repo.
 
 ## Short description (≤ 280)
 
-Coins and stocks become fighters, buffed or nerfed by today's market via Chainlink CRE. Stake a dollar, play a 3-minute lane battle where every card is a Monad transaction, and the contract pays the winner in one block. One passkey prompt to start.
+Coins and stocks become fighters, buffed or nerfed by the market via Chainlink CRE. Stake $1 (AUSD) or 0.01 MON, play a 3-minute lane battle where every card is a Monad transaction, and the contract pays the winner. One passkey prompt to start.
 
 ## Full description
 
 **Problem.** Crypto games lose players in the first five minutes: seed phrases, extensions, faucets, popups mid-match. And "on-chain" games usually put only the result on chain, so nobody can check the match.
 
-**Solution.** Mempire is a real-time 1v1 card battler. Every fighter is a real asset (BTC, MON, NVDA, BONK and 32 more). A Chainlink CRE workflow writes today's price moves on chain as small, bounded buffs and nerfs, so the market is the meta. A new player signs in with one passkey prompt (Mera), and the relay mints an 8-card starter deck, gets test AUSD from Agora's faucet and sends gas. Two players stake a dollar (MON or AUSD with a permit), every card they drop is a Monad transaction from a per-match session key, and the second result claim settles the pot 90/10 in the same transaction. Any match can be replayed from its on-chain plays and checked against the state hashes both players posted, and live matches can be watched from the chain.
+**Solution.** Mempire is a real-time 1v1 card battler. Every fighter is a real asset (BTC, MON, NVDA, BONK and 32 more). A Chainlink CRE workflow writes price moves on chain as small, bounded buffs and nerfs (one epoch per run), so the market is the meta. A new player signs in with one passkey prompt (Mera), and the relay mints an 8-card starter deck, gets test AUSD from Agora's faucet and sends gas. Two players stake (0.01 MON, or $1 AUSD with a permit), every card they drop is a Monad transaction from a per-match session key, and the second result claim settles the pot 90/10 in the same transaction. A staked match can be replayed: the relay keeps the seed and decks, and the replay re-runs the on-chain plays and checks them against the state hashes both players posted. Practice is free and off chain.
 
-**Why Monad.** 300 ms blocks and ~600 ms finality make it possible for every card drop to be its own transaction while the unit walks the lane. The app shows it: Monad's commit states (proposed → voted → final) are live on the first screen, and each card shows "exec / final ms" as it lands. It also uses what only Monad has:
+**Why Monad.** Fast blocks make it possible for every card drop in a staked match to be its own transaction while the unit walks the lane. The app shows it: Monad's commit states (proposed → voted ~290 ms → final ~575 ms) are live on the first screen. In a staked match each card shows "exec / final ms" as it lands; in the browser, through public RPCs, that measured 0.9–1.4 s executed and 1.5–1.9 s final (round trip included). It also uses what only Monad has:
 - P256 passkey verification at `0x0100`;
 - the staking precompile `0x1000`;
 - EIP-7702 + an ERC-4337 v0.8 paymaster for gasless chests;
 - gas sized for a chain that bills the limit;
 - drips that respect the 10 MON reserve balance.
 
-**What's live.** The app, relay and 8 verified contracts are on Monad testnet. A live staked match was settled on chain, with real per-card timings measured in the browser.
+**What's live, honestly.** The app, the relay and 8 verified contracts are on Monad testnet. Proven there by the team's own test players:
+- one staked MON match settled on chain;
+- one CRE meta write (`cre workflow simulate --broadcast`; no DON deployment);
+- one Pyth-priced mint;
+- a gasless 7702 chest.
+
+AUSD-permit stakes, replays and spectating are proven on a fork of testnet (test suites in the repo). Guests onboard on testnet in about 10 s.
 
 ## Track
 
@@ -32,13 +38,16 @@ Coins and stocks become fighters, buffed or nerfed by today's market via Chainli
 
 ## Bounties claimed
 
-| Bounty | What it does in Mempire | Proof |
+| Bounty | What it does in Mempire | Proof, and its limits |
 |---|---|---|
-| **Chainlink CRE** | A CRE workflow (TypeScript) reads CoinGecko and Pyth prices, reaches consensus and writes per-coin buffs/nerfs to `MarketMeta` every epoch; matches lock the epoch they start on | MetaPosted epoch 2986491, 36 coins: [0x26b6bc97…b219](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219); live match #1 ran on that epoch |
-| **Mera: Best UX** | "Create with passkey": one prompt; the account comes from WebAuthn PRF; no seed phrase, extension or popups during play (a session key signs card plays) | Live app; `app/e2e/browser-pass.mjs` (virtual authenticator) |
-| **Mera: Many Keys** | The same passkey restores the same account on any device; a P-256 passkey signature is also verified on chain by Monad's `0x0100` precompile (`PasskeyRegistry`) | `PasskeyRegistry` deployed and verified; in-app check by live `eth_call` (12,773 gas vs 353,980 in Solidity) |
-| **Privy** | Email sign-in to an embedded wallet; gas sponsorship; a session signer limited by a policy (only arena `play`/`checkpoint`/`claim`, value 0, chain 10143) | Signer and policy created on the app via the API (`server/privy.js`); email sign-in turns on once the dashboard origins are allowed |
-| **Envio** | HyperIndex indexer for matches, players, coins, cards and daily stats, feeding the live feed and leaderboards | Handlers 9/9; `verify-local` 52/52 on a fork |
+| **Chainlink CRE** | A CRE workflow (TypeScript) reads CoinGecko and Pyth prices, reaches consensus over HTTP, and writes per-coin buffs/nerfs to `MarketMeta` through `writeReport`. Matches lock the epoch they start on | MetaPosted epoch 2986491 (36 coins): [0x26b6bc97…b219](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219). It was sent with `cre workflow simulate --broadcast` through the simulation forwarder, because the workflow is not deployed to a DON. Live match #1 ran on that epoch. The app labels how old the meta is. |
+| **Mera: Best UX** | "Create with passkey": one prompt, the account derived from WebAuthn PRF, no seed phrase or extension; a per-match session key signs card plays, so no popups during play | Live app (needs a PRF-capable passkey: iPhone, Android, recent Chrome/Safari); `app/e2e/browser-pass.mjs` runs it with a virtual authenticator |
+| **Mera: Many Keys** | A second PRF namespace (`mempire.locker.v1`) feeds HKDF into an AES-256-GCM key: the Deck screen's **passkey locker** encrypts a deck and reopens it with the same passkey on any device. Monad's `0x0100` precompile also verifies P-256 passkey signatures (`PasskeyRegistry`) | Deck → Passkey locker, for passkey accounts (guests don't see it). The in-app precompile check uses a dedicated P-256 passkey and says so |
+| **Privy** | Email sign-in into an embedded wallet; gas sponsorship; a session signer limited by a policy (only arena `play`/`checkpoint`/`claim`, value 0, chain 10143) | Signer key quorum and policy created on the Privy app via the API (`server/privy.js`; `/api/privy/config` shows them). No Privy transaction yet: the email path needs the Privy dashboard to allow this origin and enable Monad gas sponsorship |
+
+Not claimed:
+- **Envio:** built and tested (handlers 9/9; `verify-local` 52/52 on a fork), but not hosted.
+- **Kimi:** off in the hosted app.
 
 ## Links
 

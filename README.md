@@ -45,7 +45,7 @@ These are the things a generic EVM port wouldn't have; each says where it runs. 
 - **Native staking** (live testnet read). Epoch and the block proposer's validator, from the staking precompile (`0x1000`), batched through the canonical Multicall3.
 - **Gas the Monad way.** Explicit limits (Monad charges the limit), simulate-before-send, and onboarding drips that respect the 10 MON reserve balance.
 - **Watch live from the chain.** Any staked match in progress can be spectated: the arena's `Played` logs (over `monadLogs` on Monad) drive the same deterministic sim, a few seconds behind, with each on-chain checkpoint checked as it lands.
-- **Gasless chests** (EIP-7702 + an ERC-4337 paymaster). A player with 0 MON delegates their own address and opens chests through the canonical EntryPoint v0.8; our paymaster pays, the relay bundles. Proven on a Prague fork of testnet.
+- **Gasless chests** (EIP-7702 + an ERC-4337 paymaster). A player with 0 MON delegates their own address and opens chests through the canonical EntryPoint v0.8; our paymaster pays, the relay bundles. Live on testnet: tx `0xb0cec249…cc59` (open, with the 7702 authorization).
 
 ### Also new
 
@@ -79,7 +79,7 @@ These are the things a generic EVM port wouldn't have; each says where it runs. 
 
 ### Contracts (`contracts/`, Foundry, Solidity 0.8.28)
 
-`PasskeyRegistry` (P256 passkeys via `0x0100`) is the fifth contract. Its tests run under the `osaka` profile, the EVM with that precompile.
+`PasskeyRegistry` (P256 passkeys via `0x0100`) is one of eight deployed contracts. Its tests run under the `osaka` profile, the EVM with that precompile.
 
 
 | Contract | What it does |
@@ -219,8 +219,8 @@ Going live is an ordered, under-an-hour runbook: [docs/DEPLOY-LATER.md](docs/DEP
 
 - **Pre-existing (ours):** the game client, art, audio, the deterministic simulation, and the relay's matchmaker and clans were built for the Solana version of Mempire ([github.com/nickthelegend/mempire](https://github.com/nickthelegend/mempire)) in Jul–Aug 2026. The first commit in this repository imports them unchanged so the port is visible in the history. Everything chain-related was rewritten for Monad during Metropolis: the contracts, the accounts, the stakes and escrow, the play log, the market meta, the indexer, and onboarding.
 - **External code:** OpenZeppelin Contracts v5.4 (MIT), forge-std (MIT/Apache-2.0), viem (MIT), `@category-labs/mera` (MIT/Apache-2.0), `@scure/bip32` and `@scure/bip39` (MIT), the Chainlink CRE SDK, the Envio HyperIndex CLI, three.js and React Three Fiber (MIT). Character models are KayKit (CC0). `IReceiver.sol` is copied from Chainlink's CRE consumer-contract guide.
-- **Built during Metropolis (Sep 1 – Oct 13):** all four contracts and their tests; the Mera passkey account layer and the locker; AUSD stakes with permits; per-match session keys and the on-chain play log; the market meta (CRE workflow, Pyth momentum, the sim modifier); the Envio indexer; Privy and Kimi; onboarding; the fork-based local stack and the throwaway-fork test suites.
-- **AI tools:** this port was written with Claude Code (Anthropic), which wrote most of the code, tests and documentation under the author's direction. Card art and audio were generated earlier with Higgsfield. Kimi is used at runtime as the AI opponent.
+- **Built during Metropolis (Sep 1 – Oct 13):** all eight contracts and their tests; the Mera passkey account layer and the locker; AUSD stakes with permits; per-match session keys and the on-chain play log; the market meta (CRE workflow, Pyth momentum, the sim modifier); the Envio indexer; Privy and Kimi; onboarding; the fork-based local stack and the throwaway-fork test suites.
+- **AI tools:** this port was written with Claude Code (Anthropic), which wrote most of the code, tests and documentation under the author's direction. Card art and audio were generated earlier with Higgsfield. Kimi can run as the AI opponent, but it is switched off in the hosted app (no Moonshot key); the classic bot plays instead.
 
 ## License
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Project** | Mempire: a real-time 1v1 card battler where the market is the meta |
-| **Track** | **03 · Social, Attention & Culture** (recommended; currently registered as 02, see below) |
+| **Track** | **03 · Social, Attention & Culture** |
 | **Network** | **Monad testnet (10143)**, deployed 12 Oct; 8 contracts verified on Sourcify (addresses in the README). It also runs locally on a fork of testnet with one command (`scripts/local-up.sh`). |
 | **Live app** | https://mempire-monad.vercel.app (relay: https://relay-production-9c75.up.railway.app) |
 | **Repo** | https://github.com/nickthelegend/mempire-monad (MIT) |
@@ -39,12 +39,12 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 | Project name | Mempire |
 | Tagline | A 1v1 card battler where the market is the meta: every fighter is a real asset, and today's price moves buff or nerf it. |
 | Track | 03 · Social, Attention & Culture (or 02 if the team keeps it there) |
-| Bounties | Privy · Mera (Best UX) · Mera (Many Keys) · Chainlink CRE · Envio · Kimi (+ Community Team if applicable) |
+| Bounties | Chainlink CRE · Mera (Best UX) · Mera (Many Keys) · Privy (see `docs/PORTAL-COPY.md` for status) |
 | Repo | https://github.com/nickthelegend/mempire-monad |
 | Live URL | https://mempire-monad.vercel.app |
 | Contract addresses | Arena `0xec897071929657b898C18513EF85EC8A8f898Ea3`, Cards `0xde510Aa056ab8fA5B867Ac9fEF90a9c6CB37dC22`, Token `0xFe140f43017CaA1f201f9e1DC7989c1F70f45234`; all 8 in `shared/deployments/10143.json` |
 | Pre-existing work | Game client, art, audio, simulation, matchmaker and clans came from the Solana version (Jul–Aug 2026). All on-chain and sponsor work is new; see README → Attribution. |
-| AI tools | Claude Code wrote most of the code, tests and docs under the author's direction. Kimi is used at runtime. Higgsfield made the art earlier. |
+| AI tools | Claude Code wrote most of the code, tests and docs under the author's direction. Higgsfield made the art earlier. No AI runs in the hosted app (Kimi is off). |
 
 ## Bounties targeted (status: built and tested on the local fork; the keys each one still needs are in `docs/SPONSOR-GAP.md`)
 
@@ -54,8 +54,8 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 | **Monad Foundation: Mera UX** | All | Mera is the account layer, with one passkey ceremony and nothing secret stored. Signing is prompt-free. Sessions have idle and hard expiry, a visible countdown, a lock option, and step-up for big stakes. The stateless test passes. The starter deck lands about 1–3 s after sign-up. |
 | **Mera: Many Keys** | All | The `mempire.locker.v1` PRF namespace feeds HKDF, which yields an AES-256-GCM key and an unlinkable storage id. That powers an end-to-end encrypted deck and notes locker that opens on any device with the passkey. |
 | **Chainlink CRE** | All | A cron, HTTP-consensus, `writeReport` workflow into the `MarketMeta` receiver sets each fighter's daily ±15% modifier, which the deterministic sim applies. 33 tests, compiled to WASM. **Simulation needs `cre login`.** Meanwhile the same `MarketMeta` takes Pyth momentum, which runs live locally. |
-| **Envio** | All | HyperIndex V3 with derived entities (records, net per currency, per-fighter win rates on buffed and nerfed days, the play feed, epochs with source). It runs on the local chain, and verify-local checks indexed rows against the chain (52/52). The app's **Live on Monad** panel reads it. |
-| **Kimi** | All | Kimi is the AI opponent's strategist, using tool calling (`deploy_card`, `wait`, `get_market_meta`). Its moves are validated and played through the human input path, and it provides the caster lines. 46 checks against a fake Moonshot server (a test double, used only in tests). **The live path needs `MOONSHOT_API_KEY`**; without it the app offers only the classic bot, labelled as such. |
+| **Envio** (built, not claimed: the hosted indexer needs an Envio Cloud repo connection) | All | HyperIndex V3 with derived entities (records, net per currency, per-fighter win rates on buffed and nerfed days, the play feed, epochs with source). It runs on the local chain, and verify-local checks indexed rows against the chain (52/52). The app's **Live on Monad** panel reads it. |
+| **Kimi** (not claimed: off in the hosted app by the team's choice) | All | Kimi is the AI opponent's strategist, using tool calling (`deploy_card`, `wait`, `get_market_meta`). Its moves are validated and played through the human input path, and it provides the caster lines. 46 checks against a fake Moonshot server (a test double, used only in tests). **The live path needs `MOONSHOT_API_KEY`**; without it the app offers only the classic bot, labelled as such. |
 | **Monad Foundation: Community Team** | All | Only if the team was onboarded through a Metropolis community supporter. |
 
 **Also integrated** (not a separate cash bounty):
@@ -76,13 +76,13 @@ Monad-native, with where each runs (details in [docs/MONAD-NATIVE.md](docs/MONAD
 | Integration | Runs |
 |---|---|
 | Live block pipeline: `monadNewHeads` commit states with measured ms (~290 ms voted, ~575 ms final) | live testnet read |
-| Per-play two-timer receipts: `eth_sendRawTransactionSync` + finality checked against the finalized hash; `txpool_statusByHash` | local fork labelled; testnet timings awaiting the go |
+| Per-play two-timer receipts: `eth_sendRawTransactionSync` + finality checked against the finalized hash; `txpool_statusByHash` | **testnet**: browser-measured, executed 0.9–1.4 s, final 1.5–1.9 s (match #1) |
 | Verifiable replay: match re-run from on-chain plays and checked against on-chain state checkpoints | local fork (any chain) |
 | Passkeys: Mera accounts + P256VERIFY `0x0100` (`PasskeyRegistry`, and the in-app check) | live testnet read; contract tested on Osaka |
 | Native staking precompile `0x1000` via Multicall3 | live testnet read |
 | Gas on Monad: explicit limits, simulate-before-send, 10 MON reserve-aware drips | built + unit-tested |
-| Spectate a live staked match: `Played` logs via `monadLogs` drive the sim; checkpoints verified as they land | local fork (polling, labelled); `monadLogs` on testnet awaiting the go |
-| Gasless chests: EIP-7702 delegation + `MempirePaymaster` on the canonical EntryPoint v0.8; the relay bundles | Prague fork of testnet (16/16); testnet awaiting the go |
+| Spectate a live staked match: `Played` logs via `monadLogs` drive the sim; checkpoints verified as they land | built; on testnet it reads `monadLogs`; no live match to watch at the time of judging |
+| Gasless chests: EIP-7702 delegation + `MempirePaymaster` on the canonical EntryPoint v0.8; the relay bundles | **testnet**: open `0xb0cec249…cc59`, reveal `0x342a7b31…3c37`; player MON unchanged |
 | x402 / MPP | not applicable: the money is an escrowed pot, not a per-call sale |
 
 - Every card play is an on-chain transaction from a session key, viable only because of 300 ms blocks (final in ~600 ms) and low gas.
