@@ -45,9 +45,9 @@ AUSD-permit stakes, replays and spectating are proven on a fork of testnet (test
 | **Chainlink CRE** | A CRE workflow (TypeScript) reads CoinGecko and Pyth prices, reaches consensus over HTTP, and writes per-coin buffs/nerfs to `MarketMeta` through `writeReport`. Matches lock the epoch they start on | MetaPosted epoch 2986491 (36 coins): [0x26b6bc97…b219](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219). It was sent with `cre workflow simulate --broadcast` through the simulation forwarder, because the workflow is not deployed to a DON. Live match #1 ran on that epoch. The app labels how old the meta is. |
 | **Mera: Best UX** | "Create with passkey": one prompt, the account derived from WebAuthn PRF, no seed phrase or extension; a per-match session key signs card plays, so no popups during play | Live app (needs a PRF-capable passkey: iPhone, Android, recent Chrome/Safari); `app/e2e/browser-pass.mjs` runs it with a virtual authenticator |
 | **Mera: Many Keys** | A second PRF namespace (`mempire.locker.v1`) feeds HKDF into an AES-256-GCM key: the Deck screen's **passkey locker** encrypts a deck and reopens it with the same passkey on any device. Monad's `0x0100` precompile also verifies P-256 passkey signatures (`PasskeyRegistry`) | Deck → Passkey locker, for passkey accounts (guests don't see it). The in-app precompile check uses a dedicated P-256 passkey and says so |
-| **Privy** | Email sign-in into an embedded wallet; gas sponsorship; a session signer limited by a policy (only arena `play`/`checkpoint`/`claim`, value 0, chain 10143) | Signer key quorum and policy created on the Privy app via the API (`server/privy.js`; `/api/privy/config` shows them). No Privy transaction yet: the email path needs the Privy dashboard to allow this origin and enable Monad gas sponsorship |
 
 Not claimed:
+- **Privy:** set up on the shared app (signer and policy created through the API), but there is no Privy transaction yet.
 - **Envio:** built and tested (handlers 9/9; `verify-local` 52/52 on a fork), but not hosted.
 - **Kimi:** off in the hosted app.
 
@@ -88,3 +88,9 @@ Not claimed:
 - Claude Code (Anthropic) wrote most of the code, tests and docs, under the author's direction and review.
 - Higgsfield generated the art, earlier, for the Solana version.
 - No AI model runs in the product: the Kimi opponent is switched off and the classic bot plays.
+
+
+## Bounty article links
+
+- Chainlink CRE: https://github.com/nickthelegend/mempire-monad/blob/main/docs/CHAINLINK-CRE.md
+- Mera (Best UX, Many Keys): https://github.com/nickthelegend/mempire-monad/blob/main/docs/MERA.md

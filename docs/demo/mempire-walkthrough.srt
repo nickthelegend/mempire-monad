@@ -1,0 +1,359 @@
+1
+00:00:00,350 --> 00:00:02,884
+Mempire is a real-time card battler for
+
+2
+00:00:02,904 --> 00:00:05,496
+crypto-native players who want real stakes,
+
+3
+00:00:05,516 --> 00:00:07,250
+without seed phrases, faucets,
+
+4
+00:00:07,270 --> 00:00:08,750
+or wallet popups.
+
+5
+00:00:09,313 --> 00:00:12,010
+Every coin, memecoin and stock is a
+
+6
+00:00:12,030 --> 00:00:14,378
+fighter, and the market decides who is
+
+7
+00:00:14,398 --> 00:00:15,472
+strong today.
+
+8
+00:00:15,664 --> 00:00:17,327
+Everything you see is live,
+
+9
+00:00:17,347 --> 00:00:19,130
+on Monad testnet.
+
+10
+00:00:19,730 --> 00:00:22,067
+Signing up takes one passkey prompt,
+
+11
+00:00:22,087 --> 00:00:23,266
+through Mera.
+
+12
+00:00:23,457 --> 00:00:25,039
+The account key is derived from the
+
+13
+00:00:25,059 --> 00:00:27,953
+passkey's PRF output, so there is no
+
+14
+00:00:27,973 --> 00:00:29,323
+seed phrase to lose,
+
+15
+00:00:29,343 --> 00:00:31,332
+and the same passkey brings the same
+
+16
+00:00:31,352 --> 00:00:33,494
+account back on any device.
+
+17
+00:00:34,094 --> 00:00:37,467
+The heartbeat subscribes to Monad's new-heads stream.
+
+18
+00:00:37,821 --> 00:00:39,566
+Each block moves from proposed,
+
+19
+00:00:39,586 --> 00:00:42,262
+to voted in about three hundred milliseconds,
+
+20
+00:00:42,291 --> 00:00:44,279
+to finalized in under six hundred,
+
+21
+00:00:44,299 --> 00:00:46,186
+timed right here in the browser.
+
+22
+00:00:46,186 --> 00:00:48,662
+On first sign-in, our relayer mints an
+
+23
+00:00:48,682 --> 00:00:52,322
+eight-card starter deck as ERC-721s,
+
+24
+00:00:52,351 --> 00:00:55,349
+requests test AUSD from Agora's faucet,
+
+25
+00:00:55,369 --> 00:00:57,370
+and drips a little MON for gas,
+
+26
+00:00:57,390 --> 00:01:00,693
+while keeping Monad's ten-MON reserve balance.
+
+27
+00:01:01,293 --> 00:01:03,781
+The Cards screen shows every fighter's live
+
+28
+00:01:03,801 --> 00:01:06,056
+price, its twenty-four-hour move,
+
+29
+00:01:06,076 --> 00:01:07,789
+and the on-chain meta.
+
+30
+00:01:08,236 --> 00:01:10,468
+Minting pulls a signed Pyth price update
+
+31
+00:01:10,488 --> 00:01:12,456
+into the mint transaction itself,
+
+32
+00:01:12,531 --> 00:01:14,009
+and the card records the price it
+
+33
+00:01:14,029 --> 00:01:15,243
+was minted at.
+
+34
+00:01:15,843 --> 00:01:16,926
+Back in the arena,
+
+35
+00:01:16,946 --> 00:01:19,251
+the side boards are the market meta.
+
+36
+00:01:19,512 --> 00:01:22,325
+A Chainlink CRE workflow reads prices,
+
+37
+00:01:22,345 --> 00:01:25,157
+reaches consensus, and writes bounded buffs and
+
+38
+00:01:25,177 --> 00:01:27,227
+nerfs to the MarketMeta contract.
+
+39
+00:01:27,581 --> 00:01:29,534
+Each match locks the epoch it starts
+
+40
+00:01:29,554 --> 00:01:30,304
+on.
+
+41
+00:01:30,304 --> 00:01:31,909
+We stake the one-dollar tier,
+
+42
+00:01:31,929 --> 00:01:32,899
+in MON.
+
+43
+00:01:33,160 --> 00:01:34,847
+The stake, the deck lock,
+
+44
+00:01:34,867 --> 00:01:36,902
+and a per-match session key are funded
+
+45
+00:01:36,922 --> 00:01:39,305
+in one transaction, and the second player
+
+46
+00:01:39,325 --> 00:01:41,421
+joins the same match on chain.
+
+47
+00:01:42,021 --> 00:01:43,882
+During the match, every card I drop
+
+48
+00:01:43,902 --> 00:01:45,670
+is its own Monad transaction,
+
+49
+00:01:45,690 --> 00:01:47,330
+signed by the session key,
+
+50
+00:01:47,350 --> 00:01:48,900
+so there are no popups.
+
+51
+00:01:49,161 --> 00:01:51,452
+Each pill shows the real round trip:
+
+52
+00:01:51,472 --> 00:01:53,254
+executed, then final.
+
+53
+00:01:53,701 --> 00:01:56,807
+Both seats also post state-hash checkpoints.
+
+54
+00:01:57,521 --> 00:01:59,594
+We fast-forward the middle of the match.
+
+55
+00:01:59,727 --> 00:02:02,229
+A tower falls, in slow motion.
+
+56
+00:02:31,083 --> 00:02:33,411
+When the second player's claim lands,
+
+57
+00:02:33,440 --> 00:02:35,335
+the contract settles the pot in that
+
+58
+00:02:35,355 --> 00:02:36,720
+same transaction:
+
+59
+00:02:36,911 --> 00:02:38,415
+ninety percent to the winner,
+
+60
+00:02:38,444 --> 00:02:40,444
+ten percent rake, and a chest for
+
+61
+00:02:40,464 --> 00:02:41,410
+the winner.
+
+62
+00:02:46,583 --> 00:02:48,807
+Clans are the social layer.
+
+63
+00:02:49,069 --> 00:02:51,044
+These clans were seeded by our team
+
+64
+00:02:51,064 --> 00:02:52,104
+for the demo.
+
+65
+00:02:52,458 --> 00:02:54,481
+Joining one puts us straight into its
+
+66
+00:02:54,501 --> 00:02:57,070
+clan war, a bracket scored only by
+
+67
+00:02:57,090 --> 00:02:59,462
+staked wins the relay has verified on
+
+68
+00:02:59,482 --> 00:03:00,393
+chain.
+
+69
+00:03:02,583 --> 00:03:04,180
+Empire is your record.
+
+70
+00:03:04,371 --> 00:03:07,941
+It reads Monad's staking precompile live,
+
+71
+00:03:07,970 --> 00:03:11,120
+through Multicall3, and it verifies a passkey
+
+72
+00:03:11,140 --> 00:03:15,009
+signature on chain with Monad's P-256 precompile,
+
+73
+00:03:15,029 --> 00:03:16,460
+for a fraction of the gas a
+
+74
+00:03:16,480 --> 00:03:18,530
+Solidity verifier needs.
+
+75
+00:03:20,583 --> 00:03:22,966
+The leaderboards rank trophies,
+
+76
+00:03:22,986 --> 00:03:25,416
+and money columns that the relay credits
+
+77
+00:03:25,436 --> 00:03:27,715
+only after it verifies each settlement on
+
+78
+00:03:27,735 --> 00:03:28,635
+chain.
+
+79
+00:03:29,235 --> 00:03:32,617
+Finally, the proof page reads transactions live
+
+80
+00:03:32,637 --> 00:03:33,734
+from the chain:
+
+81
+00:03:34,088 --> 00:03:36,405
+the Chainlink report that wrote the meta,
+
+82
+00:03:36,433 --> 00:03:38,654
+a mint with its Pyth price update,
+
+83
+00:03:38,674 --> 00:03:40,305
+and a gasless chest,
+
+84
+00:03:40,334 --> 00:03:45,809
+a type-four transaction with an EIP-7702 authorization,
+
+85
+00:03:46,000 --> 00:03:48,430
+run through the canonical EntryPoint and paid
+
+86
+00:03:48,450 --> 00:03:50,476
+for by our own paymaster.
+
+87
+00:03:51,076 --> 00:03:51,930
+Mempire.
+
+88
+00:03:52,005 --> 00:03:53,169
+Every coin is a fighter.
+
+89
+00:03:53,189 --> 00:03:55,050
+Play it now, at mempire monad,
+
+90
+00:03:55,070 --> 00:03:56,806
+dot vercel, dot app.

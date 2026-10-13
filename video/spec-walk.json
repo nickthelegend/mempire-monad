@@ -1,0 +1,18 @@
+{"out": "../docs/demo/mempire-walkthrough.mp4", "vo": "work/vo-walk", "captures": "captures2",
+ "segments": [
+  {"kind": "live", "a": 0.3, "b": 14.3, "tag": "Live app · Monad testnet", "vo": ["w01"]},
+  {"kind": "live", "a": 14.3, "b": 24.5, "tag": "Mera passkey sign-up · one prompt", "vo": ["w03"]},
+  {"kind": "live", "a": 24.5, "b": 40.5, "tag": "monadNewHeads heartbeat · relayer onboarding", "vo": ["w02", "w04"]},
+  {"kind": "live", "a": 40.5, "b": 50.5, "tag": "Cards · Pyth-priced mint", "vo": ["w05"]},
+  {"kind": "live", "a": 50.5, "b": 74.5, "tag": "Chainlink CRE meta · stake 0.01 MON · matchmaking", "vo": ["w06", "w07"]},
+  {"kind": "live", "a": 74.5, "b": 90.0, "tag": "Every card is a Monad tx: exec · final", "vo": ["w08"]},
+  {"kind": "live", "a": 90.0, "b": 112.0, "speed": 2, "tag": "Match in progress", "vo": ["w09"]},
+  {"kind": "live", "a": 112.0, "b": 118.0, "tag": "Tower down"},
+  {"kind": "live", "a": 118.0, "b": 144.5, "speed": 1.6, "tag": "Match in progress"},
+  {"kind": "live", "a": 144.5, "b": 160.0, "tag": "Settled on chain by the second claim", "vo": ["w10"]},
+  {"kind": "live", "a": 160.0, "b": 176.0, "tag": "Clans + clan war · seeded by the team", "vo": ["w11"]},
+  {"kind": "live", "a": 176.0, "b": 194.0, "tag": "Staking precompile · P256 passkey check", "vo": ["w12"]},
+  {"kind": "live", "a": 194.0, "b": 200.0, "tag": "Leaderboards", "vo": ["w13"]},
+  {"kind": "live", "a": 200.0, "b": 205.6, "tag": "Chain proof, read live from the RPC", "vo": ["w14"]},
+  {"kind": "html", "src": "hf/outro.webm", "start": 0.15, "dur": 9.0, "vo": ["w15"]}
+ ]}

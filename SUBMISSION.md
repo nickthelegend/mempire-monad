@@ -40,7 +40,7 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 | Project name | Mempire |
 | Tagline | A 1v1 card battler where the market is the meta: every fighter is a real asset, and today's price moves buff or nerf it. |
 | Track | 03 · Social, Attention & Culture (or 02 if the team keeps it there) |
-| Bounties | Chainlink CRE · Mera (Best UX) · Mera (Many Keys) · Privy (see `docs/PORTAL-COPY.md` for status) |
+| Bounties | Chainlink CRE · Mera (Best UX) · Mera (Many Keys) |
 | Repo | https://github.com/nickthelegend/mempire-monad |
 | Live URL | https://mempire-monad.vercel.app |
 | Contract addresses | Arena `0xec897071929657b898C18513EF85EC8A8f898Ea3`, Cards `0xde510Aa056ab8fA5B867Ac9fEF90a9c6CB37dC22`, Token `0xFe140f43017CaA1f201f9e1DC7989c1F70f45234`; all 8 in `shared/deployments/10143.json` |
@@ -51,7 +51,7 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 
 | Bounty | Track | How Mempire meets the stated requirement |
 |---|---|---|
-| **Privy: beyond login** | All | Email sign-in creates a Privy **embedded wallet**. Its own transactions are **gas-sponsored** (`sponsor: true`). A **session signer** (`addSigners`) bound by a **policy** (default deny; only arena `play`/`checkpoint`/`claim`, value 0, this chain) sends in-match calls as the player, so there are no popups and no path to funds. 21 checks on the policy and on honest 503s without keys. **The live path needs Privy keys** (not yet provided). |
+| **Privy: beyond login** (not claimed: no Privy transaction yet) | All | Email sign-in creates a Privy **embedded wallet**. Its own transactions are **gas-sponsored** (`sponsor: true`). A **session signer** (`addSigners`) bound by a **policy** (default deny; only arena `play`/`checkpoint`/`claim`, value 0, this chain) sends in-match calls as the player, so there are no popups and no path to funds. 21 checks on the policy and on honest 503s without keys. **The live path needs Privy keys** (not yet provided). |
 | **Monad Foundation: Mera UX** | All | Mera is the account layer, with one passkey ceremony and nothing secret stored. Signing is prompt-free. Sessions have idle and hard expiry, a visible countdown, a lock option, and step-up for big stakes. The stateless test passes. The starter deck lands about 1–3 s after sign-up. |
 | **Mera: Many Keys** | All | The `mempire.locker.v1` PRF namespace feeds HKDF, which yields an AES-256-GCM key and an unlinkable storage id. That powers an end-to-end encrypted deck and notes locker that opens on any device with the passkey. |
 | **Chainlink CRE** | All | A cron, HTTP-consensus, `writeReport` workflow into the `MarketMeta` receiver sets each fighter's daily ±15% modifier, which the deterministic sim applies. 33 tests, compiled to WASM. **Simulation needs `cre login`.** Meanwhile the same `MarketMeta` takes Pyth momentum, which runs live locally. |

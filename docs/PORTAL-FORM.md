@@ -102,11 +102,11 @@ Team: [user fills in]
 - **The public Monad RPC** can rate-limit. The app falls back to other RPCs automatically.
 - **Only 7 fighters can be minted**, because the Pyth plan covers 7 of 36 feeds. The rest are labelled.
 - **Kimi** (the AI opponent) is off; the classic bot plays Practice for free.
-- **Privy email sign-in** works once the Privy dashboard allows the app origin.
 
 ## 12. Bounties
 
 ### Chainlink CRE
+- **Published article:** https://github.com/nickthelegend/mempire-monad/blob/main/docs/CHAINLINK-CRE.md
 - **What it does:** a TypeScript CRE workflow (cron and HTTP triggers) fetches CoinGecko and Pyth prices, takes a per-coin median consensus, and writes a report through `writeReport` to `MarketMeta` (forwarder-gated, ±15% clamp). Each match locks the meta epoch it starts on, and the game simulation applies it as stat buffs and nerfs.
 - **Evidence:**
   - MetaPosted epoch 2986491, 36 coins: tx 0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219, sent with `cre workflow simulate --broadcast` through the simulation forwarder 0xB9F79d863261869B234c481D1f9A7af84AeAd192.
@@ -115,26 +115,18 @@ Team: [user fills in]
 - **Limit:** not deployed to a DON.
 
 ### Mera: Best UX
+- **Published article:** https://github.com/nickthelegend/mempire-monad/blob/main/docs/MERA.md
 - **What it does:** "Create with passkey" is one WebAuthn prompt. The account's secp256k1 key is derived from the passkey's PRF output, with no seed phrase and nothing secret stored. A per-match session key signs card plays, so there are no popups during play.
 - **Evidence:** the live app (needs a PRF-capable passkey); `app/e2e/browser-pass.mjs` runs it with a virtual authenticator.
 
 ### Mera: Many Keys
+- **Published article:** https://github.com/nickthelegend/mempire-monad/blob/main/docs/MERA.md
 - **What it does:**
   - A second PRF namespace (`mempire.locker.v1`) feeds HKDF into an AES-256-GCM key. The Deck screen's **passkey locker** encrypts a deck and reopens it with the same passkey on any device.
   - Monad's P256 precompile (0x0100) verifies passkey signatures, through `PasskeyRegistry` (deployed 0x91e9E6d880FbB31D7f000DcB9e30B222E298BDDd) and in the app's "Verify a passkey on Monad" check.
 - **Evidence:** the Deck screen (for passkey accounts) and the Empire screen.
 
-### Privy (status: set up, pending a dashboard step)
-- **What it does:**
-  - email sign-in to an embedded wallet;
-  - gas sponsorship;
-  - a session signer limited by a policy: only arena `play`, `checkpoint` and `claim`, value 0, chain 10143.
-- **Evidence:**
-  - the signer key quorum and policy are created on the Privy app via the API;
-  - `GET https://relay-production-9c75.up.railway.app/api/privy/config`.
-- **Limit:** no Privy transaction yet. The dashboard must allow the app origin and enable Monad gas sponsorship.
-
-*(Not claimed: Envio (built, not hosted) and Kimi (off).)*
+*(Not claimed: Privy (set up, but no Privy transaction yet), Envio (built, not hosted) and Kimi (off).)*
 
 ## 13. Optional promo clip (≤ 0:30)
 `docs/demo/mempire-promo.mp4`

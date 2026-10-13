@@ -11,6 +11,7 @@ Sign in with a passkey: no seed phrase, no extension, no wallet popups during a 
 
 
 - **Demo video (2:50):** [`docs/demo/mempire-demo.mp4`](docs/demo/mempire-demo.mp4) (captions: `.srt`). Recorded live on Monad testnet.
+- **Full walkthrough (4:00):** [`docs/demo/mempire-walkthrough.mp4`](docs/demo/mempire-walkthrough.mp4)
 - **Pitch (1:24):** [`docs/demo/mempire-pitch.mp4`](docs/demo/mempire-pitch.mp4)
 - **Play:** https://mempire-monad.vercel.app (Monad testnet; relay https://relay-production-9c75.up.railway.app). It also runs end to end on your machine with one command: see [Run it locally](#run-it-locally).
 - **Track:** 03 · Social, Attention & Culture (recommended; see [SUBMISSION.md](SUBMISSION.md))
