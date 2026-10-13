@@ -99,6 +99,16 @@ async function localUpdate(coins) {
 /** Strips the 0x Hermes omits, so feed ids compare in one spelling. */
 const bare = (feedId) => feedId.toLowerCase().replace(/^0x/, '');
 
+/*
+ * Feeds this Hermes key is not entitled to. A Pyth plan can cover only some
+ * feeds, and Hermes refuses a whole request (403 "Not entitled: feed …") if any
+ * one id is outside the plan. Each refused feed is learned once and left out of
+ * later requests, so entitled coins keep live prices and the rest say plainly
+ * that there is no live price — rather than every price failing together.
+ */
+const refused = new Set();
+export const refusedFeeds = () => [...refused];
+
 /**
  * Latest prices and signed update data for `coinIds`, via Hermes.
  *
@@ -120,13 +130,28 @@ export async function fetchPythUpdate(coinIds) {
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.body ?? hit.inflight;
 
-  const coins = ids.map((id) => coinById.get(id));
-  const qs = coins.map((c) => `ids[]=${c.feedId}`).join('&');
+  const requested = ids.map((id) => coinById.get(id)).filter(Boolean);
   const inflight = (async () => {
-    const res = await fetch(`${HERMES}/v2/updates/price/latest?${qs}&encoding=hex&parsed=true`, {
-      headers: { accept: 'application/json', authorization: `Bearer ${KEY}` },
-      signal: AbortSignal.timeout(8_000),
-    });
+    let coins;
+    let res;
+    // Hermes names one refused feed per 403: learn it, drop it, ask again —
+    // once per feed at most, and only the first time it is seen.
+    for (let attempt = 0; attempt <= requested.length; attempt += 1) {
+      coins = requested.filter((c) => !refused.has(bare(c.feedId)));
+      if (!coins.length) {
+        throw Object.assign(new Error(`no live price for ${requested.map((c) => c.ticker).join(', ')}: this Pyth key is not entitled to ${requested.length === 1 ? 'that feed' : 'those feeds'}`), { status: 503 });
+      }
+      const qs = coins.map((c) => `ids[]=${c.feedId}`).join('&');
+      res = await fetch(`${HERMES}/v2/updates/price/latest?${qs}&encoding=hex&parsed=true`, {
+        headers: { accept: 'application/json', authorization: `Bearer ${KEY}` },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (res.status !== 403) break;
+      const text = await res.text();
+      const learned = [...text.matchAll(/feed (?:0x)?([0-9a-f]{64})/gi)].map((m) => m[1].toLowerCase()).filter((f) => !refused.has(f));
+      if (!learned.length) throw Object.assign(new Error('hermes answered 403'), { status: 502 });
+      for (const f of learned) refused.add(f);
+    }
     if (!res.ok) {
       throw Object.assign(new Error(`hermes answered ${res.status}`), { status: 502 });
     }
@@ -141,7 +166,8 @@ export async function fetchPythUpdate(coinIds) {
         publishTime: Number(p.price?.publish_time),
       }));
     const updateData = (body?.binary?.data ?? []).map((d) => (d.startsWith('0x') ? d : `0x${d}`));
-    return { mode: 'hermes', updateData, prices };
+    const unavailable = requested.filter((c) => refused.has(bare(c.feedId))).map((c) => c.coinId);
+    return { mode: 'hermes', updateData, prices, ...(unavailable.length ? { unavailable } : {}) };
   })();
 
   cache.set(cacheKey, { at: Date.now(), inflight });
