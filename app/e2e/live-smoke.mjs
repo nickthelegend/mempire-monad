@@ -85,7 +85,8 @@ try {
   let shot = false;
   for (let i = 0; i < 90 && !result; i += 1) {
     const text = await A.locator('body').innerText().catch(() => '');
-    for (const m of text.matchAll(/exec (\d+) · final (\d+) ms/g)) evidence.receipts.push({ executedMs: Number(m[1]), finalMs: Number(m[2]) });
+    for (const m of text.matchAll(/exec (\d+) · final (\d+) ms/gi)) evidence.receipts.push({ executedMs: Number(m[1]), finalMs: Number(m[2]) });
+    for (const m of text.matchAll(/exec (\d+) ms · finalizing/gi)) evidence.receipts.push({ executedMs: Number(m[1]), finalMs: null });
     result = text.match(/Pot Secured|Rekt|Split|Voided/i)?.[0] ?? null;
     if (!shot && evidence.receipts.length >= 2) { await A.screenshot({ path: `${OUT}speed-receipts-desktop.png` }); shot = true; }
     if (!result) { await drop(A); await sleep(2000); }

@@ -41,10 +41,10 @@ export const RPC_URL = (import.meta.env.VITE_RPC_URL as string | undefined) ?? C
 
 /*
  * Monad testnet's public RPCs rate-limit per IP. On testnet, reads fall back
- * across several public endpoints (all CORS-enabled) so one 429 does not stall
+ * across public endpoints that send valid CORS headers so one 429 does not stall
  * a player; elsewhere (the local fork) there is just the one URL.
  */
-const TESTNET_FALLBACK_RPCS = ['https://rpc-testnet.monadinfra.com', 'https://monad-testnet.drpc.org', 'https://rpc.ankr.com/monad_testnet'];
+const TESTNET_FALLBACK_RPCS = ['https://monad-testnet.drpc.org', 'https://rpc.ankr.com/monad_testnet'];
 export const rpcTransport = () => {
   const one = (url: string) => http(url, { retryCount: 1, retryDelay: 250, batch: { wait: 16 } });
   if (CHAIN.id !== 10143) return http(RPC_URL, { retryCount: 3, retryDelay: 250, batch: { wait: 16 } });
