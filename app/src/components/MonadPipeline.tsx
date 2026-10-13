@@ -31,7 +31,7 @@ function Chip({ c }: { c: BlockChip }) {
         fontFamily: 'var(--font-mono)', fontSize: 10, lineHeight: 1.15,
       }}
     >
-      <span style={{ fontWeight: 700 }}>{c.number}</span>
+      <span style={{ fontWeight: 700 }}>…{String(c.number).slice(-4)}</span>
       <span style={{ fontSize: 9, opacity: 0.9 }}>{c.state === 'Verified' ? '✓' : ms !== undefined ? `${ms}ms` : look.label}</span>
     </span>
   );
@@ -67,7 +67,7 @@ export function MonadPipeline({ compact = false }: { compact?: boolean }) {
           Monad testnet heartbeat{status === 'live' ? '' : status === 'unavailable' ? ' · reconnecting' : ' · connecting'}
         </span>
         <span className="fine" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--dim)', whiteSpace: 'nowrap' }}>
-          read-only · live
+          {chips[0] ? `block ${Number(chips[0].number).toLocaleString('en-US')}` : 'read-only · live'}
         </span>
       </div>
       <div
