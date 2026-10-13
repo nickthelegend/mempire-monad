@@ -127,6 +127,13 @@ export function registerMatchmaker(server, db) {
     pairings.createIndex({ at: 1 }, { expireAfterSeconds: 3600 }).catch(() => {});
   }
   /*
+   * Replay records outlive the pairing. They used to live only inside the
+   * pairing row, which expires after an hour, so every staked match stopped
+   * being replayable an hour after it was played. Keyed by the arena match id
+   * and written once, when seat 0 reports the match it opened.
+   */
+  const replays = db ? db.collection('match_replays') : null;
+  /*
    * Bound what one socket can make this process hold.
    *
    * `ws` defaults `maxPayload` to 100 MiB, and nothing here authenticates a
@@ -438,6 +445,10 @@ export function registerMatchmaker(server, db) {
              * card ids against the deck commitment, levels against the power
              * the arena recorded, and the whole run against the checkpoints.
              */
+            m.replayRecord = {
+              seats: [waiting.address, address],
+              replay: { seed: seed || 0x9e3779b9, format, startAt, decks: [waiting.deck ?? null, msg.deck ?? null] },
+            };
             if (pairings) {
               pairings.insertOne({
                 _id: pairKey,
@@ -561,9 +572,17 @@ export function registerMatchmaker(server, db) {
             ? msg.txHash : null;
           // Seat 0 opened the arena match: tie the replay record to its id.
           // Only seat 0 may set it, once; the replay checks the chain anyway.
-          if (stage === 'opened' && ws === m.players[0] && Number.isSafeInteger(id) && id > 0 && !m.onchainMatchId) {
+          const firstOpen = stage === 'opened' && ws === m.players[0] && Number.isSafeInteger(id) && id > 0 && !m.onchainMatchId;
+          if (firstOpen) {
             m.onchainMatchId = id;
             live.set(id, { matchId: id, startAt: m.startAt, format: m.format, seats: m.addr });
+          }
+          if (replays && m.replayRecord && firstOpen) {
+            replays.updateOne(
+              { _id: id },
+              { $setOnInsert: { seats: m.replayRecord.seats, replay: { ...m.replayRecord.replay, onchainMatchId: id }, at: new Date() } },
+              { upsert: true },
+            ).catch(() => {});
           }
           if (pairings && m.pairKey && stage === 'opened' && ws === m.players[0] && Number.isSafeInteger(id) && id > 0) {
             pairings.updateOne(

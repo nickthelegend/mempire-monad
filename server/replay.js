@@ -23,6 +23,7 @@ const PUBLIC = (doc) => ({
 
 export function registerReplayRoutes(app, db, { liveMatches = () => [] } = {}) {
   const pairings = db.collection('ladder_pairings');
+  const replays = db.collection('match_replays');
   pairings.createIndex({ 'replay.onchainMatchId': 1 }).catch(() => {});
 
   /** Staked matches in progress, for spectators: GET /api/live → [{ matchId, startAt, format, seats }]. */
@@ -34,7 +35,8 @@ export function registerReplayRoutes(app, db, { liveMatches = () => [] } = {}) {
     const id = Number(req.params.matchId);
     if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'bad match id' });
     try {
-      const doc = await pairings.findOne({ 'replay.onchainMatchId': id });
+      // The permanent record first; older matches may only have the pairing row.
+      const doc = await replays.findOne({ _id: id }) ?? await pairings.findOne({ 'replay.onchainMatchId': id });
       if (!doc?.replay) return res.status(404).json({ error: 'no replay record for this match' });
       res.json(PUBLIC(doc));
     } catch (e) {
