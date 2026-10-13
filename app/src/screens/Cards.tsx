@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePythUnavailable } from '../lib/pythCoverage';
 import { useNavigate } from 'react-router-dom';
 import { CardDetail } from '../components/CardDetail';
 import { StarterKit } from '../components/StarterKit';
@@ -83,8 +84,10 @@ function CoinRow({ coin }: { coin: Coin }) {
   // price, its 24h move, and the modifier MarketMeta gave it this epoch.
   void chainBalances;
   const affordable = onchain ? chainSol >= FEES.mintMon : wallet.mon >= FEES.mintMon;
-  // No live quote → the relay can't sign a price → the contract would refuse.
-  const live = coin.priceUsd > 0;
+  // No live Pyth price (no quote, or a feed the relay's Pyth plan doesn't cover)
+  // → no signed update → the contract would refuse.
+  const pythOff = usePythUnavailable();
+  const live = coin.priceUsd > 0 && !pythOff.has(coin.coinId);
   // Holding the coin is no longer a requirement, on chain or here. The balance
   // still renders on the row — how much of a coin you hold is interesting — it
   // simply no longer decides whether you may mint its card.
@@ -334,15 +337,17 @@ export function Cards() {
   // Re-read when prices land: a fighter with no live price cannot be minted,
   // so it is folded into one line instead of a row of disabled buttons.
   const marketVersion = useChain((s) => s.marketVersion);
+  const pythOff = usePythUnavailable();
   const pricesLoaded = COINS.some((c) => c.priceUsd > 0);
+  const mintable = (c: (typeof COINS)[number]) => c.priceUsd > 0 && !pythOff.has(c.coinId);
   const shownCoins = useMemo(
     () => (kind === 'all' ? COINS : COINS.filter((c) => c.kind === kind))
-      .filter((c) => !pricesLoaded || c.priceUsd > 0),
+      .filter((c) => !pricesLoaded || mintable(c)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [kind, pricesLoaded, marketVersion],
+    [kind, pricesLoaded, marketVersion, pythOff],
   );
   const unpriced = pricesLoaded
-    ? (kind === 'all' ? COINS : COINS.filter((c) => c.kind === kind)).filter((c) => !(c.priceUsd > 0))
+    ? (kind === 'all' ? COINS : COINS.filter((c) => c.kind === kind)).filter((c) => !mintable(c))
     : [];
   const detail = useMemo(() => cards.find((c) => c.id === openCard), [cards, openCard]);
   // Cards at level 2 or better — the ones that have actually been won up.
@@ -469,7 +474,7 @@ export function Cards() {
         <div className="panel" style={{ padding: '4px 14px' }}>
           {unpriced.length > 0 && (
             <p className="fine" style={{ fontSize: 12, color: 'var(--dim-on-wood)', margin: '0 0 6px' }}>
-              {unpriced.length} fighter{unpriced.length === 1 ? '' : 's'} without a live price right now can&apos;t be minted
+              {unpriced.length} fighter{unpriced.length === 1 ? '' : 's'} without a live Pyth price can&apos;t be minted right now
               ({unpriced.slice(0, 4).map((c) => `$${c.ticker}`).join(', ')}{unpriced.length > 4 ? '…' : ''}).
             </p>
           )}

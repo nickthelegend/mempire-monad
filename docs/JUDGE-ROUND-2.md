@@ -89,3 +89,56 @@ The pitch is "every card is a Monad transaction, the market reshapes the meta ev
 6. **Mera Many Keys:** make the claim match the UI — show the locker (encrypt a deck, reopen it) or bind the account passkey via `PasskeyRegistry` with a real tx.
 7. **Reconcile docs:** README/MONAD-NATIVE still say 7702 is fork-only; SUBMISSION has Track 02 note, Kimi bounty, "awaiting the go"; README "four/fifth" contracts vs 8 deployed.
 8. **UI cleanup:** show the BUFFED/NERFED meta on the phone landing; show AUSD in the header; hide the 11 un-mintable stocks (and $GOOGL from the shop); fix the practice end-screen contradiction; show full block numbers in the heartbeat; use a dedicated RPC to stop 429s.
+
+---
+
+## Fixed after round 1 (20:05–20:35 IST)
+
+| Finding | Fix | Commit |
+|---|---|---|
+| The replay of match #1 fails ("no replay record") | Root cause: replay records lived only in `ladder_pairings`, which has a 1-hour TTL, so every match became un-replayable after an hour. A permanent `match_replays` row is now written when seat 0 opens the match. Match #1's record had already expired and can't be recovered | `b58a962` |
+| Claims ahead of what's live (CRE "every epoch", "any match can be replayed", 300 ms per card, Kimi/Envio as claimed bounties, 7702 "fork only", Track 02 note, "four/fifth contract") | PORTAL-COPY, README and SUBMISSION now say what ran where:<br>- CRE = one `simulate --broadcast` write;<br>- per-card timings are the browser-measured 0.9–1.4 s / 1.5–1.9 s;<br>- Envio and Kimi are not claimed;<br>- the 7702 tx is cited on testnet;<br>- the Many Keys claim points at the Deck-screen locker (passkey accounts) | `584054c` |
+| Stale meta beside live 24h % | Boards say "meta from N h ago"; Cards rows say "▼ x% meta", not "today" | `29d30d0` |
+| 11 stocks "No live price" rows; un-buyable shop offers | Folded into one line on Cards ("N fighters without a live price right now can't be minted"); the shop hides offers it can't sell | `29d30d0` |
+| Practice end screen says "settled by final-state signature" | Shown only for escrowed matches | `29d30d0` |
+| Meta invisible on a phone | A one-line market-meta strip opens the landing and Arena below 900 px | `2c6f4fa` |
+| Developer text in the Empire Monad panel | One line per item; precompile addresses and stake figures moved behind Details | `2c6f4fa` |
+| Heartbeat block numbers look fake (4 digits) | The header shows the real head block ("block 70,712,369"); the chips show "…2369" | `d171083` |
+
+Not fixed, because each needs MON, keys or the user:
+- organic matches between distinct players;
+- a deployed CRE DON workflow or a live meta keeper;
+- Envio Cloud hosting;
+- a Privy email sign-in transaction (dashboard origins);
+- $MON card art (no Higgsfield credits);
+- a free on-chain practice mode (a new feature, after the freeze).
+
+---
+
+## Round 2 verdict (fresh judge, ~20:50 IST): scores
+
+| | Round 1 | Round 2 |
+|---|---|---|
+| Product quality | 6 | **7** |
+| Technical excellence | 7 | 7 |
+| Monad integration | 7 | 7 |
+| Track fit | 5 | 5 |
+| Innovation | 6 | 6 |
+| CRE (req/tech/monad/innov) | 4/6/5/6 | **5/7/6/7** |
+| Mera Best UX | 5/6/5/5 | **6/7/6/5** |
+| Mera Many Keys | 3/5/7/5 | **5/7/6/6** |
+| Privy | 3/5/4/4 | 2/5/3/4 |
+| Envio | 2/5/3/3 | not claimed |
+
+Round 2's remaining findings, in short:
+- the ▶ Replay link for match #1 is a dead end;
+- a practice win says "POT SECURED";
+- the tutorial returns on every reload;
+- the typed player name is ignored;
+- mint buttons show on coins the Pyth plan doesn't cover;
+- "Kimi · not configured" is dead UI;
+- there is no $MON art;
+- the meta is a single snapshot;
+- one testnet match;
+- Privy has no transaction;
+- the social layer is empty.

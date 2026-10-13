@@ -1,4 +1,5 @@
 import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
+import { apiFetch } from '../lib/api';
 import { MarketStrip } from '../components/MarketBoard';
 import { STAKE_MON_NEEDED } from '../chain/session';
 import { MonadPipeline } from '../components/MonadPipeline';
@@ -660,16 +661,7 @@ export function Arena() {
                 <span className="money" style={{ marginLeft: 'auto', fontSize: 14, whiteSpace: 'nowrap' }}>
                   +{fmtStake(winnerAddr ? payout : payout / 2, row.currency)}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => nav(`/replay/${row.id}`)}
-                  aria-label={`Replay match #${row.id} from the chain`}
-                  title="Replay from the chain"
-                  className="label"
-                  style={{ background: 'none', border: '1.5px solid var(--border)', borderRadius: 999, color: 'var(--teal)', padding: '2px 8px', fontSize: 11, cursor: 'pointer', minHeight: 28, flexShrink: 0 }}
-                >
-                  ▶ replay
-                </button>
+                <ReplayLink id={row.id} onOpen={() => nav(`/replay/${row.id}`)} />
               </div>
             );
           })()
@@ -788,6 +780,8 @@ function AiOpponentPicker() {
   useEffect(() => { loadAiStatus(); }, []);
   const opt = (b: AiBrain) => {
     const kimiOff = b === 'kimi' && status?.mode !== 'kimi';
+    // Kimi is off on this relay: show only the classic bot rather than a dead option.
+    if (kimiOff) return null;
     const on = brain === b && !kimiOff || (b === 'classic' && brain === 'kimi' && status?.mode !== 'kimi');
     return (
       <button
@@ -815,5 +809,32 @@ function AiOpponentPicker() {
       {opt('classic')}
       {opt('kimi')}
     </div>
+  );
+}
+
+/**
+ * "▶ replay", shown only when the relay still has this match's replay record
+ * (seed and decks). Without one the replay page could only say it can't
+ * rebuild the match, so there is no link to a dead end.
+ */
+function ReplayLink({ id, onOpen }: { id: number; onOpen: () => void }) {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void apiFetch(`/api/replay/${id}`).then((r) => { if (live) setOk(Boolean(r?.ok)); }).catch(() => {});
+    return () => { live = false; };
+  }, [id]);
+  if (!ok) return null;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Replay match #${id} from the chain`}
+      title="Replay from the chain"
+      className="label"
+      style={{ background: 'none', border: '1.5px solid var(--border)', borderRadius: 999, color: 'var(--teal)', padding: '2px 8px', fontSize: 11, cursor: 'pointer', minHeight: 28, flexShrink: 0 }}
+    >
+      ▶ replay
+    </button>
   );
 }

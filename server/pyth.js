@@ -201,6 +201,19 @@ export function parseCoinIds(raw) {
 
 export function registerPythRoutes(app, gate) {
   const pass = (_req, _res, next) => next();
+  // Learn this key's coverage once at boot (in batches, as the route allows),
+  // so the app can say which fighters can't be minted before anyone tries.
+  if (MODE === 'hermes') {
+    const ids = [...coinById.keys()];
+    void (async () => {
+      for (let i = 0; i < ids.length; i += 16) await fetchPythUpdate(ids.slice(i, i + 16)).catch(() => {});
+    })();
+  }
+  /** GET /api/pyth/coverage → { mode, unavailable: [coinId] } (feeds this Hermes key is not entitled to). */
+  app.get('/api/pyth/coverage', gate ?? pass, (_req, res) => {
+    const byFeed = new Map([...coinById.values()].map((c) => [bare(c.feedId), c.coinId]));
+    res.json({ mode: MODE, unavailable: refusedFeeds().map((f) => byFeed.get(f)).filter((x) => x !== undefined) });
+  });
   app.get('/api/pyth/update', gate ?? pass, async (req, res) => {
     if (MODE === 'off') return res.status(503).json({ error: 'pyth api key not configured' });
     const ids = parseCoinIds(req.query.coinIds);

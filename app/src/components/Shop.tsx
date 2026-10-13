@@ -1,4 +1,5 @@
 import { mintCardTx } from '../chain/actions';
+import { usePythUnavailable } from '../lib/pythCoverage';
 import { useEffect, useState } from 'react';
 import { buzz, click, play } from '../lib/audio';
 import { coinByMint, tickerOf } from '../lib/coins';
@@ -35,6 +36,7 @@ function fmtLeft(ms: number): string {
  */
 export function Shop() {
   const { offers, ensureFresh, reroll, rerollsUsed, markBought, msUntilRotation } = useShop();
+  const pythOff = usePythUnavailable();
   const balance = useMempire((s) => s.balance);
   const canAfford = useMempire((s) => s.canAfford);
   const refreshMempire = useMempire((s) => s.refresh);
@@ -176,7 +178,7 @@ export function Shop() {
           const coin = coinByMint(o.mint);
           if (!coin) return null;
           // An offer that cannot be bought (no live price on this feed) is not shown.
-          if (!(coin.priceUsd > 0) && offers.some((x) => (coinByMint(x.mint)?.priceUsd ?? 0) > 0)) return null;
+          if (pythOff.has(coin.coinId) || (!(coin.priceUsd > 0) && offers.some((x) => (coinByMint(x.mint)?.priceUsd ?? 0) > 0))) return null;
           /*
            * Onchain, the price is the program's constant — discounts computed
            * here would be quoted and then not charged. They still apply in the

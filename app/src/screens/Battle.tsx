@@ -79,7 +79,7 @@ function ResultOverlay() {
    */
   const awaitingPayout = escrowed && !['settled', 'refunded'].includes(escrowPhase);
   const slotsFull = chainChests.filter((c) => c.state < 4).length >= CHEST_SLOTS;
-  const title = result.voided ? 'Voided' : result.draw ? 'Split' : result.won ? 'Pot Secured' : 'Rekt';
+  const title = result.voided ? 'Voided' : result.draw ? (practice ? 'Draw' : 'Split') : result.won ? (practice ? 'Victory' : 'Pot Secured') : (practice ? 'Defeat' : 'Rekt');
   const color = result.draw ? 'var(--dim)' : result.won ? 'var(--gold)' : 'var(--red)';
   return (
     <div style={{
