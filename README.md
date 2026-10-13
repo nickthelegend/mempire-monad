@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/nickthelegend/mempire-monad/actions/workflows/ci.yml/badge.svg)](https://github.com/nickthelegend/mempire-monad/actions/workflows/ci.yml)
 
-**A real-time 1v1 card battler where the market is the meta.** Every fighter is a real asset — majors, memecoins and tokenised stocks. Today's price moves buff or nerf each one a little. Two players put up a dollar stake, play a three-minute lane battle, and a contract on Monad pays the winner, in the same block both results land.
+**A real-time 1v1 card battler where the market is the meta.** Every fighter is a real asset — majors, memecoins and tokenised stocks. Today's price moves buff or nerf each one a little. Two players put up a dollar stake, play a three-minute lane battle, and a contract on Monad pays the winner, when the second result lands.
 
 Sign in with a passkey: no seed phrase, no extension, no wallet popups during a match.
 
@@ -16,7 +16,7 @@ Sign in with a passkey: no seed phrase, no extension, no wallet popups during a 
 ## What a first-time player does
 
 1. **Opens the link and taps _Play now_.** One passkey prompt (Face ID, fingerprint or device PIN) creates the account. Mera derives a secp256k1 key from the authenticator's PRF output. No seed phrase exists, nothing secret is stored, and the same passkey brings the same account back on any device.
-2. **Gets a deck without asking.** On first sign-in the relay mints an **8-fighter starter deck** (eight ERC-721s) to the account, requests **10,000 test AUSD** from Agora's faucet, and drips a little MON for gas. The player watches it land, in about a second.
+2. **Gets a deck without asking.** On first sign-in the relay mints an **8-fighter starter deck** (eight ERC-721s) to the account, requests **10,000 test AUSD** from Agora's faucet, and drips a little MON for gas. The player watches it land, in about ten seconds.
 3. **Picks a stake: $1 AUSD on the Pauper tier.** AUSD is pulled with an EIP-2612 permit inside the stake transaction, so it is one transaction, not approve-then-stake. The same transaction locks the deck and funds a **per-match session key**.
 4. **Plays.** Every card drop is a Monad transaction from the session key: no popup, logged on chain while the match is played. The badge shows how long each one took to land, measured send-to-receipt.
 5. **Gets paid.** Each seat's session key records the winner its own simulation computed. The second claim settles the match in the same transaction: **90% to the winner, 10% rake**, plus a chest and 50 $MEMPIRE for the first sixteen wins.

@@ -11,7 +11,7 @@
 
 ## One paragraph
 
-Mempire turns the market into a game. Every fighter is a real asset: BTC, MON, NVDA, BONK and 32 more. A Chainlink CRE workflow writes today's price moves on chain as small, bounded buffs and nerfs. Two players put a dollar of AUSD on a three-minute lane battle, every card they drop is a Monad transaction from a per-match session key, and the contract pays the winner in the block where both results land. A new player gets there with one passkey prompt: no seed phrase, no extension, no faucet, no popups during the match. Afterwards, anyone can replay the match from Monad and see it verified against the state hashes both players posted, and the app shows Monad's own block pipeline, live, as it plays.
+Mempire turns the market into a game. Every fighter is a real asset: BTC, MON, NVDA, BONK and 32 more. A Chainlink CRE workflow writes today's price moves on chain as small, bounded buffs and nerfs. Two players put a dollar of AUSD on a three-minute lane battle, every card they drop is a Monad transaction from a per-match session key, and the contract pays the winner when the second result lands. A new player gets there with one passkey prompt: no seed phrase, no extension, no faucet, no popups during the match. Afterwards, anyone can replay the match from Monad and see it verified against the state hashes both players posted, and the app shows Monad's own block pipeline, live, as it plays.
 
 ## Why this is a consumer payments product
 
@@ -86,7 +86,7 @@ Monad-native, with where each runs (details in [docs/MONAD-NATIVE.md](docs/MONAD
 | x402 / MPP | not applicable: the money is an escrowed pot, not a per-call sale |
 
 - Every card play is an on-chain transaction from a session key, viable only because of 300 ms blocks (final in ~600 ms) and low gas.
-- The second claim settles the pot in the same block.
+- The second claim settles the pot in its own transaction: 90% to the winner, 10% rake.
 - Gas limits are sized from estimates (Monad bills the limit), and the session key's float is swept back after the match.
 - Contracts are verified on Sourcify through MonadVision.
 
@@ -99,7 +99,7 @@ Monad-native, with where each runs (details in [docs/MONAD-NATIVE.md](docs/MONAD
 | 0:40–0:55 | First Practice: the coach ("Drop a fighter 1/4 → … → You've got it") | "A coached first match, driven by what you actually do." |
 | 0:55–1:10 | Arena → $1 Ranked in two windows; they match; one transaction each (permit + stake) | "A dollar stake, escrowed by the contract." |
 | 1:10–1:50 | The match: drop cards; each one's pill goes *sent → executed 300 ms → final 600 ms*; damage numbers; a tower falls in slow motion | "Every card is a Monad transaction while the unit walks the lane." |
-| 1:50–2:10 | The result: $1.80 paid, chest granted; **▶ Replay from the chain** | "The second claim pays the pot in the same block." |
+| 1:50–2:10 | The result: $1.80 paid, chest granted; **▶ Replay from the chain** | "The second claim pays the pot, in the same transaction." |
 | 2:10–2:30 | The replay: **✓ Verified against N on-chain checkpoints**; then **Live now → Watch**, a third window spectating another match from its logs | "Rebuilt from Monad and checked against the state hashes both players posted. Live matches too." |
 | 2:30–2:45 | Empire: Monad network panel (staking epoch, proposer); **Verify a passkey on Monad** → ✓ by `0x0100` | "Monad's precompiles: native staking, and passkeys verified by the chain." |
 | 2:45–3:00 | Clan war score (3 – 0 from a staked win), the season pass tier claimed, leaderboards, the CRE meta line | "Clans fight with real stakes, scored from the chain. Indexed by Envio, meta by Chainlink CRE. That's Mempire." |
@@ -123,7 +123,7 @@ Locally, today (reproduce with `./scripts/local-up.sh && ./scripts/test-all.sh`;
   - two guests onboarded in 7–11 s each (starter deck minted by the relayer, MON drip, AUSD from Agora's faucet);
   - **match #1** staked in MON, played, and settled on chain: both seats' claims agree, on the CRE-written meta epoch 2986491;
     - a card play: [`0x9f648b9e…3258`](https://testnet.monadvision.com/tx/0x9f648b9ed4fecd5de8c2b39c729ea931d1d40f1dd8ae12e17e63c79f23153258);
-    - the settling claim: [`0xa89f61a6…a492`](https://testnet.monadvision.com/tx/0xa89f61a661c923543975062b060af5d0df2e7ebd6af0dba1a61f1901a6f5a492);
+    - the settling claim: [`0x8911e19b…7919`](https://testnet.monadvision.com/tx/0x8911e19bb5dad725d3681b94d919fcf290b4ba5c03e23669c829220baadf7919);
   - per-card speed receipts measured in the browser: executed 0.9–1.4 s, final 1.5–1.9 s (through public RPCs).
 - **Chainlink CRE on testnet:** `cre workflow simulate --broadcast` wrote MetaPosted epoch 2986491 for 36 coins: [`0x26b6bc97…b219`](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219).
 - **Gasless chests on testnet** (EIP-7702 + ERC-4337 v0.8, our paymaster, the relay as bundler; `server/live-gasless.mjs`, output in `docs/LIVE-GASLESS.json`): a chest opened and revealed with the player's MON unchanged (0.27053934 before and after), 2 cards minted:

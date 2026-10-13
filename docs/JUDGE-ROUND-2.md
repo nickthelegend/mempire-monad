@@ -142,3 +142,35 @@ Round 2's remaining findings, in short:
 - one testnet match;
 - Privy has no transaction;
 - the social layer is empty.
+
+## Round 3 (fresh judge, ~21:00 IST, after the round-2 fixes)
+
+| | R1 | R2 | R3 |
+|---|---|---|---|
+| Product quality | 6 | 7 | 6 |
+| Technical excellence | 7 | 7 | 7 |
+| Monad integration | 7 | 7 | 7 |
+| Track fit | 5 | 5 | 4 |
+| Innovation | 6 | 6 | 6 |
+| CRE | 4/6/5/6 | 5/7/6/7 | 5/6/6/6 |
+| Mera Best UX | 5/6/5/5 | 6/7/6/5 | 5/7/6/5 |
+| Mera Many Keys | 3/5/7/5 | 5/7/6/6 | 5/6/7/6 |
+| Privy | 3/5/4/4 | 2/5/3/4 | 2/4/3/4 |
+
+The scores move by a point either way from one judge to the next. The consistent message across three judges:
+- the engineering is real and verified;
+- the testnet proof is thin (one staked match, one CRE write, a frozen meta);
+- Track 03's social layer is empty;
+- Privy has no transaction.
+
+Round 3's sharpest find was a **wrong citation**: `0xa89f…a492` is the first claim; the pot was paid by the second, [`0x8911e19b…7919`](https://testnet.monadvision.com/tx/0x8911e19bb5dad725d3681b94d919fcf290b4ba5c03e23669c829220baadf7919) (it emits `MatchSettled` and moves 0.018 / 0.002 MON). It is fixed everywhere, with:
+- "in the block both results land" → "when the second result lands";
+- the onboarding time → "about ten seconds";
+- the replay-link probe now uses `/api/replay/:id/exists`, so no 404 is logged on every load.
+
+Still open, and each needs MON, keys or the user:
+- organic staked matches;
+- a deployed CRE DON workflow or a running meta keeper;
+- a Privy transaction (dashboard origins + sponsorship);
+- Envio hosting;
+- $MON art.

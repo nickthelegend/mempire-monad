@@ -70,7 +70,7 @@ Not claimed:
 
 ## Three best transactions
 
-1. A staked match settled on chain, live match #1 (the second result claim pays the pot): [0xa89f61a6…a492](https://testnet.monadvision.com/tx/0xa89f61a661c923543975062b060af5d0df2e7ebd6af0dba1a61f1901a6f5a492)
+1. A staked match settled on chain, live match #1 (the second result claim pays the pot): [0x8911e19b…7919](https://testnet.monadvision.com/tx/0x8911e19bb5dad725d3681b94d919fcf290b4ba5c03e23669c829220baadf7919)
 2. Chainlink CRE writing the market meta: [0x26b6bc97…b219](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219)
 3. A gasless chest, opened with an EIP-7702 authorization through the canonical EntryPoint v0.8, the player's MON unchanged: [0xb0cec249…cc59](https://testnet.monadvision.com/tx/0xb0cec249b2b13f0b878abb3c181d8e541070f55a6f6cabb5e45aac818572cc59)
 

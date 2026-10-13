@@ -617,7 +617,7 @@ export function Arena() {
             color: canStake ? 'var(--teal)' : 'var(--dim-on-wood)', lineHeight: 1.3,
           }}>
             {canStake
-              ? 'Escrowed on Monad — the winner is paid by the contract, in the block both results land.'
+              ? 'Escrowed on Monad — the contract pays the winner when the second result lands.'
               : `${stakeBlocker} · this match counts for rating only.`}
           </span>
           {/*
@@ -821,7 +821,9 @@ function ReplayLink({ id, onOpen }: { id: number; onOpen: () => void }) {
   const [ok, setOk] = useState(false);
   useEffect(() => {
     let live = true;
-    void apiFetch(`/api/replay/${id}`).then((r) => { if (live) setOk(Boolean(r?.ok)); }).catch(() => {});
+    void apiFetch(`/api/replay/${id}/exists`)
+      .then(async (r) => { const b = r?.ok ? await r.json() as { exists?: boolean } : null; if (live) setOk(Boolean(b?.exists)); })
+      .catch(() => {});
     return () => { live = false; };
   }, [id]);
   if (!ok) return null;

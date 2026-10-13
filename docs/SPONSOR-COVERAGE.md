@@ -17,7 +17,7 @@ Updated 13 Oct 2026, after the Monad testnet deploy. "Working" means it runs on 
 | | Proof |
 |---|---|
 | Commit states (`monadNewHeads`) | Live app heartbeat: voted ~290 ms, final ~575 ms, measured in the browser |
-| Every card play is a transaction; settlement in one block | Match #1: a play [`0x9f648b9e…3258`](https://testnet.monadvision.com/tx/0x9f648b9ed4fecd5de8c2b39c729ea931d1d40f1dd8ae12e17e63c79f23153258) and the settling claim [`0xa89f61a6…a492`](https://testnet.monadvision.com/tx/0xa89f61a661c923543975062b060af5d0df2e7ebd6af0dba1a61f1901a6f5a492); per-play receipts executed 0.9–1.4 s / final 1.5–1.9 s (`docs/LIVE-SMOKE.json`) |
+| Every card play is a transaction; the second claim settles the pot | Match #1: a play [`0x9f648b9e…3258`](https://testnet.monadvision.com/tx/0x9f648b9ed4fecd5de8c2b39c729ea931d1d40f1dd8ae12e17e63c79f23153258) and the settling claim [`0x8911e19b…7919`](https://testnet.monadvision.com/tx/0x8911e19bb5dad725d3681b94d919fcf290b4ba5c03e23669c829220baadf7919); per-play receipts executed 0.9–1.4 s / final 1.5–1.9 s (`docs/LIVE-SMOKE.json`) |
 | EIP-7702 + ERC-4337 v0.8 paymaster (gasless) | Chest open with the 7702 authorization [`0xb0cec249…cc59`](https://testnet.monadvision.com/tx/0xb0cec249b2b13f0b878abb3c181d8e541070f55a6f6cabb5e45aac818572cc59) and reveal [`0x342a7b31…3c37`](https://testnet.monadvision.com/tx/0x342a7b31ee93e6ef99c96509003d2e18de1ba51b4262fcea993c820336103c37); player MON unchanged (`docs/LIVE-GASLESS.json`) |
 | P256VERIFY `0x0100` | `PasskeyRegistry` deployed; in-app passkey check by live `eth_call` (12,773 gas vs 353,980 in Solidity) |
 | Staking precompile `0x1000` via Multicall3 | Live read in Empire: epoch and the block proposer's validator |

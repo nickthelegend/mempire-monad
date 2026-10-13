@@ -31,6 +31,18 @@ export function registerReplayRoutes(app, db, { liveMatches = () => [] } = {}) {
     res.json({ matches: liveMatches().sort((a, b) => b.startAt - a.startAt).slice(0, 20) });
   });
 
+  /** Whether a replay record exists, as a 200, so a client can decide to show a link without a 404. */
+  app.get('/api/replay/:matchId/exists', async (req, res) => {
+    const id = Number(req.params.matchId);
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'bad match id' });
+    try {
+      const doc = await replays.findOne({ _id: id }) ?? await pairings.findOne({ 'replay.onchainMatchId': id });
+      res.json({ exists: Boolean(doc?.replay) });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get('/api/replay/:matchId', async (req, res) => {
     const id = Number(req.params.matchId);
     if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'bad match id' });
