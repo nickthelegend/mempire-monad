@@ -10,6 +10,12 @@ import { COINS, tickerOf } from '../lib/coins';
  * ones it nerfed — the same numbers every match this epoch fights with. When
  * nothing has been posted yet the board says so; it never fills the gap.
  */
+/** MarketMeta epochs are ten-minute windows: epoch × 600 s is when this meta was written for. */
+const metaAge = (epoch: number) => {
+  const mins = Math.max(0, Math.round((Date.now() / 1000 - Number(epoch) * 600) / 60));
+  return mins < 60 ? `${mins} min ago` : mins < 48 * 60 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} d ago`;
+};
+
 export function MarketBoard({ side }: { side: 'left' | 'right' }) {
   const epoch = useChain((s) => s.metaEpoch);
   useChain((s) => s.marketVersion); // re-render when the meta or prices move
@@ -27,7 +33,7 @@ export function MarketBoard({ side }: { side: 'left' | 'right' }) {
       <div className="panel" style={{ position: 'sticky', top: 48, width: 260, maxWidth: '100%', padding: '14px 14px 12px' }}>
         <div className="label" style={{ textAlign: 'center' }}>{up ? '▲ Buffed by the market' : '▼ Nerfed by the market'}</div>
         <p className="fine" style={{ textAlign: 'center', color: 'var(--dim-on-wood)', margin: '4px 0 10px' }}>
-          {epoch ? `epoch ${epoch} · on chain · ±15% max` : 'no market meta posted yet'}
+          {epoch ? `meta from ${metaAge(epoch)} · on chain · ±15% max` : 'no market meta posted yet'}
         </p>
         {rows.length === 0 && (
           <p className="fine" style={{ textAlign: 'center', color: 'var(--dim-on-wood)', margin: 0 }}>

@@ -214,9 +214,11 @@ function ResultOverlay() {
           </span>
         </div>
       )}
-      <p className="fine" style={{ fontSize: 12 }}>
-        {result.hashes} state hashes committed · settled by final-state signature
-      </p>
+      {escrowed && (
+        <p className="fine" style={{ fontSize: 12 }}>
+          {result.hashes} state hashes committed · settled by final-state signature
+        </p>
+      )}
       {escrowPhase === 'settled' && escrowMatchId !== null && (
         // Only navigate: the Replay screen dismisses the finished match once it
         // has mounted. Dismissing here would clear the result while the lazy

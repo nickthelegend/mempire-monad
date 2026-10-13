@@ -31,7 +31,7 @@ function Chip({ c }: { c: BlockChip }) {
         fontFamily: 'var(--font-mono)', fontSize: 10, lineHeight: 1.15,
       }}
     >
-      <span style={{ fontWeight: 700 }}>{String(c.number).slice(-4)}</span>
+      <span style={{ fontWeight: 700 }}>{c.number}</span>
       <span style={{ fontSize: 9, opacity: 0.9 }}>{c.state === 'Verified' ? '✓' : ms !== undefined ? `${ms}ms` : look.label}</span>
     </span>
   );
