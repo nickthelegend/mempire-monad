@@ -1,6 +1,7 @@
 // Handler tests: simulated events through the real handlers, no network.
 //   pnpm codegen && pnpm test
 import { describe, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { createTestIndexer, type Address } from "envio";
 
 const ALICE: Address = "0x000000000000000000000000000000000000a11c";
@@ -10,6 +11,8 @@ const SESSION_B: Address = "0x000000000000000000000000000000000005e55b";
 const ZERO: Address = "0x0000000000000000000000000000000000000000";
 const AUSD: Address = "0x00000000000000000000000000000000000a05d0";
 const CHAIN = 10143;
+/** Events before the configured start block are filtered out, so the clock starts after it. */
+const START_BLOCK = Number(/start_block:\s*(\d+)/.exec(readFileSync(new URL("../config.yaml", import.meta.url), "utf8"))?.[1] ?? 0);
 
 const ETHER = 10n ** 18n;
 const FEED = (n: number): Address => `0x${n.toString(16).padStart(64, "0")}`;
@@ -19,7 +22,7 @@ const HASH = (n: number): Address => `0x${n.toString(16).padStart(64, "f")}`;
  * A simulated transaction: every item shares one block, timestamp and tx hash,
  * and the clock moves forward with each call so process() batches stay ordered.
  */
-function chainClock(startBlock = 1_000, startTs = 1_760_000_000) {
+function chainClock(startBlock = START_BLOCK + 1_000, startTs = 1_760_000_000) {
   let block = startBlock;
   let ts = startTs;
   let n = 0;
