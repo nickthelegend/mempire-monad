@@ -8,7 +8,6 @@ Sign in with a passkey: no seed phrase, no extension, no wallet popups during a 
 
 - **Play:** https://mempire-monad.vercel.app (Monad testnet; relay https://relay-production-9c75.up.railway.app). It also runs end to end on your machine with one command: see [Run it locally](#run-it-locally).
 - **Track:** 03 · Social, Attention & Culture (recommended; see [SUBMISSION.md](SUBMISSION.md))
-- **Demo video:** `TODO`
 
 > Built for Monad Metropolis (Sep 1 – Oct 13 2026). Ported from the Solana version of Mempire, see [Attribution](#attribution-and-pre-existing-work).
 

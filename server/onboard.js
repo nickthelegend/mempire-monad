@@ -14,7 +14,7 @@
  *  - **AUSD.** On testnet, Agora's faucet (`AUSD_FAUCET`) hands out AUSD for the
  *    dollar stake tier. It has a global cooldown, so a request that lands
  *    inside someone else's cooldown is queued and retried, not failed.
- *  - **MON.** A drip (`ONBOARD_MON_DRIP`, default 0.25) for gas and a first
+ *  - **MON.** A drip (`ONBOARD_MON_DRIP`, default 0.4) for gas and a first
  *    stake. A staked match forwards a 0.2 MON gas float to the session key
  *    (swept back afterwards) plus the stake tx's own gas, ~0.23 MON in all at
  *    testnet's 100 gwei, so the drip must cover that or a new player's first
@@ -139,9 +139,12 @@ export function registerOnboardRoutes(app, db, { ipGate, readGate } = {}) {
   const pass = (_req, _res, next) => next();
   const claims = db.collection('onboard_claims');
 
+  // 0.4 MON: a first staked match needs the 0.2 MON session float, the stake and
+  // createMatch gas billed at its limit (~0.06 MON at ~120 gwei). 0.25 fell short
+  // on testnet, and the match played unstaked.
   const drip = (() => {
-    const raw = process.env.ONBOARD_MON_DRIP ?? '0.25';
-    try { return parseEther(raw); } catch { return parseEther('0.25'); }
+    const raw = process.env.ONBOARD_MON_DRIP ?? '0.4';
+    try { return parseEther(raw); } catch { return parseEther('0.4'); }
   })();
   const ausdFaucet = normAddress(process.env.AUSD_FAUCET ?? '');
 

@@ -1,7 +1,7 @@
 /**
  * Live smoke test on Monad testnet, against the hosted app and relay: two
  * guests onboard (starter deck minted by the relayer, MON drip, AUSD from
- * Agora's faucet), then play a staked AUSD Rush match. Records the per-play
+ * Agora's faucet), then play a staked MON Rush match (AUSD from Agora's faucet can lag; MON is the drip). Records the per-play
  * speed receipts (executed / final ms) and the match's on-chain settlement.
  *
  *   node app/e2e/live-smoke.mjs   (writes docs/screens/live/*.png and docs/LIVE-SMOKE.json)
@@ -9,6 +9,12 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { createPublicClient, http, parseAbiItem } from 'viem';
+
+const RPC = 'https://monad-testnet.drpc.org';
+const ARENA = '0xec897071929657b898C18513EF85EC8A8f898Ea3';
+const chainPub = createPublicClient({ transport: http(RPC) });
+const nextMatchId = () => chainPub.readContract({ address: ARENA, abi: [parseAbiItem('function nextMatchId() view returns (uint64)')], functionName: 'nextMatchId' });
 
 const APP = process.env.APP_URL ?? 'https://mempire-monad.vercel.app';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -21,7 +27,7 @@ const assert = (l, c, d = '') => { console.log(`${c ? 'PASS' : 'FAIL'}  ${l}${d 
 
 async function page(b, vp, label) {
   const p = await (await b.newContext({ viewport: vp })).newPage();
-  p.on('console', (m) => { if (m.type() === 'error' && !/THREE\.Clock/.test(m.text())) noise.push(`${label} ${m.text().slice(0, 200)}`); });
+  p.on('console', (m) => { if (/\[escrow\]|session|stake/i.test(m.text())) console.log(`${label} console.${m.type()}: ${m.text().slice(0, 220)}`); if (m.type() === 'error' && !/THREE\.Clock/.test(m.text())) noise.push(`${label} ${m.text().slice(0, 200)}`); });
   p.on('pageerror', (e) => noise.push(`${label} pageerror ${String(e).slice(0, 200)}`));
   p.on('request', (r) => { if (r.url().endsWith('/api/onboard') && r.method() === 'POST') { try { p.addr = JSON.parse(r.postData() ?? '{}').address; } catch { /* */ } } });
   p.on('response', async (r) => {
@@ -73,9 +79,10 @@ try {
   for (const p of [A, B]) {
     await p.goto(APP);
     await sleep(3000);
-    await p.getByRole('radiogroup', { name: 'Stake currency' }).getByText(/AUSD/).click();
+    await p.getByRole('radiogroup', { name: 'Stake currency' }).getByText('MON', { exact: true }).click();
     await sleep(800);
   }
+  const idBefore = await nextMatchId();
   await A.getByRole('button', { name: /Rush · 30s/i }).click({ force: true });
   await B.getByRole('button', { name: /Rush · 30s/i }).click({ force: true });
   await A.waitForURL(/#\/battle/, { timeout: 180_000 });
@@ -102,6 +109,10 @@ try {
   const links = await A.locator('a[href*="monadvision"], a[href*="/tx/"]').evaluateAll((as) => as.map((a) => a.href));
   for (const l of links) { const h = l.match(/0x[0-9a-f]{64}/i)?.[0]; if (h) evidence.txs.push({ what: 'explorer link', hash: h }); }
   evidence.result = result;
+  const idAfter = await nextMatchId();
+  evidence.matchId = Number(idBefore);
+  assert('the match was escrowed on chain (MempireArena.nextMatchId advanced)', idAfter > idBefore, `${idBefore} → ${idAfter}`);
+  assert('the result screen shows real money moved (not the unstaked notice)', !/Nothing was escrowed/i.test(body));
 } catch (e) {
   ok = false; console.log('FAIL', String(e?.stack ?? e).slice(0, 500));
   for (const [i, c] of b.contexts().entries()) await c.pages()[0]?.screenshot({ path: `${OUT}_debug-${i}.png` }).catch(() => {});

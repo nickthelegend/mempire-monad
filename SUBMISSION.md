@@ -4,11 +4,9 @@
 |---|---|
 | **Project** | Mempire: a real-time 1v1 card battler where the market is the meta |
 | **Track** | **03 · Social, Attention & Culture** (recommended; currently registered as 02, see below) |
-| **Network** | Monad testnet (10143). *Not deployed yet; awaiting the team's go ([runbook](docs/DEPLOY-LATER.md)). Today everything runs on an anvil fork of Monad testnet with one command (`scripts/local-up.sh`): real contracts, Agora's real AUSD, live prices, a real MongoDB, no mocks.* |
-| **Live app** | `TODO: Vercel URL` |
+| **Network** | **Monad testnet (10143)**, deployed 12 Oct; 8 contracts verified on Sourcify (addresses in the README). It also runs locally on a fork of testnet with one command (`scripts/local-up.sh`). |
+| **Live app** | https://mempire-monad.vercel.app (relay: https://relay-production-9c75.up.railway.app) |
 | **Repo** | https://github.com/nickthelegend/mempire-monad (MIT) |
-| **Demo video (≤ 3 min)** | `TODO` |
-| **Pitch video (≤ 2 min)** | `TODO` |
 | **Judge login** | None needed. Open the link, tap **Play now**, then **Create with passkey** (or **Play as Guest** on a browser without passkey PRF). |
 
 ## One paragraph
@@ -43,9 +41,8 @@ Every bounty Mempire targets is open to all tracks, so moving costs nothing. T3 
 | Track | 03 · Social, Attention & Culture (or 02 if the team keeps it there) |
 | Bounties | Privy · Mera (Best UX) · Mera (Many Keys) · Chainlink CRE · Envio · Kimi (+ Community Team if applicable) |
 | Repo | https://github.com/nickthelegend/mempire-monad |
-| Live URL | `TODO after deploy` |
-| Contract addresses | `TODO after deploy`: `shared/deployments/10143.json` |
-| Demo video | `TODO` |
+| Live URL | https://mempire-monad.vercel.app |
+| Contract addresses | Arena `0xec897071929657b898C18513EF85EC8A8f898Ea3`, Cards `0xde510Aa056ab8fA5B867Ac9fEF90a9c6CB37dC22`, Token `0xFe140f43017CaA1f201f9e1DC7989c1F70f45234`; all 8 in `shared/deployments/10143.json` |
 | Pre-existing work | Game client, art, audio, simulation, matchmaker and clans came from the Solana version (Jul–Aug 2026). All on-chain and sponsor work is new; see README → Attribution. |
 | AI tools | Claude Code wrote most of the code, tests and docs under the author's direction. Kimi is used at runtime. Higgsfield made the art earlier. |
 
@@ -122,4 +119,14 @@ Locally, today (reproduce with `./scripts/local-up.sh && ./scripts/test-all.sh`;
 - **Onboarding** 36/36, **settlement** 12/12, **persistence across a relay restart on MongoDB** 5/5, **Privy policy** 21/21, **Kimi** 46/46, **CRE** 33/33, **Envio handlers** 9/9.
 - **Indexer on the fork:** `verify-local` 52/52, with every indexed row checked against the chain.
 - **Simulation:** deterministic with and without the meta. The client and contract archetype derivations match for all 36 fighters.
-- **Testnet:** `TODO` after the go: addresses, a settled match id, a play tx, the CRE report tx.
+- **Testnet, live (13 Oct)**, through the hosted app and relay (`app/e2e/live-smoke.mjs`, output in `docs/LIVE-SMOKE.json`):
+  - two guests onboarded in 7–11 s each (starter deck minted by the relayer, MON drip, AUSD from Agora's faucet);
+  - **match #1** staked in MON, played, and settled on chain: both seats' claims agree, on the CRE-written meta epoch 2986491;
+    - a card play: [`0x9f648b9e…3258`](https://testnet.monadvision.com/tx/0x9f648b9ed4fecd5de8c2b39c729ea931d1d40f1dd8ae12e17e63c79f23153258);
+    - the settling claim: [`0xa89f61a6…a492`](https://testnet.monadvision.com/tx/0xa89f61a661c923543975062b060af5d0df2e7ebd6af0dba1a61f1901a6f5a492);
+  - per-card speed receipts measured in the browser: executed 0.9–1.4 s, final 1.5–1.9 s (through public RPCs).
+- **Chainlink CRE on testnet:** `cre workflow simulate --broadcast` wrote MetaPosted epoch 2986491 for 36 coins: [`0x26b6bc97…b219`](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219).
+- **Gasless chests on testnet** (EIP-7702 + ERC-4337 v0.8, our paymaster, the relay as bundler; `server/live-gasless.mjs`, output in `docs/LIVE-GASLESS.json`): a chest opened and revealed with the player's MON unchanged (0.27053934 before and after), 2 cards minted:
+  - open, with the 7702 authorization: [`0xb0cec249…cc59`](https://testnet.monadvision.com/tx/0xb0cec249b2b13f0b878abb3c181d8e541070f55a6f6cabb5e45aac818572cc59);
+  - reveal: [`0x342a7b31…3c37`](https://testnet.monadvision.com/tx/0x342a7b31ee93e6ef99c96509003d2e18de1ba51b4262fcea993c820336103c37).
+- **Hosting note:** the relay uses a Railway-hosted MongoDB, because the shared Atlas cluster does not yet allow Railway's IPs. Switching back is one variable (`MONGODB_URI`) once Atlas network access allows them.

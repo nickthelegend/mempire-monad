@@ -1,0 +1,85 @@
+{
+  "app": "https://mempire-monad.vercel.app",
+  "at": "2026-10-13T13:06:56.078Z",
+  "players": [
+    {
+      "label": "A",
+      "address": "0xf00fECE90eC3aE63E1768562C0e410663D0D682D",
+      "onboardSeconds": 13
+    },
+    {
+      "label": "B",
+      "address": "0x26411Eb1069B64F1661461FB990F7E2a5e134BCD",
+      "onboardSeconds": 7
+    }
+  ],
+  "receipts": [
+    {
+      "executedMs": 1194,
+      "finalMs": 1855
+    },
+    {
+      "executedMs": 935,
+      "finalMs": 1599
+    },
+    {
+      "executedMs": 1136,
+      "finalMs": 1519
+    },
+    {
+      "executedMs": 1042,
+      "finalMs": 1708
+    },
+    {
+      "executedMs": 1351,
+      "finalMs": null
+    },
+    {
+      "executedMs": 1351,
+      "finalMs": 2031
+    },
+    {
+      "executedMs": 1025,
+      "finalMs": 1548
+    },
+    {
+      "executedMs": 1103,
+      "finalMs": 1766
+    },
+    {
+      "executedMs": 1218,
+      "finalMs": 1620
+    },
+    {
+      "executedMs": 1131,
+      "finalMs": 1535
+    }
+  ],
+  "txs": [
+    {
+      "what": "explorer link",
+      "hash": "0x9f648b9ed4fecd5de8c2b39c729ea931d1d40f1dd8ae12e17e63c79f23153258"
+    },
+    {
+      "what": "explorer link",
+      "hash": "0xa89f61a661c923543975062b060af5d0df2e7ebd6af0dba1a61f1901a6f5a492"
+    }
+  ],
+  "result": "POT SECURED",
+  "matchId": 1,
+  "consoleErrors": [
+    "A Failed to load resource: the server responded with a status of 429 ()",
+    "B Failed to load resource: the server responded with a status of 429 ()",
+    "B Failed to load resource: the server responded with a status of 429 ()",
+    "B Failed to load resource: the server responded with a status of 429 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()",
+    "A Failed to load resource: the server responded with a status of 400 ()"
+  ]
+}
