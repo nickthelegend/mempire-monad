@@ -1,0 +1,88 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "settings": {
+  "stability": 0.42,
+  "similarity_boost": 0.8,
+  "style": 0.45,
+  "use_speaker_boost": true
+ },
+ "lines": [
+  {
+   "id": "play_open",
+   "text": "This is Mempire, live on Monad testnet. Every coin is a fighter, and that strip is Monad itself: blocks voted in about three hundred milliseconds, and final in under six hundred."
+  },
+  {
+   "id": "play_signin",
+   "text": "Sign-up is one passkey prompt, through Mera. No seed phrase, no extension."
+  },
+  {
+   "id": "play_deck",
+   "text": "In about ten seconds, the relayer mints an eight-card starter deck on chain, with test AUSD and a little MON for gas."
+  },
+  {
+   "id": "play_mint",
+   "text": "Minting a new fighter pulls a live Pyth price into the same transaction."
+  },
+  {
+   "id": "play_stake",
+   "text": "The side boards are the market meta, written on chain by Chainlink CRE. We stake the one-dollar tier in MON, and queue a ranked match."
+  },
+  {
+   "id": "play_battle",
+   "text": "Every card I drop is its own Monad transaction, signed by a per-match session key, so there are no popups. Each pill shows the real round trip: executed, then final."
+  },
+  {
+   "id": "play_tower",
+   "text": "We fast-forward. And a tower falls."
+  },
+  {
+   "id": "play_result",
+   "text": "Pot secured! The second player's claim settles the pot on chain: ninety percent to the winner, plus a chest."
+  },
+  {
+   "id": "play_clans",
+   "text": "Clans and clan wars score only staked wins verified on chain. These clans were seeded by our team for the demo."
+  },
+  {
+   "id": "play_empire",
+   "text": "Empire holds the leaderboard, reads Monad's staking precompile live, and verifies a passkey signature with Monad's P-256 precompile."
+  },
+  {
+   "id": "how_intro",
+   "text": "So, what is live on Monad?"
+  },
+  {
+   "id": "how_cre",
+   "text": "Chainlink CRE writes the market meta: thirty-six fighters, signed by the workflow, accepted only from its forwarder."
+  },
+  {
+   "id": "how_pyth",
+   "text": "Pyth prices every mint, verified on chain in the same transaction."
+  },
+  {
+   "id": "how_gasless",
+   "text": "Gasless chests: an EIP-7702 authorization, our own paymaster, and the canonical EntryPoint. The player spends no MON."
+  },
+  {
+   "id": "how_p256",
+   "text": "Passkeys, checked by Monad's P-256 precompile, at a fraction of the gas."
+  },
+  {
+   "id": "how_session",
+   "text": "Every card you play is logged on chain, from a session key."
+  },
+  {
+   "id": "how_settle",
+   "text": "And every staked match is settled by the contract itself."
+  },
+  {
+   "id": "how_all",
+   "text": "Six power-ups. All live on Monad testnet."
+  },
+  {
+   "id": "outro_tag",
+   "text": "Mempire. Every coin is a fighter. Play now, at mempire monad, dot vercel, dot app."
+  }
+ ]
+}

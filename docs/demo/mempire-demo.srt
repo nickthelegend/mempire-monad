@@ -1,227 +1,239 @@
 1
-00:00:00,350 --> 00:00:03,441
-Mempire is for crypto-native players who want
+00:00:12,767 --> 00:00:16,175
+This is Mempire, live on Monad testnet.
 
 2
-00:00:03,461 --> 00:00:05,720
-real stakes without wallet friction.
-
-3
-00:00:06,167 --> 00:00:07,668
+00:00:16,366 --> 00:00:17,600
 Every coin is a fighter,
 
+3
+00:00:17,620 --> 00:00:19,553
+and that strip is Monad itself:
+
 4
-00:00:07,688 --> 00:00:09,711
-and the market decides who is strong
+00:00:19,745 --> 00:00:22,325
+blocks voted in about three hundred milliseconds,
 
 5
-00:00:09,731 --> 00:00:10,492
-today.
+00:00:22,345 --> 00:00:24,766
+and final in under six hundred.
 
 6
-00:00:10,753 --> 00:00:12,288
-This is the live app,
-
-7
-00:00:12,308 --> 00:00:14,207
-on Monad testnet.
-
-8
-00:00:14,807 --> 00:00:17,039
+00:00:25,600 --> 00:00:27,391
 Sign-up is one passkey prompt,
 
-9
-00:00:17,059 --> 00:00:18,134
+7
+00:00:27,411 --> 00:00:28,297
 through Mera.
 
-10
-00:00:18,394 --> 00:00:20,676
+8
+00:00:28,317 --> 00:00:30,680
 No seed phrase, no extension.
 
+9
+00:00:31,833 --> 00:00:33,206
+In about ten seconds,
+
+10
+00:00:33,226 --> 00:00:35,354
+the relayer mints an eight-card starter deck
+
 11
-00:00:21,030 --> 00:00:23,576
-The relayer mints an eight-card starter deck,
+00:00:35,374 --> 00:00:38,013
+on chain, with test AUSD and a
 
 12
-00:00:23,596 --> 00:00:26,536
-sends test AUSD from Agora's faucet,
+00:00:38,033 --> 00:00:39,792
+little MON for gas.
 
 13
-00:00:26,556 --> 00:00:28,478
-and a little MON for gas.
-
-14
-00:00:29,078 --> 00:00:30,895
-That strip is Monad itself:
-
-15
-00:00:31,156 --> 00:00:32,936
-each block voted in about three hundred
-
-16
-00:00:32,956 --> 00:00:36,340
-milliseconds, and final in under six hundred.
-
-17
-00:00:39,745 --> 00:00:41,675
+00:00:40,967 --> 00:00:43,037
 Minting a new fighter pulls a live
 
-18
-00:00:41,695 --> 00:00:43,823
-Pyth price into the same transaction,
+14
+00:00:43,057 --> 00:00:45,489
+Pyth price into the same transaction.
 
-19
-00:00:43,843 --> 00:00:45,472
-and the card records the price it
+15
+00:00:47,333 --> 00:00:49,623
+The side boards are the market meta,
 
-20
-00:00:45,492 --> 00:00:46,682
-was minted at.
+16
+00:00:49,643 --> 00:00:52,622
+written on chain by Chainlink CRE.
 
-21
-00:00:49,745 --> 00:00:51,989
-The market meta, written on chain by
-
-22
-00:00:52,009 --> 00:00:54,752
-a Chainlink workflow, buffs and nerfs each
-
-23
-00:00:54,772 --> 00:00:55,545
-fighter.
-
-24
-00:00:55,898 --> 00:00:58,525
+17
+00:00:53,068 --> 00:00:55,452
 We stake the one-dollar tier in MON,
 
-25
-00:00:58,545 --> 00:01:00,305
+18
+00:00:55,472 --> 00:00:57,289
 and queue a ranked match.
 
-26
-00:01:05,995 --> 00:01:07,554
+19
+00:00:58,800 --> 00:01:00,765
 Every card I drop is its own
 
-27
-00:01:07,574 --> 00:01:10,236
-Monad transaction, from a per-match session key,
+20
+00:01:00,785 --> 00:01:03,587
+Monad transaction, signed by a per-match session
 
-28
-00:01:10,256 --> 00:01:11,748
-so there are no popups.
+21
+00:01:03,607 --> 00:01:05,923
+key, so there are no popups.
 
-29
-00:01:12,102 --> 00:01:14,372
-Each pill is a real round trip:
+22
+00:01:06,184 --> 00:01:08,501
+Each pill shows the real round trip:
 
-30
-00:01:14,563 --> 00:01:16,694
+23
+00:01:08,634 --> 00:01:10,706
 executed, then final.
 
-31
-00:01:17,995 --> 00:01:19,963
-We fast-forward the middle of the match.
+24
+00:01:16,700 --> 00:01:17,887
+We fast-forward.
 
-32
-00:01:20,096 --> 00:01:21,589
+25
+00:01:17,907 --> 00:01:19,458
 And a tower falls.
 
-33
-00:01:43,370 --> 00:01:45,208
+26
+00:01:21,967 --> 00:01:23,192
+Pot secured!
+
+27
+00:01:23,639 --> 00:01:25,639
 The second player's claim settles the pot
 
-34
-00:01:45,228 --> 00:01:46,081
+28
+00:01:25,659 --> 00:01:26,548
 on chain:
 
-35
-00:01:46,272 --> 00:01:47,901
+29
+00:01:26,623 --> 00:01:27,880
 ninety percent to the winner,
 
-36
-00:01:47,921 --> 00:01:49,062
-ten to the house,
-
-37
-00:01:49,082 --> 00:01:50,307
+30
+00:01:27,900 --> 00:01:29,462
 plus a chest.
 
-38
-00:01:54,870 --> 00:01:57,160
-Clans and clan wars score only the
+31
+00:01:32,467 --> 00:01:34,873
+Clans and clan wars score only staked
 
-39
-00:01:57,180 --> 00:01:59,471
-staked wins the relay has verified on
+32
+00:01:34,893 --> 00:01:36,653
+wins verified on chain.
 
-40
-00:01:59,491 --> 00:02:00,240
-chain.
-
-41
-00:02:00,501 --> 00:02:02,489
+33
+00:01:37,007 --> 00:01:38,798
 These clans were seeded by our team
 
-42
-00:02:02,509 --> 00:02:03,537
+34
+00:01:38,818 --> 00:01:40,008
 for the demo.
 
-43
-00:02:03,984 --> 00:02:06,100
-Joining one puts us straight into its
-
-44
-00:02:06,120 --> 00:02:06,962
-war.
-
-45
-00:02:11,536 --> 00:02:13,176
+35
+00:01:41,500 --> 00:01:43,271
 Empire holds the leaderboard,
 
-46
-00:02:13,196 --> 00:02:16,148
-Monad's native staking precompile read live,
+36
+00:01:43,300 --> 00:01:45,880
+reads Monad's staking precompile live,
 
-47
-00:02:16,168 --> 00:02:18,575
-and a passkey signature verified by Monad's
+37
+00:01:45,900 --> 00:01:48,353
+and verifies a passkey signature with Monad's
 
-48
-00:02:18,595 --> 00:02:20,981
+38
+00:01:48,373 --> 00:01:50,527
 P-256 precompile.
 
+39
+00:01:52,533 --> 00:01:54,362
+So, what is live on Monad?
+
+40
+00:01:55,067 --> 00:01:57,535
+Chainlink CRE writes the market meta:
+
+41
+00:01:57,668 --> 00:02:00,376
+thirty-six fighters, signed by the workflow,
+
+42
+00:02:00,396 --> 00:02:02,887
+accepted only from its forwarder.
+
+43
+00:02:04,400 --> 00:02:06,307
+Pyth prices every mint,
+
+44
+00:02:06,327 --> 00:02:08,969
+verified on chain in the same transaction.
+
+45
+00:02:10,800 --> 00:02:11,999
+Gasless chests:
+
+46
+00:02:12,019 --> 00:02:15,610
+an EIP-7702 authorization, our own paymaster,
+
+47
+00:02:15,630 --> 00:02:17,227
+and the canonical EntryPoint.
+
+48
+00:02:17,673 --> 00:02:19,641
+The player spends no MON.
+
 49
-00:02:30,703 --> 00:02:32,575
-And the proof, read live from the
+00:02:21,133 --> 00:02:24,886
+Passkeys, checked by Monad's P-256 precompile,
 
 50
-00:02:32,595 --> 00:02:33,263
-chain:
+00:02:24,906 --> 00:02:26,584
+at a fraction of the gas.
 
 51
-00:02:33,617 --> 00:02:36,163
-the Chainlink report, a Pyth-priced mint,
+00:02:28,433 --> 00:02:30,085
+Every card you play is logged on
 
 52
-00:02:36,183 --> 00:02:37,687
-and a gasless chest,
+00:02:30,105 --> 00:02:32,120
+chain, from a session key.
 
 53
-00:02:37,715 --> 00:02:41,913
-opened through EIP-7702 and our own paymaster.
+00:02:33,967 --> 00:02:35,561
+And every staked match is settled by
 
 54
-00:02:42,513 --> 00:02:43,399
-Mempire.
+00:02:35,581 --> 00:02:37,096
+the contract itself.
 
 55
-00:02:43,419 --> 00:02:44,853
-Every coin is a fighter.
+00:02:38,933 --> 00:02:40,039
+Six power-ups.
 
 56
-00:02:44,928 --> 00:02:46,719
-Play it now, at mempire monad,
+00:02:40,059 --> 00:02:41,691
+All live on Monad testnet.
 
 57
-00:02:46,739 --> 00:02:48,522
+00:02:43,000 --> 00:02:43,642
+Mempire.
+
+58
+00:02:43,662 --> 00:02:44,919
+Every coin is a fighter.
+
+59
+00:02:44,939 --> 00:02:46,591
+Play now, at mempire monad,
+
+60
+00:02:46,611 --> 00:02:48,405
 dot vercel, dot app.

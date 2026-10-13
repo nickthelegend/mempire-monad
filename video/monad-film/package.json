@@ -1,0 +1,30 @@
+{
+  "name": "mempire-launch",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts",
+    "still": "remotion still src/index.ts"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.7.0",
+    "@remotion/cli": "4.0.530",
+    "@remotion/google-fonts": "4.0.530",
+    "@remotion/media-utils": "4.0.530",
+    "@remotion/motion-blur": "4.0.530",
+    "@remotion/three": "4.0.530",
+    "@types/three": "0.185.0",
+    "qrcode": "1.5.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.530",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

@@ -33,7 +33,7 @@ for (const line of spec.lines) {
     cur.w += ch; cur.e = a.character_end_times_seconds[i];
   });
   if (cur) words.push(cur);
-  out.push({ id: line.id, text: line.text, say, voice: spec.voice, seconds, words });
+  out.push({ id: line.id, text: line.text, say, voice: spec.voice, seconds, words, align: a });
   console.log(`${line.id} ${seconds.toFixed(2)}s ${line.text.slice(0, 60)}`);
 }
 writeFileSync(manifestPath, JSON.stringify(out, null, 2));
