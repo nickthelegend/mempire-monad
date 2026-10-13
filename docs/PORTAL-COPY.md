@@ -55,6 +55,7 @@ Not claimed:
 
 - **Repo:** https://github.com/nickthelegend/mempire-monad
 - **Live app:** https://mempire-monad.vercel.app
+- **Demo video:** `docs/demo/mempire-metropolis.mp4` (2:21), recorded live on Monad testnet
 - **Relay:** https://relay-production-9c75.up.railway.app/api/health
 
 ## Contracts (Monad testnet 10143, verified on Sourcify)

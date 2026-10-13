@@ -6,6 +6,7 @@
 | **Track** | **03 · Social, Attention & Culture** |
 | **Network** | **Monad testnet (10143)**, deployed 12 Oct; 8 contracts verified on Sourcify (addresses in the README). It also runs locally on a fork of testnet with one command (`scripts/local-up.sh`). |
 | **Live app** | https://mempire-monad.vercel.app (relay: https://relay-production-9c75.up.railway.app) |
+| **Demo video** | `docs/demo/mempire-metropolis.mp4` (2:21, captions in `.srt`): recorded live on Monad testnet |
 | **Repo** | https://github.com/nickthelegend/mempire-monad (MIT) |
 | **Judge login** | None needed. Open the link, tap **Play now**, then **Create with passkey** (or **Play as Guest** on a browser without passkey PRF). |
 
@@ -130,4 +131,5 @@ Locally, today (reproduce with `./scripts/local-up.sh && ./scripts/test-all.sh`;
   - open, with the 7702 authorization: [`0xb0cec249…cc59`](https://testnet.monadvision.com/tx/0xb0cec249b2b13f0b878abb3c181d8e541070f55a6f6cabb5e45aac818572cc59);
   - reveal: [`0x342a7b31…3c37`](https://testnet.monadvision.com/tx/0x342a7b31ee93e6ef99c96509003d2e18de1ba51b4262fcea993c820336103c37).
 - **Seeded demo activity (13 Oct), by the team, not organic users:** 8 guest wallets played 6 settled staked matches through the hosted client; 3 clans with members (charters paid on chain); a running 2-clan war; 2 more gasless chests. All txs are in [docs/evidence/seed-13oct.md](docs/evidence/seed-13oct.md).
+- **Known issue (13 Oct):** Ranked replays on testnet report "diverges at tick 160" even when both seats agree on the winner. It points to a difference in starting state between the live sims and the replay (likely deck order), not to the play log. A Rush replay verified after the meta-read fix (`b3c6f52`). Money is not affected: settlement uses the two seats' signed claims, and a disagreement refunds both.
 - **Hosting note:** the relay uses a Railway-hosted MongoDB, because the shared Atlas cluster does not yet allow Railway's IPs. Switching back is one variable (`MONGODB_URI`) once Atlas network access allows them.

@@ -6,6 +6,8 @@
 
 Sign in with a passkey: no seed phrase, no extension, no wallet popups during a match.
 
+
+- **Demo video (2:21):** [`docs/demo/mempire-metropolis.mp4`](docs/demo/mempire-metropolis.mp4) (captions: `.srt`). Recorded live on Monad testnet.
 - **Play:** https://mempire-monad.vercel.app (Monad testnet; relay https://relay-production-9c75.up.railway.app). It also runs end to end on your machine with one command: see [Run it locally](#run-it-locally).
 - **Track:** 03 · Social, Attention & Culture (recommended; see [SUBMISSION.md](SUBMISSION.md))
 

@@ -1,0 +1,19 @@
+{
+  "voice": "IKne3meq5aSn9XLyUdCD",
+  "model": "eleven_multilingual_v2",
+  "lines": [
+    { "id": "i01", "text": "Every coin is a fighter." },
+    { "id": "i02", "text": "Mempire is a real-time, one-versus-one card battler, where Bitcoin, memecoins and stocks fight in the arena, and the market decides who is strong today." },
+    { "id": "i03", "text": "Price moves become small, bounded buffs and nerfs, written on chain by a Chainlink workflow." },
+    { "id": "i04", "text": "Two players stake, battle for three minutes, and every card they drop is a Monad transaction." },
+    { "id": "i05", "text": "That only works on a chain this fast. So we built it on Monad." },
+    { "id": "d01", "text": "This is the live app on Monad testnet. That strip is Monad itself: each block voted in about three hundred milliseconds, and final in under six hundred, measured in this browser." },
+    { "id": "d02", "text": "One tap as a guest. The relayer mints an eight-card starter deck, sends test AUSD, and a little MON for gas. About ten seconds. No wallet, no faucet." },
+    { "id": "d03", "text": "The side boards show the market meta: who is buffed, who is nerfed, and how old the snapshot is. We pick the one-dollar tier in MON, and both players queue a ranked match." },
+    { "id": "d04", "text": "Now every card I drop is its own transaction, signed by a per-match session key, so there are no popups. Each pill shows the real round trip: executed, then final." },
+    { "id": "d05", "text": "When the second player's claim lands, the contract settles the pot: ninety percent to the winner, ten to the house." },
+    { "id": "d06", "text": "Empire reads Monad's native staking precompile live, and checks passkey signatures with the P-256 precompile. New players can even open chests gaslessly, through EIP-7702 and our own paymaster." },
+    { "id": "d07", "text": "Clans, and clan wars, score only the staked wins the relay has verified on chain. These clans were seeded by our team for the demo." },
+    { "id": "o01", "text": "Mempire. Every coin is a fighter. Play it now at mempire-monad dot vercel dot app.", "say": "Mempire. Every coin is a fighter. Play it now, at mempire monad, dot vercel, dot app." }
+  ]
+}
