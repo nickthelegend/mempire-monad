@@ -46,7 +46,7 @@ export const RPC_URL = (import.meta.env.VITE_RPC_URL as string | undefined) ?? C
  */
 const TESTNET_FALLBACK_RPCS = ['https://monad-testnet.drpc.org', 'https://rpc.ankr.com/monad_testnet'];
 export const rpcTransport = () => {
-  const one = (url: string) => http(url, { retryCount: 1, retryDelay: 250, batch: { wait: 16 } });
+  const one = (url: string) => http(url, { retryCount: 1, retryDelay: 250, batch: { wait: 16, batchSize: 8 } }); // small batches: some public RPCs answer 413 to large ones
   if (CHAIN.id !== 10143) return http(RPC_URL, { retryCount: 3, retryDelay: 250, batch: { wait: 16 } });
   return fallback([RPC_URL, ...TESTNET_FALLBACK_RPCS.filter((u) => u !== RPC_URL)].map(one));
 };
