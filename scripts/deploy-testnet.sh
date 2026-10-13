@@ -26,7 +26,7 @@ RELAYER="$RELAYER" \
 PYTH="0x2880aB155794e7179c9eE2e38200202908C17B43" \
 AUSD="0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC" \
 CRE_FORWARDER="${CRE_FORWARDER:-0xB9F79d863261869B234c481D1f9A7af84AeAd192}" \
-METADATA_BASE_URI="${METADATA_BASE_URI:-https://mempire-monad-relay.up.railway.app/nft/}" \
+METADATA_BASE_URI="${METADATA_BASE_URI:-https://relay-production-9c75.up.railway.app/nft/}" \
 TIME_SCALE="${TIME_SCALE:-60}" \
 forge script script/Deploy.s.sol \
   --rpc-url "$RPC" --broadcast --slow --gas-estimate-multiplier 110 \

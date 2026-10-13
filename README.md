@@ -6,7 +6,7 @@
 
 Sign in with a passkey: no seed phrase, no extension, no wallet popups during a match.
 
-- **Play:** `TODO: Vercel URL` (Monad testnet, deploying on the team's go). Today it runs end to end on your machine with one command: see [Run it locally](#run-it-locally).
+- **Play:** https://mempire-monad.vercel.app (Monad testnet; relay https://relay-production-9c75.up.railway.app). It also runs end to end on your machine with one command: see [Run it locally](#run-it-locally).
 - **Track:** 03 · Social, Attention & Culture (recommended; see [SUBMISSION.md](SUBMISSION.md))
 - **Demo video:** `TODO`
 
