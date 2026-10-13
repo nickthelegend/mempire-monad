@@ -119,7 +119,8 @@ export async function loadReplay(matchId: number): Promise<ReplayBundle> {
   }
 
   const epoch = Number(m.metaEpoch);
-  const bps = await modifiersAt(epoch).catch(() => new Map<number, number>());
+  // The meta the match used; a failed read must fail the replay, not fake a divergence.
+  const bps = await modifiersAt(epoch);
   const decks: [MatchCard[], MatchCard[]] = [withMeta(rec.decks[0]!, bps), withMeta(rec.decks[1]!, bps)];
 
   const inputs: InputEvent[] = logs.filter((l) => l.eventName === 'Played').map(toInput);

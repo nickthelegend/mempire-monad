@@ -224,9 +224,25 @@ export async function modifiersAt(epoch: number): Promise<Map<number, number>> {
   if (epoch <= 0) return new Map();
   const hit = metaCache.get(epoch);
   if (hit) return hit;
-  const bps = await fetchModifiers(epoch, COINS.map((c) => c.coinId));
-  metaCache.set(epoch, bps);
-  return bps;
+  /*
+   * Retried, never defaulted. Both seats must build their sim from the same
+   * numbers; a seat that silently fell back to "no meta" after a rate-limited
+   * read played a different game from tick 0 (seen on testnet: the two seats'
+   * first checkpoints disagreed and the match voided). A past epoch's
+   * modifiers never change, so retrying is always safe.
+   */
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const bps = await fetchModifiers(epoch, COINS.map((c) => c.coinId));
+      metaCache.set(epoch, bps);
+      return bps;
+    } catch (e) {
+      lastError = e;
+      await new Promise((r) => { setTimeout(r, 250 * 2 ** attempt); });
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('the market meta could not be read');
 }
 
 export function withMeta(deck: MatchCard[], bps: Map<number, number>): MatchCard[] {
@@ -1242,9 +1258,12 @@ function beginHumanBattle(
   if (!cached) {
     // The epoch the matchmaker read is not one we hold yet. Fetch it, then
     // build — there are seconds before the shared start instant.
-    void modifiersAt(epoch)
-      .catch(() => new Map<number, number>())
-      .then((bps) => startHumanSim(m, myDeck, oppDeck, bps, tierIdx, rush));
+    // No meta, no match: starting with numbers the other seat might not have
+    // is a desync from tick 0. Bail out (refund, bot) instead.
+    void modifiersAt(epoch).then(
+      (bps) => startHumanSim(m, myDeck, oppDeck, bps, tierIdx, rush),
+      (e) => { console.warn('[match] market meta unreadable, not starting:', e instanceof Error ? e.message : e); bailToBot(tierIdx); },
+    );
     return;
   }
   startHumanSim(m, myDeck, oppDeck, cached, tierIdx, rush);
