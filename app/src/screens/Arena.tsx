@@ -1,4 +1,5 @@
 import { IS_MAINNET, NETWORK_LABEL } from '../chain/provider';
+import { MarketStrip } from '../components/MarketBoard';
 import { STAKE_MON_NEEDED } from '../chain/session';
 import { MonadPipeline } from '../components/MonadPipeline';
 import { LiveNow } from '../components/LiveNow';
@@ -137,6 +138,7 @@ function ConnectHero() {
         <Pill onClick={openPicker} tone="gold" style={{ fontSize: 19 }}>Play now</Pill>
       </div>
       <span className="label" style={{ fontSize: 12 }}>{IS_MAINNET ? 'Monad mainnet · real funds' : `${NETWORK_LABEL} · passkey sign-in · no wallet needed`}</span>
+      <div style={{ textAlign: 'left' }}><MarketStrip /></div>
       <div style={{ textAlign: 'left' }}><MonadPipeline /></div>
     </div>
   );
@@ -631,6 +633,7 @@ export function Arena() {
         </div>
       </section>
 
+      <MarketStrip />
       <MonadPipeline compact />
       <LiveNow />
 

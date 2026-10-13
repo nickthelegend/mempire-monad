@@ -131,13 +131,15 @@ export function MonadNetworkPanel() {
         {stk ? (
           <>
             <span style={{ fontSize: 13 }}>
-              Epoch <b>{stk.epoch}</b>{stk.inDelay ? ' · in epoch delay' : ''} · block proposer: validator <b>#{stk.proposer}</b>
-              {stk.proposerStake !== null && <> · {stk.proposerStake.toLocaleString('en-US')} MON staked</>}
-              {stk.proposerCommission !== null && <> · {(stk.proposerCommission * 100).toFixed(0)}% commission</>}
+              Epoch <b>{stk.epoch}</b> · this block&apos;s validator <b>#{stk.proposer}</b>
             </span>
-            <span className="fine" style={{ fontSize: 11, color: 'var(--dim)' }}>
-              Staking precompile <code>0x…1000</code>, batched through Multicall3 <code>{MULTICALL3.slice(0, 6)}…{MULTICALL3.slice(-4)}</code> · block {stk.block.toLocaleString('en-US')}
-            </span>
+            <details className="fine" style={{ fontSize: 11, color: 'var(--dim)' }}>
+              <summary style={{ cursor: 'pointer' }}>Details</summary>
+              {stk.inDelay ? 'In epoch delay. ' : ''}
+              {stk.proposerStake !== null && <>{stk.proposerStake.toLocaleString('en-US')} MON staked · </>}
+              {stk.proposerCommission !== null && <>{(stk.proposerCommission * 100).toFixed(0)}% commission · </>}
+              Read from the staking precompile <code>0x…1000</code>, batched through Multicall3 <code>{MULTICALL3.slice(0, 6)}…{MULTICALL3.slice(-4)}</code> at block {stk.block.toLocaleString('en-US')}.
+            </details>
           </>
         ) : (
           <span className="fine" style={{ fontSize: 12, color: 'var(--dim)' }}>{stkErr ? `Staking read unavailable: ${stkErr}` : 'reading the staking precompile…'}</span>
@@ -145,9 +147,7 @@ export function MonadNetworkPanel() {
       </div>
 
       <div aria-label="Passkey verified by Monad" style={{ display: 'grid', gap: 5, borderTop: '2px solid rgba(0,0,0,.28)', paddingTop: 8 }}>
-        <span style={{ fontSize: 13 }}>
-          Passkeys, checked by the chain: Monad verifies WebAuthn (P-256) signatures natively at <code>0x…0100</code>.
-        </span>
+        <span style={{ fontSize: 13 }}>Passkeys, verified by Monad itself</span>
         {p256 ? (
           <span className="label" style={{ fontSize: 12, color: p256.ok && p256.tamperedRefused ? 'var(--teal)' : 'var(--red)' }}>
             {p256.ok ? '✓ Your passkey signature verified by Monad’s P256 precompile' : '✗ Monad’s precompile rejected the signature'}
@@ -161,9 +161,10 @@ export function MonadNetworkPanel() {
             {busy ? 'Waiting for the passkey…' : 'Verify a passkey on Monad'}
           </Pill>
         </div>
-        <span className="fine" style={{ fontSize: 11, color: 'var(--dim)' }}>
-          Uses a separate P-256 passkey made for this check (Mera&apos;s sign-in key is not exposed). On chain, PasskeyRegistry binds a passkey to an account the same way.
-        </span>
+        <details className="fine" style={{ fontSize: 11, color: 'var(--dim)' }}>
+          <summary style={{ cursor: 'pointer' }}>Details</summary>
+          Monad verifies WebAuthn (P-256) signatures natively, with the precompile at <code>0x…0100</code>. This check uses a separate P-256 passkey made for it, because Mera&apos;s sign-in key is not exposed. On chain, PasskeyRegistry binds a passkey to an account the same way.
+        </details>
       </div>
     </section>
   );

@@ -68,3 +68,27 @@ export function MarketBoard({ side }: { side: 'left' | 'right' }) {
     </aside>
   );
 }
+
+/** The meta for a phone: the top buffs and nerfs in one line, with its age. */
+export function MarketStrip() {
+  const epoch = useChain((s) => s.metaEpoch);
+  useChain((s) => s.marketVersion);
+  if (!epoch) return null;
+  const moved = COINS.filter((c) => (c.metaBps ?? 0) !== 0);
+  const top = (up: boolean) => moved
+    .filter((c) => (up ? (c.metaBps ?? 0) > 0 : (c.metaBps ?? 0) < 0))
+    .sort((a, b) => Math.abs(b.metaBps ?? 0) - Math.abs(a.metaBps ?? 0))
+    .slice(0, 2);
+  const chip = (c: (typeof COINS)[number]) => (
+    <span key={c.coinId} style={{ fontWeight: 800, whiteSpace: 'nowrap', color: (c.metaBps ?? 0) > 0 ? 'var(--teal)' : 'var(--red-on-wood)' }}>
+      {(c.metaBps ?? 0) > 0 ? '▲' : '▼'} {tickerOf(c)} {(Math.abs(c.metaBps ?? 0) / 100).toFixed(1)}%
+    </span>
+  );
+  return (
+    <div className="market-strip panel" aria-label="Today's market meta" style={{ alignItems: 'center', gap: 10, padding: '6px 10px', fontSize: 12, flexWrap: 'wrap' }}>
+      <span className="label" style={{ fontSize: 11 }}>Market meta</span>
+      {[...top(true), ...top(false)].map(chip)}
+      <span className="fine" style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim-on-wood)' }}>{metaAge(epoch)} · on chain</span>
+    </div>
+  );
+}
