@@ -1,0 +1,103 @@
+1
+00:00:03,550 --> 00:00:05,701
+Mempire's market meta is written on chain
+
+2
+00:00:05,721 --> 00:00:07,863
+by a Chainlink CRE workflow.
+
+3
+00:00:08,124 --> 00:00:09,614
+This is a real run of cre
+
+4
+00:00:09,634 --> 00:00:11,889
+workflow simulate, with broadcast,
+
+5
+00:00:11,909 --> 00:00:13,785
+against Monad testnet.
+
+6
+00:00:13,785 --> 00:00:16,818
+The workflow compiles, then each node fetches
+
+7
+00:00:16,838 --> 00:00:18,458
+the day's price changes.
+
+8
+00:00:18,812 --> 00:00:20,661
+The nodes agree coin by coin on
+
+9
+00:00:20,681 --> 00:00:22,972
+a median, turn each move into a
+
+10
+00:00:22,992 --> 00:00:24,504
+bounded buff or nerf,
+
+11
+00:00:24,524 --> 00:00:26,063
+and sign a report.
+
+12
+00:00:26,063 --> 00:00:27,877
+The report goes through the forwarder to
+
+13
+00:00:27,897 --> 00:00:30,086
+our MarketMeta contract on Monad:
+
+14
+00:00:30,347 --> 00:00:32,893
+a new epoch, thirty-six fighters,
+
+15
+00:00:32,913 --> 00:00:34,719
+in about eight seconds.
+
+16
+00:00:35,319 --> 00:00:36,893
+Here is that transaction,
+
+17
+00:00:36,968 --> 00:00:38,692
+read straight from the chain:
+
+18
+00:00:39,046 --> 00:00:43,046
+success, and the MetaPosted event from MarketMeta.
+
+19
+00:00:48,319 --> 00:00:50,842
+In the game, the arena's boards update
+
+20
+00:00:50,862 --> 00:00:53,512
+at once, and every staked match locks
+
+21
+00:00:53,532 --> 00:00:55,753
+that epoch, so both players fight on
+
+22
+00:00:55,773 --> 00:00:57,903
+the same, checkable numbers.
+
+23
+00:00:57,903 --> 00:01:00,426
+This run used the CRE simulator and
+
+24
+00:01:00,446 --> 00:01:01,311
+its forwarder;
+
+25
+00:01:01,502 --> 00:01:03,154
+the workflow is not deployed to a
+
+26
+00:01:03,174 --> 00:01:04,422
+DON yet.

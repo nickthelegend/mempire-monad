@@ -1,0 +1,7 @@
+{"out": "../docs/demo/bounty-cre.mp4", "vo": "work/vo-cre", "captures": "captures2",
+ "segments": [
+  {"kind": "html", "src": "hf/card-cre.webm", "start": 0.2, "dur": 3.2},
+  {"kind": "html", "src": "hf/cre-term.webm", "start": 0.3, "dur": 25.5, "vo": ["c1", "c2", "c3"]},
+  {"kind": "html", "src": "hf/cre-proof.webm", "start": 0.8, "dur": 13.0, "vo": ["c4"]},
+  {"kind": "html", "src": "hf/cre-app.webm", "start": 2.0, "dur": 14.0, "vo": ["c5", "c6"]}
+ ]}

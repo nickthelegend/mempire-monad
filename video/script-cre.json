@@ -1,0 +1,30 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "lines": [
+  {
+   "id": "c1",
+   "text": "Mempire's market meta is written on chain by a Chainlink CRE workflow. This is a real run of cre workflow simulate, with broadcast, against Monad testnet."
+  },
+  {
+   "id": "c2",
+   "text": "The workflow compiles, then each node fetches the day's price changes. The nodes agree coin by coin on a median, turn each move into a bounded buff or nerf, and sign a report."
+  },
+  {
+   "id": "c3",
+   "text": "The report goes through the forwarder to our MarketMeta contract on Monad: a new epoch, thirty-six fighters, in about eight seconds."
+  },
+  {
+   "id": "c4",
+   "text": "Here is that transaction, read straight from the chain: success, and the MetaPosted event from MarketMeta."
+  },
+  {
+   "id": "c5",
+   "text": "In the game, the arena's boards update at once, and every staked match locks that epoch, so both players fight on the same, checkable numbers."
+  },
+  {
+   "id": "c6",
+   "text": "This run used the CRE simulator and its forwarder; the workflow is not deployed to a DON yet."
+  }
+ ]
+}

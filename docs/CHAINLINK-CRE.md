@@ -91,6 +91,7 @@ In the app, the side boards and the phone strip show who is buffed, who is nerfe
 
 ## Live proof (Monad testnet)
 
+- **Latest CRE write:** MetaPosted epoch **2986556** (36 coins), from a recorded `cre workflow simulate --broadcast` run on 14 Oct: tx [`0x1f056181…317a`](https://testnet.monadvision.com/tx/0x1f05618103c9b7c1ebc6afe32bf3f88255b9a9c69ee79078695bb480bbb1317a). The run is shown in `docs/demo/bounty-cre.mp4`.
 - **The CRE write:** `MetaPosted` for epoch **2986491**, 36 coins.
   - tx [`0x26b6bc97…b219`](https://testnet.monadvision.com/tx/0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219);
   - read live: https://mempire-monad.vercel.app/proof.html?tx=CRE~0x26b6bc97009aa299dc52590803d7d15a62e9ae4a5278857e255c89bb444bb219.

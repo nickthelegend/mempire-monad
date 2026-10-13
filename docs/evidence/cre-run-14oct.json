@@ -1,0 +1,138 @@
+{
+ "cmd": "cre workflow simulate market-meta --target staging-settings --non-interactive --trigger-index 0 --broadcast",
+ "rc": 0,
+ "lines": [
+  {
+   "t": 0.33,
+   "line": "Initializing..."
+  },
+  {
+   "t": 1.68,
+   "line": "Loading settings..."
+  },
+  {
+   "t": 1.68,
+   "line": "Checking RPC connectivity..."
+  },
+  {
+   "t": 2.07,
+   "line": "Compiling workflow..."
+  },
+  {
+   "t": 5.89,
+   "line": "\u2713 Workflow compiled"
+  },
+  {
+   "t": 5.96,
+   "line": "\u2713 Simulation limits enabled"
+  },
+  {
+   "t": 5.96,
+   "line": "  HTTP: req=120kb resp=250kb timeout=10s | ConfHTTP: req=125kb resp=500kb timeout=1m30s | Consensus obs=25kb | ChainWrite evm_report=50kb evm_gas=10000000 solana_report=265b solana_cu=300000 | WASM binary=100mb compressed=20mb"
+  },
+  {
+   "t": 5.96,
+   "line": "  Binary hash: 925c942a9d7802e85405977647c0bfa6d7c87cd709da3f85e0557db729da2d31"
+  },
+  {
+   "t": 5.96,
+   "line": "  Config hash: c4965f13e2339eb4c7b9a16b3c0caa432c84d9462957050c4113805c28b6ee1c"
+  },
+  {
+   "t": 6.08,
+   "line": "2026-10-14T04:53:34Z [SIMULATION] Simulator Initialized"
+  },
+  {
+   "t": 6.08,
+   "line": ""
+  },
+  {
+   "t": 6.08,
+   "line": "2026-10-14T04:53:34Z [SIMULATION] Running trigger trigger=cron-trigger@1.0.0"
+  },
+  {
+   "t": 6.11,
+   "line": "2026-10-14T04:53:34Z [USER LOG] market-meta (cron) epoch 2986556 (600s epochs)"
+  },
+  {
+   "t": 6.42,
+   "line": "2026-10-14T04:53:35Z [USER LOG] CoinGecko: 1 coin(s) unpriced, written as 0 bps"
+  },
+  {
+   "t": 6.42,
+   "line": "2026-10-14T04:53:35Z [USER LOG] PYTH_API_KEY not configured: 12 stocks get 0 bps this epoch"
+  },
+  {
+   "t": 6.42,
+   "line": "2026-10-14T04:53:35Z [USER LOG] modifiers: BTC+58 ETH+59 SOL+22 MON+24 BNB+29 XRP+57 DOGE+58 AVAX+3 LINK+42 SHIB-7 UNI+267 ADA+5 BONK+9 WIF+28 POPCAT+31 PNUT-58 GOAT-14 MEW-50 PEPE+243 BRETT-116 MOG-38 MOODENG-27 CHILLGUY0 BOME+15 AAPL0 TSLA0 NVDA0 MSFT0 GOOGL0 AMZN0 META0 NFLX0 COIN0 HOOD0 MSTR0 SPY0"
+  },
+  {
+   "t": 8.28,
+   "line": "2026-10-14T04:53:37Z [USER LOG] MetaPosted epoch 2986556 \u2192 0x17Ca9e2102d2B38f3676fEc6B5EA6c927753d148 tx 0x1f05618103c9b7c1ebc6afe32bf3f88255b9a9c69ee79078695bb480bbb1317a"
+  },
+  {
+   "t": 8.28,
+   "line": ""
+  },
+  {
+   "t": 8.28,
+   "line": "\u2713 Workflow Simulation Result:"
+  },
+  {
+   "t": 8.28,
+   "line": "\"{\\\"status\\\":\\\"written\\\",\\\"epoch\\\":\\\"2986556\\\",\\\"coins\\\":36,\\\"txHash\\\":\\\"0x1f05618103c9b7c1ebc6afe32bf3f88255b9a9c69ee79078695bb480bbb1317a\\\"}\""
+  },
+  {
+   "t": 8.28,
+   "line": ""
+  },
+  {
+   "t": 8.28,
+   "line": "2026-10-14T04:53:37Z [SIMULATION] Execution finished signal received"
+  },
+  {
+   "t": 8.28,
+   "line": "2026-10-14T04:53:37Z [SIMULATION] Skipping WorkflowEngineV2"
+  },
+  {
+   "t": 8.29,
+   "line": ""
+  },
+  {
+   "t": 8.29,
+   "line": "\u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e"
+  },
+  {
+   "t": 8.29,
+   "line": "\u2502 Simulation complete! Ready to deploy your workflow?  \u2502"
+  },
+  {
+   "t": 8.29,
+   "line": "\u2502                                                      \u2502"
+  },
+  {
+   "t": 8.29,
+   "line": "\u2502 Run cre account access to request deployment access. \u2502"
+  },
+  {
+   "t": 8.29,
+   "line": "\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f"
+  },
+  {
+   "t": 8.29,
+   "line": ""
+  },
+  {
+   "t": 8.29,
+   "line": "\u26a0\ufe0f  Update available! You\u2019re running 1.36.0, but 1.38.0 is the latest."
+  },
+  {
+   "t": 8.29,
+   "line": "Run `cre update` or visit https://github.com/smartcontractkit/cre-cli/releases to upgrade."
+  },
+  {
+   "t": 8.29,
+   "line": ""
+  }
+ ]
+}

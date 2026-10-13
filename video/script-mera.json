@@ -1,0 +1,26 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "lines": [
+  {
+   "id": "m1",
+   "text": "Mempire's whole account layer is Mera. Watch a new player sign up: one passkey prompt, and that is the account."
+  },
+  {
+   "id": "m2",
+   "text": "The passkey's PRF output becomes the key, inside a Mera signing session. No seed phrase, no extension, nothing secret stored. The starter deck lands on chain in about ten seconds."
+  },
+  {
+   "id": "m3",
+   "text": "The same passkey-derived account signs real Monad transactions: here, minting a fighter at its live Pyth price."
+  },
+  {
+   "id": "m4",
+   "text": "In a staked match, a per-match session key signs every card, so a whole battle runs without a single wallet popup."
+  },
+  {
+   "id": "m5",
+   "text": "And Monad itself verifies a passkey signature, through its P-256 precompile, with a tampered copy refused."
+  }
+ ]
+}

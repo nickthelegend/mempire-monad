@@ -1,0 +1,59 @@
+{
+ "out": "../docs/demo/bounty-mera.mp4",
+ "vo": "work/vo-mera",
+ "captures": "captures2",
+ "segments": [
+  {
+   "kind": "html",
+   "src": "hf/card-mera-ux.webm",
+   "start": 0.2,
+   "dur": 3.2
+  },
+  {
+   "kind": "live",
+   "a": 11.0,
+   "b": 24.5,
+   "tag": "Mera passkey sign-up \u00b7 one prompt",
+   "vo": [
+    "m1"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 24.5,
+   "b": 40.5,
+   "speed": 1.5,
+   "tag": "Deck on chain \u00b7 no seed phrase",
+   "vo": [
+    "m2"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 40.5,
+   "b": 50.5,
+   "tag": "Passkey account signs a Pyth-priced mint",
+   "vo": [
+    "m3"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 74.5,
+   "b": 88.0,
+   "tag": "Session key signs every card \u00b7 no popups",
+   "vo": [
+    "m4"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 181.0,
+   "b": 192.0,
+   "tag": "P-256 precompile verifies the passkey",
+   "vo": [
+    "m5"
+   ]
+  }
+ ]
+}
