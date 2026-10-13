@@ -1,0 +1,99 @@
+{
+  "at": "2026-10-13T16:05:38.005Z",
+  "arenaMatchIds": [
+    2,
+    9
+  ],
+  "players": [
+    {
+      "pair": 0,
+      "seat": "A",
+      "address": "0x22CB339C63dF8756dA687d971fA71F7c14DCd824"
+    },
+    {
+      "pair": 0,
+      "seat": "B",
+      "address": "0x2f0A522282CdddFF6e95c06FcB1bcb7b555e0BE1"
+    },
+    {
+      "pair": 1,
+      "seat": "A",
+      "address": "0x5ddda368e4E650486D3912bCaDD385adE73D9B24"
+    },
+    {
+      "pair": 1,
+      "seat": "B",
+      "address": "0xef01ee6D1Ab93e6B1b1B03181CBA2FFE19CbA193"
+    },
+    {
+      "pair": 2,
+      "seat": "A",
+      "address": "0xA071235b10393Bb30566c324049b5b04b3fdd9fA"
+    },
+    {
+      "pair": 2,
+      "seat": "B",
+      "address": "0x0d8c889cf648D4960CcA1865dD8fd0f93DcCc723"
+    },
+    {
+      "pair": 3,
+      "seat": "A",
+      "address": "0x207f94F9ef5C46A42B72d05D97bcaF1122a9E139"
+    },
+    {
+      "pair": 3,
+      "seat": "B",
+      "address": "0x56D5d3Bc19f10155f5F07F585C5d575847D7B748"
+    }
+  ],
+  "matches": [
+    {
+      "pair": 1,
+      "label": "pair 1 match 1",
+      "result": "REKT",
+      "escrowed": true
+    },
+    {
+      "pair": 0,
+      "label": "pair 0 match 1",
+      "result": "POT SECURED",
+      "escrowed": true
+    },
+    {
+      "pair": 1,
+      "label": "pair 1 match 2",
+      "result": "REKT",
+      "escrowed": true
+    },
+    {
+      "pair": 0,
+      "label": "pair 0 match 2",
+      "result": "POT SECURED",
+      "escrowed": true
+    },
+    {
+      "pair": 2,
+      "label": "pair 2 match 1",
+      "result": "REKT",
+      "escrowed": true
+    },
+    {
+      "pair": 3,
+      "label": "pair 3 match 1",
+      "result": "POT SECURED",
+      "escrowed": true
+    },
+    {
+      "pair": 2,
+      "label": "pair 2 match 2",
+      "result": "POT SECURED",
+      "escrowed": false
+    },
+    {
+      "pair": 3,
+      "label": "pair 3 match 2",
+      "result": "REKT",
+      "escrowed": false
+    }
+  ]
+}

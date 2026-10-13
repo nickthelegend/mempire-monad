@@ -32,6 +32,8 @@ Coins and stocks become fighters, buffed or nerfed by the market via Chainlink C
 
 AUSD-permit stakes, replays and spectating are proven on a fork of testnet (test suites in the repo). Guests onboard on testnet in about 10 s.
 
+**Activity on testnet.** Seeded by the team for the demo (not organic users): 8 wallets, 7 settled staked matches, 3 clans with members, a clan war and 3 gasless chests. Evidence: `docs/evidence/seed-13oct.md`.
+
 ## Track
 
 03 · Social, Attention & Culture

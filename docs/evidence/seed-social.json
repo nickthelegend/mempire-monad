@@ -1,0 +1,80 @@
+{
+  "at": "2026-10-13T16:07:41.876Z",
+  "note": "Team-seeded demo activity, not organic users.",
+  "clans": [
+    {
+      "name": "Diamond Hands",
+      "tag": "XB6CD3",
+      "founder": "0x22CB339C63dF8756dA687d971fA71F7c14DCd824",
+      "charterTx": "0xb530925bc9c798bb02c06a3522ad6b08ff3c00dae72e76713cbf3bab69a2cabe",
+      "fundTx": "0xd58141d383bfd30501f2fe9b62d49c5575406f788b01c14890e5d4c329b33e9c",
+      "joined": [
+        {
+          "member": "0x2f0A522282CdddFF6e95c06FcB1bcb7b555e0BE1",
+          "status": 200
+        },
+        {
+          "member": "0xef01ee6D1Ab93e6B1b1B03181CBA2FFE19CbA193",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "name": "Bridge Burners",
+      "tag": "4VM7ZR",
+      "founder": "0x5ddda368e4E650486D3912bCaDD385adE73D9B24",
+      "charterTx": "0x4dbd6590a3150ffbb14d858da653905b07788936e510946874c47de259cd12ae",
+      "fundTx": "0x09cbf43d6c00cf0a9b2de259a62750ecb582b13d250d8fc316089e9d2db51be8",
+      "joined": [
+        {
+          "member": "0x0d8c889cf648D4960CcA1865dD8fd0f93DcCc723",
+          "status": 200
+        },
+        {
+          "member": "0x56D5d3Bc19f10155f5F07F585C5d575847D7B748",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "name": "Candle Knights",
+      "tag": "UUM5GE",
+      "founder": "0xA071235b10393Bb30566c324049b5b04b3fdd9fA",
+      "charterTx": "0x91c0c9acb9e524239828c2f8f1c76a17a395415219d0db3aa82cf3cd2a08b07e",
+      "fundTx": "0x3ec966ede16ca9377f2dd9347de772d8610507fea8eddaf942d9626001268996",
+      "joined": [
+        {
+          "member": "0x207f94F9ef5C46A42B72d05D97bcaF1122a9E139",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "war": [
+    {
+      "status": 200,
+      "war": "war-mv6vk8id",
+      "warStatus": "open"
+    },
+    {
+      "status": 200,
+      "war": "war-mv6vk8id",
+      "warStatus": "running"
+    }
+  ],
+  "gasless": [
+    {
+      "player": "0x22CB339C63dF8756dA687d971fA71F7c14DCd824",
+      "chestId": "5",
+      "tx": "0x957eefa6ed1c1af33d7a985cefd1966b42711821fa60f79933403cf122880966",
+      "monUnchanged": true
+    },
+    {
+      "player": "0x2f0A522282CdddFF6e95c06FcB1bcb7b555e0BE1",
+      "chestId": "6",
+      "tx": "0xb98fad27dd98ca3ebc64e5f27b5d58899f67e36631f344c65dcc1462c8b95b28",
+      "monUnchanged": true
+    }
+  ],
+  "txs": []
+}

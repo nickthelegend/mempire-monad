@@ -129,4 +129,5 @@ Locally, today (reproduce with `./scripts/local-up.sh && ./scripts/test-all.sh`;
 - **Gasless chests on testnet** (EIP-7702 + ERC-4337 v0.8, our paymaster, the relay as bundler; `server/live-gasless.mjs`, output in `docs/LIVE-GASLESS.json`): a chest opened and revealed with the player's MON unchanged (0.27053934 before and after), 2 cards minted:
   - open, with the 7702 authorization: [`0xb0cec249…cc59`](https://testnet.monadvision.com/tx/0xb0cec249b2b13f0b878abb3c181d8e541070f55a6f6cabb5e45aac818572cc59);
   - reveal: [`0x342a7b31…3c37`](https://testnet.monadvision.com/tx/0x342a7b31ee93e6ef99c96509003d2e18de1ba51b4262fcea993c820336103c37).
+- **Seeded demo activity (13 Oct), by the team, not organic users:** 8 guest wallets played 6 settled staked matches through the hosted client; 3 clans with members (charters paid on chain); a running 2-clan war; 2 more gasless chests. All txs are in [docs/evidence/seed-13oct.md](docs/evidence/seed-13oct.md).
 - **Hosting note:** the relay uses a Railway-hosted MongoDB, because the shared Atlas cluster does not yet allow Railway's IPs. Switching back is one variable (`MONGODB_URI`) once Atlas network access allows them.
