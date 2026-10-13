@@ -1,0 +1,22 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "lines": [
+  {
+   "id": "r1",
+   "text": "Every coin is a fighter."
+  },
+  {
+   "id": "r2",
+   "text": "One passkey. A deck on chain in seconds."
+  },
+  {
+   "id": "r3",
+   "text": "Stake, battle, and every card is a Monad transaction."
+  },
+  {
+   "id": "r4",
+   "text": "Settled on chain. Mempire, live on Monad testnet."
+  }
+ ]
+}

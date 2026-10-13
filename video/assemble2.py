@@ -77,6 +77,14 @@ for i, s in enumerate(spec['segments']):
         foot = s['dur']; dur = max(foot, need); hold = dur - foot
         sh('ffmpeg', '-y', '-loglevel', 'error', '-ss', str(s.get('start', 0)), '-i', os.path.join(HERE, s['src']), '-t', str(foot),
            '-vf', f'fps={FPS},scale=1920:1080,tpad=stop_mode=clone:stop_duration={hold:.3f},format=yuv420p', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', out)
+    elif s['kind'] == 'glimpse':
+        foot = s['b'] - s['a']; dur = max(foot, need); hold = dur - foot
+        x, y, w, h = s['crop']
+        fc = (f"[1:v]crop={w}:{h}:{x}:{y},fps={FPS},scale=-2:1000[g];[0:v][g]overlay=(W-w)/2:40,"
+              f"tpad=stop_mode=clone:stop_duration={hold:.3f},format=yuv420p[v]")
+        sh('ffmpeg', '-y', '-loglevel', 'error', '-loop', '1', '-framerate', str(FPS), '-t', f'{foot:.3f}', '-i', bgp,
+           '-ss', str(s['a']), '-t', str(foot), '-i', os.path.join(HERE, s['src']),
+           '-filter_complex', fc, '-map', '[v]', '-t', f'{dur:.3f}', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', out)
     else:
         sp = s.get('speed', 1); foot = (s['b'] - s['a']) / sp; dur = max(foot, need); hold = dur - foot
         rail = os.path.join(W, f'rail{i:02d}.png'); rail_png(rail, s.get('tag'), sp)

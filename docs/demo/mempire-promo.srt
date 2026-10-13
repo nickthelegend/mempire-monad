@@ -1,0 +1,27 @@
+1
+00:00:00,350 --> 00:00:01,993
+Every coin is a fighter.
+
+2
+00:00:03,350 --> 00:00:04,328
+One passkey.
+
+3
+00:00:04,348 --> 00:00:06,108
+A deck on chain in seconds.
+
+4
+00:00:07,430 --> 00:00:09,651
+Stake, battle, and every card is a
+
+5
+00:00:09,671 --> 00:00:11,302
+Monad transaction.
+
+6
+00:00:16,430 --> 00:00:17,667
+Settled on chain.
+
+7
+00:00:17,742 --> 00:00:20,395
+Mempire, live on Monad testnet.

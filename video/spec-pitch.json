@@ -1,0 +1,12 @@
+{"out": "../docs/demo/mempire-pitch.mp4", "vo": "work/vo-pitch", "captures": "captures2",
+ "segments": [
+  {"kind": "html", "src": "hf/pitch_k1.webm", "start": 0.2, "dur": 3.0, "vo": ["k1"]},
+  {"kind": "html", "src": "hf/pitch_k2.webm", "start": 0.2, "dur": 9.6, "vo": ["k2"]},
+  {"kind": "html", "src": "hf/pitch_k3.webm", "start": 0.2, "dur": 13.2, "vo": ["k3"]},
+  {"kind": "html", "src": "hf/pitch_k4.webm", "start": 0.2, "dur": 10.6, "vo": ["k4"]},
+  {"kind": "html", "src": "hf/pitch_k5.webm", "start": 0.2, "dur": 9.6, "vo": ["k5"]},
+  {"kind": "glimpse", "src": "captures/A.webm", "a": 66.0, "b": 69.5, "crop": [440, 0, 480, 1016]},
+  {"kind": "html", "src": "hf/pitch_k6.webm", "start": 0.2, "dur": 16.2, "vo": ["k6"]},
+  {"kind": "html", "src": "hf/pitch_k7.webm", "start": 0.2, "dur": 10.2, "vo": ["k7"]},
+  {"kind": "html", "src": "hf/pitch_k8.webm", "start": 0.2, "dur": 7.2, "vo": ["k8"]}
+ ]}

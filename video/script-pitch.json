@@ -3,36 +3,37 @@
  "model": "eleven_multilingual_v2",
  "lines": [
   {
-   "id": "p01",
-   "text": "Crypto culture lives on charts. It has nowhere to play."
+   "id": "k1",
+   "text": "What if the market was the game?"
   },
   {
-   "id": "p02",
-   "text": "Games with real stakes still start with seed phrases, faucets and wallet popups, and they put only the final result on chain."
+   "id": "k2",
+   "text": "We're a small team of gamers and on-chain builders. We grew up on lane battlers, and we watch charts all day. We wanted one place for both."
   },
   {
-   "id": "p03",
-   "text": "Mempire turns the market into a game. Every coin, memecoin and stock is a fighter, and today's price moves buff or nerf it."
+   "id": "k3",
+   "text": "Crypto culture lives on charts, but it has nowhere to play. Games with real stakes still start with seed phrases, faucets and wallet popups, and only the final result goes on chain."
   },
   {
-   "id": "p04",
-   "text": "Two players stake a dollar, play a three-minute battle, and every card they drop is a Monad transaction."
+   "id": "k4",
+   "text": "Monad changes that. Blocks are voted in about three hundred milliseconds and final in under six hundred, so every card can be its own transaction."
   },
   {
-   "id": "p05",
-   "text": "Why now, and why Monad? Blocks voted in three hundred milliseconds and final in under a second make a transaction per card possible for the first time, and cheap gas keeps it free to feel."
+   "id": "k5",
+   "text": "Mempire. Stake. Battle. Settle. Every coin is a fighter, the market buffs and nerfs it, and the contract pays the winner."
   },
   {
-   "id": "p06",
-   "text": "It is live on Monad testnet: eight verified contracts, passkey onboarding in about ten seconds, staked matches settled on chain, a Chainlink-written market meta, Pyth-priced mints, and gasless chests through EIP-7702."
+   "id": "k6",
+   "text": "It's live on Monad testnet: eight verified contracts, passkey sign-up in about ten seconds, staked matches settled on chain, a Chainlink-written meta, Pyth-priced mints, and gasless chests through EIP-7702."
   },
   {
-   "id": "p07",
-   "text": "Next: mainnet, dollar stakes in AUSD, and clan wars as the social layer, where every community fights for its coin."
+   "id": "k7",
+   "text": "It's for crypto-native players, and the memecoin communities behind every ticker. We reach them through clans: one per community, fighting weekly clan wars."
   },
   {
-   "id": "p08",
-   "text": "Mempire. Every coin is a fighter."
+   "id": "k8",
+   "text": "Mempire. Every coin is a fighter. Play now at mempire-monad dot vercel dot app.",
+   "say": "Mempire. Every coin is a fighter. Play now, at mempire monad, dot vercel, dot app."
   }
  ]
 }

@@ -6,7 +6,7 @@
 | **Track** | **03 · Social, Attention & Culture** |
 | **Network** | **Monad testnet (10143)**, deployed 12 Oct; 8 contracts verified on Sourcify (addresses in the README). It also runs locally on a fork of testnet with one command (`scripts/local-up.sh`). |
 | **Live app** | https://mempire-monad.vercel.app (relay: https://relay-production-9c75.up.railway.app) |
-| **Demo video** | `docs/demo/mempire-metropolis.mp4` (2:21, captions in `.srt`): recorded live on Monad testnet |
+| **Demo video** | `docs/demo/mempire-demo.mp4` (2:50, captions in `.srt`): recorded live on Monad testnet |
 | **Repo** | https://github.com/nickthelegend/mempire-monad (MIT) |
 | **Judge login** | None needed. Open the link, tap **Play now**, then **Create with passkey** (or **Play as Guest** on a browser without passkey PRF). |
 

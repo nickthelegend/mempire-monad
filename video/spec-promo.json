@@ -1,0 +1,56 @@
+{
+ "out": "../docs/demo/mempire-promo.mp4",
+ "vo": "work/vo-promo",
+ "captures": "captures2",
+ "segments": [
+  {
+   "kind": "live",
+   "a": 4.0,
+   "b": 7.0,
+   "tag": "Every coin is a fighter",
+   "vo": [
+    "r1"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 14.3,
+   "b": 24.5,
+   "speed": 2.5,
+   "tag": "Mera passkey \u00b7 deck on chain",
+   "vo": [
+    "r2"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 74.5,
+   "b": 80.5,
+   "tag": "Every card is a Monad tx",
+   "vo": [
+    "r3"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 112.0,
+   "b": 115.0,
+   "tag": "Tower down"
+  },
+  {
+   "kind": "live",
+   "a": 144.5,
+   "b": 149.0,
+   "tag": "Settled on chain",
+   "vo": [
+    "r4"
+   ]
+  },
+  {
+   "kind": "html",
+   "src": "hf/outro.webm",
+   "start": 0.15,
+   "dur": 4.5
+  }
+ ]
+}

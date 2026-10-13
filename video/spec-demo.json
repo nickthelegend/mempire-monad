@@ -1,0 +1,133 @@
+{
+ "out": "../docs/demo/mempire-demo.mp4",
+ "vo": "work/vo-demo",
+ "captures": "captures2",
+ "segments": [
+  {
+   "kind": "live",
+   "a": 3.0,
+   "b": 14.3,
+   "tag": "Live app \u00b7 Monad testnet heartbeat",
+   "vo": [
+    "s01"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 14.3,
+   "b": 24.5,
+   "tag": "Mera passkey sign-up \u00b7 one prompt",
+   "vo": [
+    "s03"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 24.5,
+   "b": 40.5,
+   "speed": 1.5,
+   "tag": "Starter deck on chain \u00b7 Monad heartbeat",
+   "vo": [
+    "s02"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 40.5,
+   "b": 50.5,
+   "tag": "Pyth-priced mint",
+   "vo": [
+    "s04"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 50.5,
+   "b": 70.0,
+   "speed": 1.2,
+   "tag": "Chainlink CRE market meta \u00b7 stake 0.01 MON",
+   "vo": [
+    "s05"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 74.5,
+   "b": 86.5,
+   "tag": "Every card is a Monad tx: exec \u00b7 final",
+   "vo": [
+    "s06"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 86.5,
+   "b": 112.0,
+   "speed": 2,
+   "tag": "Match in progress",
+   "vo": [
+    "s07"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 112.0,
+   "b": 118.0,
+   "tag": "Tower down"
+  },
+  {
+   "kind": "live",
+   "a": 118.0,
+   "b": 144.5,
+   "speed": 4,
+   "tag": "Match in progress"
+  },
+  {
+   "kind": "live",
+   "a": 144.5,
+   "b": 156.0,
+   "tag": "Settled on chain by the second claim",
+   "vo": [
+    "s08"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 156.0,
+   "b": 176.0,
+   "speed": 1.2,
+   "tag": "Clans + clan war \u00b7 seeded by the team",
+   "vo": [
+    "s09"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 176.0,
+   "b": 199.0,
+   "speed": 1.2,
+   "tag": "Staking precompile \u00b7 P256 passkey check \u00b7 leaderboard",
+   "vo": [
+    "s10"
+   ]
+  },
+  {
+   "kind": "live",
+   "a": 199.0,
+   "b": 205.6,
+   "tag": "Chain proof, read live from the RPC",
+   "vo": [
+    "s11"
+   ]
+  },
+  {
+   "kind": "html",
+   "src": "hf/outro.webm",
+   "start": 0.15,
+   "dur": 8.2,
+   "vo": [
+    "s12"
+   ]
+  }
+ ]
+}

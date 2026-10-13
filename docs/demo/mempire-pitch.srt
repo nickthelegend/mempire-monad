@@ -1,0 +1,147 @@
+1
+00:00:00,350 --> 00:00:02,365
+What if the market was the game?
+
+2
+00:00:03,350 --> 00:00:05,188
+We're a small team of gamers and
+
+3
+00:00:05,208 --> 00:00:06,537
+on-chain builders.
+
+4
+00:00:06,612 --> 00:00:08,067
+We grew up on lane battlers,
+
+5
+00:00:08,087 --> 00:00:09,881
+and we watch charts all day.
+
+6
+00:00:10,072 --> 00:00:12,238
+We wanted one place for both.
+
+7
+00:00:12,950 --> 00:00:14,985
+Crypto culture lives on charts,
+
+8
+00:00:15,005 --> 00:00:16,811
+but it has nowhere to play.
+
+9
+00:00:17,164 --> 00:00:19,478
+Games with real stakes still start with
+
+10
+00:00:19,498 --> 00:00:22,531
+seed phrases, faucets and wallet popups,
+
+11
+00:00:22,551 --> 00:00:24,726
+and only the final result goes on
+
+12
+00:00:24,746 --> 00:00:25,692
+chain.
+
+13
+00:00:26,292 --> 00:00:27,866
+Monad changes that.
+
+14
+00:00:28,126 --> 00:00:29,941
+Blocks are voted in about three hundred
+
+15
+00:00:29,961 --> 00:00:33,229
+milliseconds and final in under six hundred,
+
+16
+00:00:33,304 --> 00:00:35,026
+so every card can be its own
+
+17
+00:00:35,046 --> 00:00:36,248
+transaction.
+
+18
+00:00:36,892 --> 00:00:37,873
+Mempire.
+
+19
+00:00:37,949 --> 00:00:38,686
+Stake.
+
+20
+00:00:38,819 --> 00:00:39,568
+Battle.
+
+21
+00:00:39,644 --> 00:00:40,393
+Settle.
+
+22
+00:00:40,654 --> 00:00:42,227
+Every coin is a fighter,
+
+23
+00:00:42,302 --> 00:00:44,070
+the market buffs and nerfs it,
+
+24
+00:00:44,090 --> 00:00:46,198
+and the contract pays the winner.
+
+25
+00:00:50,298 --> 00:00:52,638
+It's live on Monad testnet:
+
+26
+00:00:52,713 --> 00:00:55,804
+eight verified contracts, passkey sign-up in about
+
+27
+00:00:55,824 --> 00:00:58,846
+ten seconds, staked matches settled on chain,
+
+28
+00:00:58,866 --> 00:01:01,772
+a Chainlink-written meta, Pyth-priced mints,
+
+29
+00:01:01,792 --> 00:01:05,734
+and gasless chests through EIP-7702.
+
+30
+00:01:06,498 --> 00:01:08,463
+It's for crypto-native players,
+
+31
+00:01:08,483 --> 00:01:11,218
+and the memecoin communities behind every ticker.
+
+32
+00:01:11,479 --> 00:01:13,049
+We reach them through clans:
+
+33
+00:01:13,069 --> 00:01:16,222
+one per community, fighting weekly clan wars.
+
+34
+00:01:16,822 --> 00:01:17,591
+Mempire.
+
+35
+00:01:17,611 --> 00:01:19,127
+Every coin is a fighter.
+
+36
+00:01:19,260 --> 00:01:21,179
+Play now, at mempire monad,
+
+37
+00:01:21,199 --> 00:01:23,063
+dot vercel, dot app.
