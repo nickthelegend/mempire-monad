@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mempire · chain proof</title><style>
+@font-face{font-family:Lilita;src:url(/fonts/lilita.woff2) format('woff2')}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#fff;background:radial-gradient(120% 80% at 50% 0%,#2160c4,#0d2a5c 72%)}
+main{max-width:1000px;margin:0 auto;padding:28px 20px}
+h1{font-family:Lilita,Impact,sans-serif;font-size:42px;margin:0 0 4px;letter-spacing:.5px;color:#ffc422;text-shadow:0 4px 0 #1b1030}
+.sub{opacity:.8;margin:0 0 22px}
+.card{background:linear-gradient(180deg,#9a6334,#6b3f1d);border:5px solid #1b1030;border-radius:22px;padding:18px 22px;margin:0 0 18px;box-shadow:inset 0 3px 0 rgba(255,255,255,.2),0 10px 0 rgba(0,0,0,.25)}
+.card h2{margin:0 0 10px;font-size:24px}.kv{display:grid;grid-template-columns:170px 1fr;gap:6px 14px;font-size:17px}
+.k{opacity:.75}.v{font-family:ui-monospace,Menlo,monospace;word-break:break-all}
+.ok{color:#14f195;font-weight:800}.bad{color:#ff4d6d;font-weight:800}.ev{display:inline-block;margin:2px 6px 2px 0;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.3);font-size:15px}
+a{color:#ffe38a}
+</style></head><body><main>
+<h1>Chain proof</h1><p class="sub">Read live from Monad testnet (chain 10143) in your browser: every field below comes from the RPC, not from us.</p>
+<div id="list"></div></main><script>
+const RPCS=['https://testnet-rpc.monad.xyz','https://monad-testnet.drpc.org','https://rpc.ankr.com/monad_testnet'];
+const TOPICS={"0xc17c1674c2cf2e0859fed29b8fad58f342fec9dc4716e39e9cd38f13ea6935d9": "MempireArena.Checkpoint", "0x1d48787e12dd355e38e39b98d7a3a1c33ab4b6ec43e96d8516ca4e529a190f84": "MempireArena.Claimed", "0xb9b6902016bd1219d5fa6161243b61e7e9f7f959526dd94ef8fa3e403bf881c3": "MempireCards.ConfigChanged", "0xb8ced22dcec05258dc457d2dcf26ac32aa753101067b7a27a171552f3f998fea": "MempireArena.MatchCancelled", "0xf3b745b47cc4e4a081e28777a34209829bb80281d9094eb310f040b675cfc303": "MempireArena.MatchCreated", "0x196471f71ac2228d601081239a191ed8deb62ad99e2ae568ef14b1402a1caf9b": "MempireArena.MatchJoined", "0x769a2cb5931b0b7ace18d58b49814391e6357ea418bae7821eda427df3bc8937": "MempireArena.MatchSettled", "0x1a3ae0f44d67f3122318c8dc52f9982ce8e4fcc0e83fe2926ddb61b9d3f722d3": "MempireArena.MatchVoided", "0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700": "MarketMeta.OwnershipTransferStarted", "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0": "MempirePaymaster.OwnershipTransferred", "0x40447c75aa5226b3980a39ba9413f3ae15a70c584922834450b0e2ee815adb7a": "MempireArena.PayoutHeld", "0xc9474e0ffe1d88d8ed1b74306de531683a8ddb1faa09f324c6369a598b27c129": "MempireArena.Played", "0xf629da82e6f350d289db0f0f970a926c857151281783181e19c02bb799371252": "MempireArena.WinRewarded", "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925": "MempireCards.Approval", "0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31": "MempireCards.ApprovalForAll", "0x3d966cc86b601ed7615ea1ceb79edfd5d113d105b87b7aa26af259297b6c24e7": "MempireCards.CardMerged", "0x84590a4feb93fbb53b73b33a5153df64a51b62857ea3b3943fed26dab584ebd6": "MempireCards.CardMinted", "0xcb7853519f6f6c82ddf953b57745d52f40edc05f1569f685ecbc44378435727c": "MempireCards.ChestForfeited", "0x8bcd2a9df8c0ddc15637171b54f96a64c4424b3af8a95a55f73aab9c35d5d13f": "MempireCards.ChestGranted", "0x03e8955293f336e93f56aa00c620a89d508774f2aa194757244319466f221a1b": "MempireCards.ChestOpened", "0xd070aceef9e499b6818f3a1d740f375b0199cb9efc9466a081992df83f08ac66": "MempireCards.ChestOpening", "0xbf95b72841a2e00d58d97bfd4ce8a0b9b1c1860a6d2b7cf1ced9ccedf250c2d0": "MempireCards.ChestSkipped", "0xa5ff5abf595bc2cd7f0a31590e1dd8285f480ce4b6ff2f1bddd5a7dfbbd1e1f1": "MempireCards.ChestUnlocking", "0x15045ea6fe37598772ed0c2cc94d1af4f6ad20e570758c6fd21be4306a1e42ba": "MempireCards.CoinActive", "0x408ae6908cabb4ac7717e274751853e213be94a974cc54a4bc645f51a8fe542b": "MempireCards.CoinRegistered", "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef": "ERC20/721.Transfer", "0x9ecfd97bf22760e90779a4364f3646d6cbb7e6207b75280c803ca569a34234a0": "MarketMeta.ForwarderChanged", "0xefb67d3ba954dde11d50e38d6ae126bea34ff63e43a7ffd2f4b5dd3991b8a244": "MarketMeta.MetaPosted", "0x06f62d1ba11e040c5619e277090b5d73e31694a4fcff3260d5db68e9299626f4": "MarketMeta.MetaSource", "0x99e9b2ab98d8b4b59f65d16f6c1cb956fbc3130458b42bb7187758c3b4b974da": "MarketMeta.PythChanged", "0xcd1082a25444306ac9e711b9b483a2c1f19e164a6f39bad566eaff09b2983685": "MarketMeta.WorkflowOwnerChanged", "0xfa25fc54813c65a87715b078398c9a95c031a23f1245f5282cf0de8889d8adbc": "SeasonPass.PassBought", "0x474df303b01a48d151cb586bd8ef82fbc17ea2536afa36f78acf043c3e260dd8": "SeasonPass.SeasonStarted", "0x31e3b392bdb56aefece874e8575cb3339a3ba7674f0e01f6cb72a6018ea99d05": "SeasonPass.TierClaimed", "0xbd6bc210d39e57c3319cc02d42bd18bec0abf41f970c7ec427d5acfadca7f8f4": "MempirePaymaster.SponsorSet", "0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f": "EntryPoint.UserOperationEvent", "0xbb47ee3e183a558b1a2ff0874b079f3fc5478b7454eacf2bfc5af2ff5878f972": "EntryPoint.BeforeExecution"};
+const NAMES={'0xec897071929657b898c18513ef85ec8a8f898ea3':'MempireArena','0xde510aa056ab8fa5b867ac9fef90a9c6cb37dc22':'MempireCards','0x17ca9e2102d2b38f3676fec6b5ea6c927753d148':'MarketMeta','0x4337084d9e255ff0702461cf8895ce9e3b5ff108':'EntryPoint v0.8','0xde9359912efcc3acf3cd4c5797353b106bf0be6c':'MempirePaymaster','0xfe140f43017caa1f201f9e1dc7989c1f70f45234':'$MEMPIRE','0xb9f79d863261869b234c481d1f9a7af84aead192':'CRE forwarder (simulation)'};
+async function rpc(method,params){for(const u of RPCS){try{const r=await fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});const j=await r.json();if(j.result!==undefined)return j.result}catch(e){}}throw new Error('rpc unavailable')}
+const nm=a=>a?(NAMES[a.toLowerCase()]||a.slice(0,8)+'…'+a.slice(-4)):'—';
+async function show(label,hash){
+  const el=document.createElement('div');el.className='card';el.innerHTML='<h2>'+label+'</h2><div class="v">'+hash+'</div><p>reading…</p>';document.getElementById('list').appendChild(el);
+  try{
+    const [tx,rc]=await Promise.all([rpc('eth_getTransactionByHash',[hash]),rpc('eth_getTransactionReceipt',[hash])]);
+    const evs=(rc.logs||[]).map(l=>TOPICS[l.topics[0]]||null).filter(Boolean);
+    const type=parseInt(tx.type,16);
+    el.innerHTML='<h2>'+label+'</h2><div class="kv">'
+     +'<div class="k">status</div><div class="v '+(rc.status==='0x1'?'ok':'bad')+'">'+(rc.status==='0x1'?'✓ success':'✗ reverted')+'</div>'
+     +'<div class="k">block</div><div class="v">'+parseInt(rc.blockNumber,16).toLocaleString('en-US')+'</div>'
+     +'<div class="k">type</div><div class="v">'+type+(type===4?' · EIP-7702 (authorizations: '+(tx.authorizationList||[]).length+')':'')+'</div>'
+     +'<div class="k">from → to</div><div class="v">'+nm(tx.from)+' → '+nm(tx.to)+'</div>'
+     +'<div class="k">gas used</div><div class="v">'+parseInt(rc.gasUsed,16).toLocaleString('en-US')+'</div>'
+     +'<div class="k">events</div><div>'+(evs.length?evs.map(e=>'<span class="ev">'+e+'</span>').join(''):'—')+'</div>'
+     +'<div class="k">hash</div><div class="v"><a href="https://testnet.monadvision.com/tx/'+hash+'" target="_blank" rel="noopener">'+hash+'</a></div></div>';
+  }catch(e){el.querySelector('p').textContent='Could not read: '+e.message}
+}
+const q=new URLSearchParams(location.search);
+for(const item of (q.get('tx')||'').split(',').filter(Boolean)){const [label,hash]=item.split('~');show(decodeURIComponent(label),hash)}
+</script></body></html>

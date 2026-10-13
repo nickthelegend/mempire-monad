@@ -1,0 +1,55 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "lines": [
+  {
+   "id": "s01",
+   "text": "Mempire is for crypto-native players who want real stakes without wallet friction. Every coin is a fighter, and the market decides who is strong today. This is the live app, on Monad testnet."
+  },
+  {
+   "id": "s02",
+   "text": "That strip is Monad itself: each block voted in about three hundred milliseconds, and final in under six hundred."
+  },
+  {
+   "id": "s03",
+   "text": "Sign-up is one passkey prompt, through Mera. No seed phrase, no extension. The relayer mints an eight-card starter deck, sends test AUSD from Agora's faucet, and a little MON for gas."
+  },
+  {
+   "id": "s04",
+   "text": "Minting a new fighter pulls a live Pyth price into the same transaction, and the card records the price it was minted at."
+  },
+  {
+   "id": "s05",
+   "text": "The market meta, written on chain by a Chainlink workflow, buffs and nerfs each fighter. We stake the one-dollar tier in MON, and queue a ranked match."
+  },
+  {
+   "id": "s06",
+   "text": "Every card I drop is its own Monad transaction, from a per-match session key, so there are no popups. Each pill is a real round trip: executed, then final."
+  },
+  {
+   "id": "s07",
+   "text": "We sped the middle of the match up, two times. And a tower falls."
+  },
+  {
+   "id": "s08",
+   "text": "The second player's claim settles the pot on chain: ninety percent to the winner, ten to the house, plus a chest."
+  },
+  {
+   "id": "s09",
+   "text": "Clans and clan wars score only the staked wins the relay has verified on chain. These clans were seeded by our team for the demo. Joining one puts us straight into its war."
+  },
+  {
+   "id": "s10",
+   "text": "Empire holds the leaderboard, Monad's native staking precompile read live, and a passkey signature verified by Monad's P-256 precompile."
+  },
+  {
+   "id": "s11",
+   "text": "And the proof, read live from the chain: the Chainlink report, a Pyth-priced mint, and a gasless chest, opened through EIP-7702 and our own paymaster."
+  },
+  {
+   "id": "s12",
+   "text": "Mempire. Every coin is a fighter. Play it now at mempire-monad dot vercel dot app.",
+   "say": "Mempire. Every coin is a fighter. Play it now, at mempire monad, dot vercel, dot app."
+  }
+ ]
+}

@@ -1,0 +1,38 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "lines": [
+  {
+   "id": "p01",
+   "text": "Crypto culture lives on charts. It has nowhere to play."
+  },
+  {
+   "id": "p02",
+   "text": "Games with real stakes still start with seed phrases, faucets and wallet popups, and they put only the final result on chain."
+  },
+  {
+   "id": "p03",
+   "text": "Mempire turns the market into a game. Every coin, memecoin and stock is a fighter, and today's price moves buff or nerf it."
+  },
+  {
+   "id": "p04",
+   "text": "Two players stake a dollar, play a three-minute battle, and every card they drop is a Monad transaction."
+  },
+  {
+   "id": "p05",
+   "text": "Why now, and why Monad? Blocks voted in three hundred milliseconds and final in under a second make a transaction per card possible for the first time, and cheap gas keeps it free to feel."
+  },
+  {
+   "id": "p06",
+   "text": "It is live on Monad testnet: eight verified contracts, passkey onboarding in about ten seconds, staked matches settled on chain, a Chainlink-written market meta, Pyth-priced mints, and gasless chests through EIP-7702."
+  },
+  {
+   "id": "p07",
+   "text": "Next: mainnet, dollar stakes in AUSD, and clan wars as the social layer, where every community fights for its coin."
+  },
+  {
+   "id": "p08",
+   "text": "Mempire. Every coin is a fighter."
+  }
+ ]
+}

@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const [, , scriptPath, ...only] = process.argv;
 const spec = JSON.parse(readFileSync(scriptPath, 'utf8'));
-const OUT = new URL('./work/vo/', import.meta.url);
+const OUT = new URL(process.env.VO_DIR ?? './work/vo/', import.meta.url);
 const manifestPath = new URL('lines.json', OUT);
 const prev = existsSync(manifestPath) ? Object.fromEntries(JSON.parse(readFileSync(manifestPath, 'utf8')).map((l) => [l.id, l])) : {};
 const out = [];

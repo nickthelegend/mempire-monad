@@ -1,0 +1,67 @@
+{
+ "voice": "IKne3meq5aSn9XLyUdCD",
+ "model": "eleven_multilingual_v2",
+ "lines": [
+  {
+   "id": "w01",
+   "text": "Mempire is a real-time card battler for crypto-native players who want real stakes, without seed phrases, faucets, or wallet popups. Every coin, memecoin and stock is a fighter, and the market decides who is strong today. Everything you see is live, on Monad testnet."
+  },
+  {
+   "id": "w02",
+   "text": "The heartbeat subscribes to Monad's new-heads stream. Each block moves from proposed, to voted in about three hundred milliseconds, to finalized in under six hundred, timed right here in the browser."
+  },
+  {
+   "id": "w03",
+   "text": "Signing up takes one passkey prompt, through Mera. The account key is derived from the passkey's PRF output, so there is no seed phrase to lose, and the same passkey brings the same account back on any device."
+  },
+  {
+   "id": "w04",
+   "text": "On first sign-in, our relayer mints an eight-card starter deck as ERC-721s, requests test AUSD from Agora's faucet, and drips a little MON for gas, while keeping Monad's ten-MON reserve balance."
+  },
+  {
+   "id": "w05",
+   "text": "The Cards screen shows every fighter's live price, its twenty-four-hour move, and the on-chain meta. Minting pulls a signed Pyth price update into the mint transaction itself, and the card records the price it was minted at."
+  },
+  {
+   "id": "w06",
+   "text": "Back in the arena, the side boards are the market meta. A Chainlink CRE workflow reads prices, reaches consensus, and writes bounded buffs and nerfs to the MarketMeta contract. Each match locks the epoch it starts on."
+  },
+  {
+   "id": "w07",
+   "text": "We stake the one-dollar tier, in MON. The stake, the deck lock, and a per-match session key are funded in one transaction, and the second player joins the same match on chain."
+  },
+  {
+   "id": "w08",
+   "text": "During the match, every card I drop is its own Monad transaction, signed by the session key, so there are no popups. Each pill shows the real round trip: executed, then final. Both seats also post state-hash checkpoints."
+  },
+  {
+   "id": "w09",
+   "text": "We fast-forward the middle of the match. A tower falls, in slow motion."
+  },
+  {
+   "id": "w10",
+   "text": "When the second player's claim lands, the contract settles the pot in that same transaction: ninety percent to the winner, ten percent rake, and a chest for the winner."
+  },
+  {
+   "id": "w11",
+   "text": "Clans are the social layer. These clans were seeded by our team for the demo. Joining one puts us straight into its clan war, a bracket scored only by staked wins the relay has verified on chain."
+  },
+  {
+   "id": "w12",
+   "text": "Empire is your record. It reads Monad's staking precompile live, through Multicall3, and it verifies a passkey signature on chain with Monad's P-256 precompile, for a fraction of the gas a Solidity verifier needs."
+  },
+  {
+   "id": "w13",
+   "text": "The leaderboards rank trophies, and money columns that the relay credits only after it verifies each settlement on chain."
+  },
+  {
+   "id": "w14",
+   "text": "Finally, the proof page reads transactions live from the chain: the Chainlink report that wrote the meta, a mint with its Pyth price update, and a gasless chest, a type-four transaction with an EIP-7702 authorization, run through the canonical EntryPoint and paid for by our own paymaster."
+  },
+  {
+   "id": "w15",
+   "text": "Mempire. Every coin is a fighter. Play it now at mempire-monad dot vercel dot app.",
+   "say": "Mempire. Every coin is a fighter. Play it now, at mempire monad, dot vercel, dot app."
+  }
+ ]
+}
