@@ -1,3 +1,4 @@
+import { nonceManager } from 'viem/accounts';
 import { IS_MONAD_NETWORK } from './landing';
 import {
   decodeEventLog, encodeFunctionData, erc20Abi, maxUint256, parseSignature, zeroAddress, type Abi, type Address, type Hash, type Hex,
@@ -301,22 +302,51 @@ export async function withdrawOwedTx(currency: Currency): Promise<TxResult> {
  * (and Monad bills a reverted transaction its whole limit). The estimate is one
  * round trip, and the play is never awaited by the battle.
  */
+/*
+ * One session key's plays go out one at a time, in order. They used to be
+ * fired concurrently through a nonce manager: when one send failed (a 429 from
+ * the public RPC, or a fallback RPC that doesn't know Monad's
+ * `eth_sendRawTransactionSync`), its nonce was burned, every later play queued
+ * behind the gap, and none of them landed. On testnet a whole match logged 8 of
+ * its plays, and the replay — rebuilt from the chain — could not match.
+ */
+const sendQueues = new Map<string, Promise<unknown>>();
+function serially<T>(key: string, job: () => Promise<T>): Promise<T> {
+  const run = (sendQueues.get(key) ?? Promise.resolve()).then(job, job);
+  sendQueues.set(key, run.catch(() => {}));
+  return run;
+}
+
 async function sendLogged(session: Signer, data: Hex, fallbackGas: bigint): Promise<Hash> {
-  const to = dep().arena;
-  let gas = fallbackGas;
-  try {
-    gas = ((await publicClient().estimateGas({ account: session.address, to, data })) * 115n) / 100n;
-  } catch { /* the fallback is sized for a first play */ }
-  // On Monad itself, `eth_sendRawTransactionSync` returns the receipt in the
-  // same round trip (at Proposed), so the play is "executed" one poll sooner.
-  // anvil's version takes a different parameter list, so the fork keeps the
-  // ordinary send.
-  const w = session.wallet as typeof session.wallet & { sendTransactionSync?: (a: unknown) => Promise<{ transactionHash: Hash }> };
-  if (IS_MONAD_NETWORK && session.kind !== 'privy' && typeof w.sendTransactionSync === 'function') {
-    const r = await w.sendTransactionSync({ account: session.account, chain: session.wallet.chain, to, data, gas });
-    return r.transactionHash;
-  }
-  return session.wallet.sendTransaction({ account: session.account, chain: session.wallet.chain, to, data, gas });
+  return serially(session.address.toLowerCase(), async () => {
+    const to = dep().arena;
+    let gas = fallbackGas;
+    try {
+      gas = ((await publicClient().estimateGas({ account: session.address, to, data })) * 115n) / 100n;
+    } catch { /* the fallback is sized for a first play */ }
+    const chainId = session.wallet.chain?.id ?? CHAIN_ID;
+    const resetNonce = () => nonceManager.reset({ address: session.address, chainId });
+    // On Monad itself, `eth_sendRawTransactionSync` returns the receipt in the
+    // same round trip (at Proposed), so the play is "executed" one poll sooner.
+    // anvil's version takes a different parameter list, so the fork keeps the
+    // ordinary send.
+    const w = session.wallet as typeof session.wallet & { sendTransactionSync?: (a: unknown) => Promise<{ transactionHash: Hash }> };
+    if (IS_MONAD_NETWORK && session.kind !== 'privy' && typeof w.sendTransactionSync === 'function') {
+      try {
+        const r = await w.sendTransactionSync({ account: session.account, chain: session.wallet.chain, to, data, gas });
+        return r.transactionHash;
+      } catch {
+        // Not accepted: give the nonce back, then use the plain send every RPC supports.
+        resetNonce();
+      }
+    }
+    try {
+      return await session.wallet.sendTransaction({ account: session.account, chain: session.wallet.chain, to, data, gas });
+    } catch (e) {
+      resetNonce();
+      throw e;
+    }
+  });
 }
 
 export async function playTx(session: Signer, matchId: number, tick: number, cardIndex: number, x: number, y: number): Promise<Hash> {
