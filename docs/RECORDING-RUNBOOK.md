@@ -1,6 +1,6 @@
 # Recording runbook: the 3-minute video on the live app
 
-The click-by-click path, on https://mempire-monad.vercel.app (Monad testnet). Every step below ran end to end on 13 Oct (`app/e2e/live-smoke.mjs`); the timings are what it measured.
+The click-by-click path, on https://mempire-monad.vercel.app (Monad testnet). Steps 0:00–2:05 (onboarding through POT SECURED) ran live on 13 Oct (`app/e2e/live-smoke.mjs`), and the timings are what it measured. The replay, Empire and season-pass shots were verified on the fork, not yet on the live app: do one dry run before recording.
 
 ## Before you press record
 
