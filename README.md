@@ -6,6 +6,9 @@
 
 Sign in with a passkey: no seed phrase, no extension, no wallet popups during a match.
 
+**The problem.** Crypto culture lives on charts but has nowhere to play. Games with real stakes still start with seed phrases, faucets and wallet popups, and put only the result on chain.
+**Who it's for.** Crypto-native casual players (18–35) who follow tickers and memecoins and want small real stakes without wallet friction, plus the coin communities behind them, who meet in clans.
+
 
 - **Demo video (2:50):** [`docs/demo/mempire-demo.mp4`](docs/demo/mempire-demo.mp4) (captions: `.srt`). Recorded live on Monad testnet.
 - **Pitch (1:24):** [`docs/demo/mempire-pitch.mp4`](docs/demo/mempire-pitch.mp4)
