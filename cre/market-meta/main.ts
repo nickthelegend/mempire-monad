@@ -50,6 +50,9 @@ import {
 } from './meta'
 import { ROSTER, type RosterCoin } from './roster'
 
+// zod's .url() needs the URL global, which the CRE WASM runtime does not have.
+const HTTP_URL = /^https?:\/\/[^\s]+$/
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -65,8 +68,8 @@ export const configSchema = z.object({
 	marketMetaAddress: z.string(),
 	/** Gas limit for the forwarder → MarketMeta.onReport transaction (decimal string). */
 	gasLimit: z.string().regex(/^\d+$/),
-	coingeckoBaseUrl: z.string().url(),
-	pythHermesUrl: z.string().url(),
+	coingeckoBaseUrl: z.string().regex(HTTP_URL, "must be an http(s) URL"),
+	pythHermesUrl: z.string().regex(HTTP_URL, "must be an http(s) URL"),
 	/** A Pyth "24h" pair spanning less than this is treated as flat (closed market). */
 	pythMinWindowSeconds: z.number().int().nonnegative(),
 	/** Optional on-demand trigger. authorizedKeys are EVM addresses allowed to fire it. */
