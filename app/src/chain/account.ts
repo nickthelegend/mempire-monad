@@ -1,9 +1,9 @@
 import {
-  BaseError, ContractFunctionRevertedError, createWalletClient, custom, encodeFunctionData, http,
+  BaseError, ContractFunctionRevertedError, createWalletClient, custom, encodeFunctionData,
   type Abi, type Account, type Address, type EIP1193Provider, type Hash, type Hex,
   type TransactionReceipt, type WalletClient,
 } from 'viem';
-import { CHAIN, CHAIN_ID, RPC_URL, publicClient } from './provider';
+import { CHAIN, CHAIN_ID, RPC_URL, publicClient, rpcTransport } from './provider';
 
 /*
  * Who is signing.
@@ -54,7 +54,7 @@ export function localSigner(kind: SignerKind, account: Account, label: string, i
     kind,
     address: account.address,
     account,
-    wallet: createWalletClient({ account, chain: CHAIN, transport: http(RPC_URL) }),
+    wallet: createWalletClient({ account, chain: CHAIN, transport: rpcTransport() }),
     label,
     icon,
   };

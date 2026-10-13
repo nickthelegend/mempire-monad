@@ -1,4 +1,4 @@
-import { createPublicClient, defineChain, http, type Address, type Chain, type PublicClient } from 'viem';
+import { createPublicClient, defineChain, fallback, http, type Address, type Chain, type PublicClient } from 'viem';
 import { monadTestnet } from 'viem/chains';
 import local from '../shared/deployments/31337.json';
 
@@ -38,6 +38,18 @@ export const CHAIN: Chain = CHAIN_ID === 31337
   };
 
 export const RPC_URL = (import.meta.env.VITE_RPC_URL as string | undefined) ?? CHAIN.rpcUrls.default.http[0];
+
+/*
+ * Monad testnet's public RPCs rate-limit per IP. On testnet, reads fall back
+ * across several public endpoints (all CORS-enabled) so one 429 does not stall
+ * a player; elsewhere (the local fork) there is just the one URL.
+ */
+const TESTNET_FALLBACK_RPCS = ['https://rpc-testnet.monadinfra.com', 'https://monad-testnet.drpc.org', 'https://rpc.ankr.com/monad_testnet'];
+export const rpcTransport = () => {
+  const one = (url: string) => http(url, { retryCount: 1, retryDelay: 250, batch: { wait: 16 } });
+  if (CHAIN.id !== 10143) return http(RPC_URL, { retryCount: 3, retryDelay: 250, batch: { wait: 16 } });
+  return fallback([RPC_URL, ...TESTNET_FALLBACK_RPCS.filter((u) => u !== RPC_URL)].map(one));
+};
 
 export interface Deployment {
   chainId: number;
@@ -106,7 +118,7 @@ export function publicClient(): PublicClient {
   if (!client) {
     client = createPublicClient({
       chain: CHAIN,
-      transport: http(RPC_URL, { retryCount: 3, retryDelay: 250, batch: { wait: 16 } }),
+      transport: rpcTransport(),
       // Monad produces a block every 300 ms; polling slower than that only
       // makes a confirmed transaction look slow.
       pollingInterval: 400,

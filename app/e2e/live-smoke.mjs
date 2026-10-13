@@ -25,8 +25,9 @@ async function page(b, vp, label) {
   p.on('pageerror', (e) => noise.push(`${label} pageerror ${String(e).slice(0, 200)}`));
   p.on('request', (r) => { if (r.url().endsWith('/api/onboard') && r.method() === 'POST') { try { p.addr = JSON.parse(r.postData() ?? '{}').address; } catch { /* */ } } });
   p.on('response', async (r) => {
+    if (r.status() >= 400) console.log(`${label} HTTP ${r.status()} ${r.request().method()} ${r.url().slice(0, 110)}`);
     if (!/\/api\/onboard$/.test(r.url()) || r.request().method() !== 'POST') return;
-    try { const j = await r.json(); for (const v of Object.values(j)) if (typeof v === 'string' && /^0x[0-9a-f]{64}$/i.test(v)) evidence.txs.push({ what: `${label} onboard`, hash: v }); } catch { /* */ }
+    try { const j = await r.json(); console.log(`${label} onboard → ${r.status()} ${JSON.stringify(j).replace(/0x[0-9a-f]{64}/gi, (h) => `${h.slice(0, 10)}…`).slice(0, 240)}`); for (const v of Object.values(j)) if (typeof v === 'string' && /^0x[0-9a-f]{64}$/i.test(v)) evidence.txs.push({ what: `${label} onboard`, hash: v }); } catch { /* */ }
   });
   return p;
 }
@@ -35,7 +36,14 @@ async function guest(p, label) {
   await p.goto(APP);
   await p.getByRole('button', { name: 'Play now' }).click();
   await p.getByRole('button', { name: /Play as Guest/ }).click();
-  await p.getByText(/Your deck is on chain/i).waitFor({ timeout: 120_000 });
+  // The intro tour can open first and cover the banner: dismiss it while waiting.
+  const banner = p.getByText(/Your deck is on chain/i);
+  for (let i = 0; i < 60 && !(await banner.isVisible().catch(() => false)); i += 1) {
+    const tour = p.getByRole('button', { name: 'Skip' });
+    if (await tour.isVisible().catch(() => false)) await tour.click().catch(() => {});
+    await sleep(2000);
+  }
+  await banner.waitFor({ timeout: 5_000 });
   evidence.players.push({ label, address: p.addr, onboardSeconds: Math.round((Date.now() - t0) / 1000) });
   const skip = p.getByRole('button', { name: 'Skip' });
   if (await skip.isVisible().catch(() => false)) await skip.click();
@@ -56,14 +64,16 @@ try {
   const A = await page(b, { width: 1440, height: 900 }, 'A');
   const B = await page(b, { width: 390, height: 844 }, 'B');
   await guest(A, 'A');
-  await guest(B, 'B');
+  // Both browsers share this machine's IP; stagger them as two real players would be.
+  await sleep(20_000);
+  await guest(B, 'B').catch(async () => { console.log('B: retrying onboarding once'); await guest(B, 'B'); });
   assert('two guests onboarded on Monad testnet (starter deck on chain)', Boolean(A.addr && B.addr), JSON.stringify(evidence.players));
   await A.screenshot({ path: `${OUT}onboarded-desktop.png` });
 
   for (const p of [A, B]) {
     await p.goto(APP);
     await sleep(3000);
-    await p.getByRole('radiogroup', { name: 'Stake currency' }).getByText('AUSD', { exact: true }).click();
+    await p.getByRole('radiogroup', { name: 'Stake currency' }).getByText(/AUSD/).click();
     await sleep(800);
   }
   await A.getByRole('button', { name: /Rush · 30s/i }).click({ force: true });
