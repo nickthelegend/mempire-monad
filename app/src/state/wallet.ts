@@ -49,8 +49,15 @@ export interface WalletChoice {
 const discovered = new Map<string, WalletChoice>();
 let discoveryStarted = false;
 
+/*
+ * Browser-extension wallets are off unless a build opts in (VITE_INJECTED_WALLETS=1).
+ * The hosted app's account layer is Mera passkeys, with a browser-held guest
+ * key as the fallback for devices without passkey PRF.
+ */
+const INJECTED_WALLETS = import.meta.env.VITE_INJECTED_WALLETS === '1';
+
 function startDiscovery(onChange: () => void): void {
-  if (discoveryStarted || typeof window === 'undefined') return;
+  if (!INJECTED_WALLETS || discoveryStarted || typeof window === 'undefined') return;
   discoveryStarted = true;
   window.addEventListener('eip6963:announceProvider', ((ev: CustomEvent) => {
     const d = ev.detail as { info: { uuid: string; name: string; icon: string; rdns: string }; provider: EIP1193Provider };

@@ -66,6 +66,8 @@ Monad has the P-256 verification precompile at `0x0100`. `PasskeyRegistry` binds
 
 Measured cost: **12,773 gas through `0x0100`, against 353,980 for a Solidity P-256 verifier** (about 28× cheaper). Tested under the Osaka EVM profile.
 
+**In production** the only sign-in options are Mera passkeys and a labelled "Play as Guest" fallback (a browser-held key for devices without passkey PRF). Privy, email and browser-extension wallets are off in the hosted build.
+
 ## Engineering notes
 
 - PRF output, seed and private key are zeroed as soon as they've been used. The session's `end()` zeroes it too.
